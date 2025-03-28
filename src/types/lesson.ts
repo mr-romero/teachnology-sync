@@ -22,7 +22,7 @@ export interface QuestionBlock extends BaseBlock {
   questionType: QuestionType;
   question: string;
   options?: string[];
-  correctAnswer?: string | number;
+  correctAnswer?: string | number | boolean;  // Updated to include boolean
 }
 
 export interface GraphBlock extends BaseBlock {
@@ -59,7 +59,7 @@ export interface StudentResponse {
   lessonId: string;
   slideId: string;
   blockId: string;
-  response: string | number | boolean;
+  response: string | number | boolean;  // Updated to include boolean
   isCorrect?: boolean;
   timestamp: string;
 }
