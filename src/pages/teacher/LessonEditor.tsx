@@ -3,14 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Lesson, LessonSlide, LessonBlock } from '@/types/lesson';
-import { sampleLessons } from '@/data/lessons';
 import { useAuth } from '@/context/AuthContext';
 import { Plus, Save, ArrowLeft, Trash } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import LessonBlockEditor from '@/components/lesson/LessonBlockEditor';
+import { v4 as uuidv4 } from 'uuid';
+import { 
+  createLesson, 
+  getLessonById, 
+  saveLesson 
+} from '@/services/lessonService';
 
 const LessonEditor: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
@@ -19,39 +23,51 @@ const LessonEditor: React.FC = () => {
   
   const [activeSlide, setActiveSlide] = useState<string>('');
   const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [loading, setLoading] = useState(true);
   
   // Initialize lesson data
   useEffect(() => {
-    if (lessonId === 'new') {
-      // Create a new lesson
-      const newLesson: Lesson = {
-        id: `lesson-${Date.now()}`,
-        title: 'New Lesson',
-        createdBy: user?.id || '',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        slides: [
-          {
-            id: `slide-${Date.now()}`,
-            title: 'Slide 1',
-            blocks: []
+    const initLesson = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        
+        if (lessonId === 'new') {
+          // Create a new lesson in the database
+          const newLesson = await createLesson(user.id, 'New Lesson');
+          
+          if (newLesson) {
+            setLesson(newLesson);
+            setActiveSlide(newLesson.slides[0].id);
+            toast.success('New lesson created');
+          } else {
+            toast.error('Failed to create new lesson');
+            navigate('/dashboard');
           }
-        ]
-      };
-      setLesson(newLesson);
-      setActiveSlide(newLesson.slides[0].id);
-    } else {
-      // Load existing lesson
-      const foundLesson = sampleLessons.find(l => l.id === lessonId);
-      if (foundLesson) {
-        setLesson(foundLesson);
-        setActiveSlide(foundLesson.slides[0].id);
-      } else {
-        toast.error("Lesson not found");
+        } else {
+          // Load existing lesson from database
+          const fetchedLesson = await getLessonById(lessonId);
+          
+          if (fetchedLesson) {
+            setLesson(fetchedLesson);
+            setActiveSlide(fetchedLesson.slides[0].id);
+          } else {
+            toast.error("Lesson not found");
+            navigate('/dashboard');
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing lesson:', error);
+        toast.error('An error occurred loading the lesson');
         navigate('/dashboard');
+      } finally {
+        setLoading(false);
       }
-    }
-  }, [lessonId, user?.id, navigate]);
+    };
+    
+    initLesson();
+  }, [lessonId, user, navigate]);
 
   const handleLessonTitleChange = (title: string) => {
     if (lesson) {
@@ -70,7 +86,7 @@ const LessonEditor: React.FC = () => {
   const handleAddSlide = () => {
     if (lesson) {
       const newSlide: LessonSlide = {
-        id: `slide-${Date.now()}`,
+        id: uuidv4(),
         title: `Slide ${lesson.slides.length + 1}`,
         blocks: []
       };
@@ -227,15 +243,38 @@ const LessonEditor: React.FC = () => {
     }
   };
 
-  const handleSaveLesson = () => {
-    // In a real app, this would save to the database
-    toast.success("Lesson saved successfully");
+  const handleSaveLesson = async () => {
+    if (!lesson) return;
+    
+    setLoading(true);
+    try {
+      const success = await saveLesson(lesson);
+      
+      if (success) {
+        toast.success("Lesson saved successfully");
+      } else {
+        toast.error("Error saving lesson");
+      }
+    } catch (error) {
+      console.error('Error saving lesson:', error);
+      toast.error("An error occurred while saving");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading lesson...</p>
+      </div>
+    );
+  }
 
   if (!lesson) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Loading lesson...</p>
+        <p>Error loading lesson</p>
       </div>
     );
   }
@@ -257,7 +296,7 @@ const LessonEditor: React.FC = () => {
             />
           </div>
         </div>
-        <Button onClick={handleSaveLesson}>
+        <Button onClick={handleSaveLesson} disabled={loading}>
           <Save className="mr-2 h-4 w-4" />
           Save Lesson
         </Button>

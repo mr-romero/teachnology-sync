@@ -1,106 +1,234 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
-import { sampleLessons, mockStudentProgress } from '@/data/lessons';
-import { Lesson, StudentProgress } from '@/types/lesson';
-import { ArrowLeft, ArrowRight, Calculator } from 'lucide-react';
+import { toast } from '@/components/ui/sonner';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { LessonSlide } from '@/types/lesson';
+import { 
+  joinPresentationSession, 
+  getLessonById,
+  updateStudentSlide,
+  submitAnswer
+} from '@/services/lessonService';
+import { useRealTimeSync } from '@/hooks/useRealTimeSync';
+
+interface StudentSession {
+  presentationId: string | null;
+  sessionId: string | null;
+  currentSlide: number;
+}
 
 const StudentView: React.FC = () => {
   const { user } = useAuth();
+  const [joinCode, setJoinCode] = useState('');
+  const [session, setSession] = useState<StudentSession>({
+    presentationId: null,
+    sessionId: null,
+    currentSlide: 0
+  });
+  const [slides, setSlides] = useState<LessonSlide[]>([]);
+  const [loading, setLoading] = useState(false);
   
-  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [syncMode, setSyncMode] = useState(true);
-  const [progress, setProgress] = useState<StudentProgress | null>(null);
+  // Get real-time updates for the presentation session
+  const { 
+    data: sessionData,
+    loading: sessionLoading 
+  } = useRealTimeSync(
+    'presentation_sessions',
+    'id',
+    session.sessionId || '',
+    null
+  );
   
+  // Update slides when session changes
   useEffect(() => {
-    // In a real app, we would fetch the active lesson or check if there's
-    // a lesson being presented by the teacher
-    setTimeout(() => {
-      setActiveLesson(sampleLessons[0]);
-      const userProgress = mockStudentProgress.find(p => p.studentId === user?.id);
-      if (userProgress) {
-        setProgress(userProgress);
-        // Find the index of the current slide
-        const slideIndex = sampleLessons[0].slides.findIndex(
-          slide => slide.id === userProgress.currentSlide
-        );
-        if (slideIndex !== -1) {
-          setCurrentSlideIndex(slideIndex);
+    if (sessionData && !sessionLoading && session.presentationId) {
+      // If the teacher has sync enabled, update our slide to match
+      if (sessionData.is_synced && session.currentSlide !== sessionData.current_slide) {
+        setSession(prev => ({
+          ...prev,
+          currentSlide: sessionData.current_slide
+        }));
+        
+        // Update our position in the database
+        if (user && session.sessionId) {
+          updateStudentSlide(session.sessionId, user.id, sessionData.current_slide);
         }
       }
+    }
+  }, [sessionData, sessionLoading, session.currentSlide, session.presentationId, user, session.sessionId]);
+  
+  const handleJoinSession = async () => {
+    if (!joinCode.trim() || !user) {
+      toast.error('Please enter a valid join code');
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      const result = await joinPresentationSession(joinCode.trim(), user.id);
+      
+      if (!result) {
+        toast.error('Invalid join code or session not found');
+        return;
+      }
+      
+      // Get presentation details
+      const lesson = await getLessonById(result.presentationId);
+      
+      if (!lesson) {
+        toast.error('Failed to load presentation');
+        return;
+      }
+      
+      setSlides(lesson.slides);
+      
+      // Get initial slide from session
+      const { data: sessionInfo } = await supabase
+        .from('presentation_sessions')
+        .select('current_slide')
+        .eq('id', result.sessionId)
+        .single();
+      
+      setSession({
+        presentationId: result.presentationId,
+        sessionId: result.sessionId,
+        currentSlide: sessionInfo?.current_slide || 0
+      });
+      
+      toast.success('Joined the presentation');
+    } catch (error) {
+      console.error('Error joining session:', error);
+      toast.error('Failed to join session');
+    } finally {
       setLoading(false);
-    }, 1000);
-  }, [user?.id]);
-  
-  const handlePreviousSlide = () => {
-    if (currentSlideIndex > 0 && !syncMode) {
-      setCurrentSlideIndex(currentSlideIndex - 1);
     }
   };
   
-  const handleNextSlide = () => {
-    if (activeLesson && currentSlideIndex < activeLesson.slides.length - 1 && !syncMode) {
-      setCurrentSlideIndex(currentSlideIndex + 1);
+  const handlePreviousSlide = async () => {
+    if (session.currentSlide > 0 && !sessionData?.is_synced) {
+      const newIndex = session.currentSlide - 1;
+      
+      setSession(prev => ({
+        ...prev,
+        currentSlide: newIndex
+      }));
+      
+      // Update our position in the database
+      if (user && session.sessionId) {
+        await updateStudentSlide(session.sessionId, user.id, newIndex);
+      }
     }
   };
   
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-pulse-gentle text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/50"></div>
-          <h3 className="text-lg font-medium text-primary">Loading lesson...</h3>
-        </div>
-      </div>
-    );
-  }
+  const handleNextSlide = async () => {
+    if (session.currentSlide < slides.length - 1 && !sessionData?.is_synced) {
+      const newIndex = session.currentSlide + 1;
+      
+      setSession(prev => ({
+        ...prev,
+        currentSlide: newIndex
+      }));
+      
+      // Update our position in the database
+      if (user && session.sessionId) {
+        await updateStudentSlide(session.sessionId, user.id, newIndex);
+      }
+    }
+  };
   
-  if (!activeLesson) {
+  const handleResponseSubmit = async (blockId: string, response: string | boolean) => {
+    if (!user || !session.sessionId || !slides[session.currentSlide]) return;
+    
+    try {
+      const currentSlide = slides[session.currentSlide];
+      
+      const success = await submitAnswer(
+        session.sessionId,
+        currentSlide.id,
+        blockId,
+        user.id,
+        response
+      );
+      
+      if (success) {
+        toast.success('Response submitted');
+      } else {
+        toast.error('Failed to submit response');
+      }
+    } catch (error) {
+      console.error('Error submitting response:', error);
+      toast.error('Error submitting response');
+    }
+  };
+  
+  if (!user) {
     return (
       <div className="container py-8">
         <Card>
-          <CardContent className="p-8 text-center">
-            <h2 className="text-2xl font-bold mb-4">No Active Lesson</h2>
-            <p className="text-muted-foreground">
-              There is no active lesson at the moment. Please wait for your teacher to start a lesson.
-            </p>
+          <CardContent className="pt-6">
+            <p>Please log in to join a presentation</p>
           </CardContent>
         </Card>
       </div>
     );
   }
   
-  const currentSlide = activeLesson.slides[currentSlideIndex];
-
-  return (
-    <div className="container py-4 px-4 md:px-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{activeLesson.title}</h1>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Calculator className="h-4 w-4 mr-2" />
-              Calculator
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80 h-96 p-0">
-            <div className="h-full w-full">
-              <iframe 
-                src="https://www.desmos.com/scientific" 
-                title="Desmos Scientific Calculator"
-                className="w-full h-full border-0"
+  // Show join form if not in a session
+  if (!session.presentationId || !session.sessionId) {
+    return (
+      <div className="container max-w-md py-12">
+        <Card>
+          <CardHeader>
+            <CardTitle>Join a Presentation</CardTitle>
+            <CardDescription>Enter the join code provided by your teacher</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Input
+                placeholder="Enter join code"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
               />
             </div>
-          </PopoverContent>
-        </Popover>
+          </CardContent>
+          <CardFooter>
+            <Button 
+              className="w-full" 
+              onClick={handleJoinSession}
+              disabled={loading}
+            >
+              {loading ? 'Joining...' : 'Join Presentation'}
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
-      
+    );
+  }
+  
+  // Show the presentation
+  const currentSlide = slides[session.currentSlide];
+  const syncEnabled = sessionData?.is_synced ?? true;
+  
+  if (!currentSlide) {
+    return (
+      <div className="container py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <p>Slide not found</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container py-4">
       <div className="flex justify-center">
         <div className="w-full max-w-3xl">
           <Card>
@@ -108,24 +236,21 @@ const StudentView: React.FC = () => {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
                 <div className="text-sm text-muted-foreground">
-                  Slide {currentSlideIndex + 1} of {activeLesson.slides.length}
+                  Slide {session.currentSlide + 1} of {slides.length}
                 </div>
               </div>
               
               <LessonSlideView 
                 slide={currentSlide} 
-                isStudentView={true} 
-                studentId={user?.id}
-                onResponseSubmit={(blockId, response) => {
-                  console.log('Response submitted:', blockId, response);
-                  // In a real app, we would send this to the server
-                }}
+                isStudentView={true}
+                studentId={user.id}
+                onResponseSubmit={handleResponseSubmit}
               />
               
               <div className="flex justify-between mt-6">
                 <Button 
                   onClick={handlePreviousSlide} 
-                  disabled={currentSlideIndex === 0 || syncMode}
+                  disabled={session.currentSlide === 0 || syncEnabled}
                   className="flex items-center"
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
@@ -133,7 +258,7 @@ const StudentView: React.FC = () => {
                 </Button>
                 <Button 
                   onClick={handleNextSlide} 
-                  disabled={currentSlideIndex === activeLesson.slides.length - 1 || syncMode}
+                  disabled={session.currentSlide === slides.length - 1 || syncEnabled}
                   className="flex items-center"
                 >
                   Next
@@ -141,7 +266,7 @@ const StudentView: React.FC = () => {
                 </Button>
               </div>
               
-              {syncMode && (
+              {syncEnabled && (
                 <div className="text-center mt-4 text-sm text-muted-foreground">
                   Navigation controlled by teacher
                 </div>
