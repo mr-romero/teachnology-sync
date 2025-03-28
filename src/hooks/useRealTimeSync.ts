@@ -29,7 +29,7 @@ export function useRealTimeSync<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
-        // Use the explicit table name with type assertion for query
+        // Use any here to bypass the deep type instantiation
         const { data: result, error: fetchError } = await supabase
           .from(table)
           .select('*')
