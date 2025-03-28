@@ -29,16 +29,16 @@ export function useRealTimeSync<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
-        // Use any here to bypass the deep type instantiation
-        const { data: result, error: fetchError } = await supabase
+        // Simplify typing by using type assertion after the query
+        const response = await supabase
           .from(table)
           .select('*')
           .eq(column, value)
           .single();
         
-        if (fetchError) throw fetchError;
+        if (response.error) throw response.error;
         
-        setData(result as T);
+        setData(response.data as T);
       } catch (err) {
         console.error(`Error fetching ${table}:`, err);
         setError(err as Error);
@@ -104,7 +104,7 @@ export function useRealTimeCollection<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
-        // Use the explicit table name for the query builder
+        // Simplify the query builder type inference
         let query = supabase
           .from(table)
           .select('*')
