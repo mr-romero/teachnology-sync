@@ -1,7 +1,6 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
 
 // Define a literal type for allowed tables to improve type safety
 type TableName = 'presentations' | 'slides' | 'presentation_sessions' | 'session_participants' | 'student_answers';
@@ -29,16 +28,22 @@ export function useRealTimeSync<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
-        // Simplify typing by using type assertion after the query
-        const response = await supabase
+        // Use maybeSingle() instead of single() to avoid the error when no rows are found
+        const { data: result, error: fetchError } = await supabase
           .from(table)
           .select('*')
           .eq(column, value)
-          .single();
+          .maybeSingle();
         
-        if (response.error) throw response.error;
+        if (fetchError) throw fetchError;
         
-        setData(response.data as T);
+        // Only set data if it exists
+        if (result) {
+          setData(result as T);
+        } else {
+          console.warn(`No data found for ${table} with ${column} = ${value}`);
+          setData(null);
+        }
       } catch (err) {
         console.error(`Error fetching ${table}:`, err);
         setError(err as Error);
@@ -104,17 +109,18 @@ export function useRealTimeCollection<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
-        // Simplify the query builder type inference
-        let query = supabase
+        // Use explicit typing for the query
+        const query = supabase
           .from(table)
           .select('*')
           .eq(column, value);
         
-        if (orderColumn) {
-          query = query.order(orderColumn, { ascending });
-        }
+        // Add ordering if specified
+        const finalQuery = orderColumn 
+          ? query.order(orderColumn, { ascending }) 
+          : query;
         
-        const { data: result, error: fetchError } = await query;
+        const { data: result, error: fetchError } = await finalQuery;
         
         if (fetchError) throw fetchError;
         

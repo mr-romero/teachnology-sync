@@ -140,7 +140,7 @@ export const getLessonById = async (lessonId: string): Promise<Lesson | null> =>
     .from('presentations')
     .select('*')
     .eq('id', lessonId)
-    .single();
+    .maybeSingle();
     
   if (presentationError || !presentation) {
     console.error('Error fetching presentation:', presentationError);
