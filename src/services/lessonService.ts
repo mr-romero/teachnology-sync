@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Lesson, LessonSlide, LessonBlock } from "@/types/lesson";
 import { v4 as uuidv4 } from 'uuid';
@@ -223,13 +222,10 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
 // Start a new presentation session
 export const startPresentationSession = async (lessonId: string): Promise<string | null> => {
   // Generate a 6-character join code
-  // Using a direct random generation as fallback if RPC function fails
-  const fallbackJoinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  // Using a direct random generation instead of RPC function
+  const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
   
   try {
-    const { data: joinCodeData, error } = await supabase.rpc('generate_join_code');
-    const joinCode = error ? fallbackJoinCode : (joinCodeData || fallbackJoinCode);
-    
     const { data, error: sessionError } = await supabase
       .from('presentation_sessions')
       .insert({
