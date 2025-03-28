@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 
-// Type for allowed tables
-type TableName = keyof Database['public']['Tables'];
+// Type for allowed tables - using literals instead of keyof for better type safety
+type TableName = 'presentations' | 'slides' | 'presentation_sessions' | 'session_participants' | 'student_answers';
 
 export function useRealTimeSync<T>(
   table: TableName,
