@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 
-// Type for allowed tables - using literals instead of keyof for better type safety
+// Define a literal type for allowed tables to improve type safety
 type TableName = 'presentations' | 'slides' | 'presentation_sessions' | 'session_participants' | 'student_answers';
 
 export function useRealTimeSync<T>(
@@ -29,7 +29,7 @@ export function useRealTimeSync<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
-        // Use type assertion to make TypeScript happy
+        // Use the explicit table name with type assertion for query
         const { data: result, error: fetchError } = await supabase
           .from(table)
           .select('*')
@@ -49,7 +49,7 @@ export function useRealTimeSync<T>(
     
     fetchData();
 
-    // Subscribe to changes
+    // Subscribe to changes with explicit typing on the channel
     const channel = supabase
       .channel('schema-db-changes')
       .on(
@@ -65,6 +65,7 @@ export function useRealTimeSync<T>(
           if (payload.eventType === 'DELETE') {
             setData(null);
           } else {
+            // Type assertion to T since we know the structure from the database
             setData(payload.new as T);
           }
         }
@@ -103,6 +104,7 @@ export function useRealTimeCollection<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
+        // Use the explicit table name for the query builder
         let query = supabase
           .from(table)
           .select('*')
