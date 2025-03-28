@@ -37,36 +37,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session?.user) {
           try {
-            // Get user metadata for role and name
-            const { data: profile } = await supabase
-              .from('user_profiles')
-              .select('role, name')
-              .eq('id', session.user.id)
-              .single();
-              
-            if (profile) {
-              const userWithRole: UserWithRole = {
-                id: session.user.id,
-                email: session.user.email || '',
-                role: profile.role as 'teacher' | 'student',
-                name: profile.name
-              };
-              setUser(userWithRole);
-            } else {
-              // Fallback for demo purposes
-              const email = session.user.email || '';
-              const isTeacher = email.includes('teacher');
-              
-              const userWithRole: UserWithRole = {
-                id: session.user.id,
-                email: email,
-                role: isTeacher ? 'teacher' : 'student',
-                name: isTeacher ? 'Teacher User' : 'Student User'
-              };
-              setUser(userWithRole);
-            }
+            // Extract user metadata for role and name
+            const userData = session.user.user_metadata;
+            const role = userData?.role as 'teacher' | 'student' || 
+                       (session.user.email?.includes('teacher') ? 'teacher' : 'student');
+            const name = userData?.name || 
+                        (role === 'teacher' ? 'Teacher User' : 'Student User');
+            
+            const userWithRole: UserWithRole = {
+              id: session.user.id,
+              email: session.user.email || '',
+              role: role,
+              name: name
+            };
+            setUser(userWithRole);
           } catch (error) {
-            console.error('Error fetching user profile:', error);
+            console.error('Error processing user data:', error);
             setUser(null);
           }
         } else {
@@ -84,36 +70,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session?.user) {
           try {
-            // Get user metadata for role and name
-            const { data: profile } = await supabase
-              .from('user_profiles')
-              .select('role, name')
-              .eq('id', session.user.id)
-              .single();
-              
-            if (profile) {
-              const userWithRole: UserWithRole = {
-                id: session.user.id,
-                email: session.user.email || '',
-                role: profile.role as 'teacher' | 'student',
-                name: profile.name
-              };
-              setUser(userWithRole);
-            } else {
-              // Fallback for demo purposes if profile doesn't exist
-              const email = session.user.email || '';
-              const isTeacher = email.includes('teacher');
-              
-              const userWithRole: UserWithRole = {
-                id: session.user.id,
-                email: email,
-                role: isTeacher ? 'teacher' : 'student',
-                name: isTeacher ? 'Teacher User' : 'Student User'
-              };
-              setUser(userWithRole);
-            }
+            // Extract user metadata for role and name
+            const userData = session.user.user_metadata;
+            const role = userData?.role as 'teacher' | 'student' || 
+                       (session.user.email?.includes('teacher') ? 'teacher' : 'student');
+            const name = userData?.name || 
+                        (role === 'teacher' ? 'Teacher User' : 'Student User');
+            
+            const userWithRole: UserWithRole = {
+              id: session.user.id,
+              email: session.user.email || '',
+              role: role,
+              name: name
+            };
+            setUser(userWithRole);
           } catch (error) {
-            console.error('Error fetching user profile:', error);
+            console.error('Error processing user data:', error);
           }
         }
         
@@ -165,7 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Sign up the user
+      // Sign up the user with metadata for role and name
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -180,19 +152,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         toast.error(error.message);
       } else if (data.user) {
-        // Insert into user_profiles table
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: data.user.id,
-            role,
-            name
-          });
-          
-        if (profileError) {
-          console.error('Error creating user profile:', profileError);
-        }
-        
         // Redirect based on role
         if (role === 'teacher') {
           navigate('/dashboard');
