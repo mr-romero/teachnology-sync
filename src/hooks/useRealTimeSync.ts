@@ -1,9 +1,13 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+
+// Type for allowed tables
+type TableName = keyof Database['public']['Tables'];
 
 export function useRealTimeSync<T>(
-  table: string,
+  table: TableName,
   column: string,
   value: string,
   initialData: T | null = null
@@ -25,6 +29,7 @@ export function useRealTimeSync<T>(
     // Initial fetch
     const fetchData = async () => {
       try {
+        // Use type assertion to make TypeScript happy
         const { data: result, error: fetchError } = await supabase
           .from(table)
           .select('*')
@@ -75,7 +80,7 @@ export function useRealTimeSync<T>(
 }
 
 export function useRealTimeCollection<T>(
-  table: string,
+  table: TableName,
   column: string,
   value: string,
   orderColumn?: string,

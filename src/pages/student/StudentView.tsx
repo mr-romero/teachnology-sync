@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +14,7 @@ import {
   submitAnswer
 } from '@/services/lessonService';
 import { useRealTimeSync } from '@/hooks/useRealTimeSync';
+import { supabase } from '@/integrations/supabase/client';
 
 interface StudentSession {
   presentationId: string | null;
@@ -33,7 +33,6 @@ const StudentView: React.FC = () => {
   const [slides, setSlides] = useState<LessonSlide[]>([]);
   const [loading, setLoading] = useState(false);
   
-  // Get real-time updates for the presentation session
   const { 
     data: sessionData,
     loading: sessionLoading 
@@ -44,17 +43,14 @@ const StudentView: React.FC = () => {
     null
   );
   
-  // Update slides when session changes
   useEffect(() => {
     if (sessionData && !sessionLoading && session.presentationId) {
-      // If the teacher has sync enabled, update our slide to match
       if (sessionData.is_synced && session.currentSlide !== sessionData.current_slide) {
         setSession(prev => ({
           ...prev,
           currentSlide: sessionData.current_slide
         }));
         
-        // Update our position in the database
         if (user && session.sessionId) {
           updateStudentSlide(session.sessionId, user.id, sessionData.current_slide);
         }
@@ -78,7 +74,6 @@ const StudentView: React.FC = () => {
         return;
       }
       
-      // Get presentation details
       const lesson = await getLessonById(result.presentationId);
       
       if (!lesson) {
@@ -88,7 +83,6 @@ const StudentView: React.FC = () => {
       
       setSlides(lesson.slides);
       
-      // Get initial slide from session
       const { data: sessionInfo } = await supabase
         .from('presentation_sessions')
         .select('current_slide')
@@ -119,7 +113,6 @@ const StudentView: React.FC = () => {
         currentSlide: newIndex
       }));
       
-      // Update our position in the database
       if (user && session.sessionId) {
         await updateStudentSlide(session.sessionId, user.id, newIndex);
       }
@@ -135,7 +128,6 @@ const StudentView: React.FC = () => {
         currentSlide: newIndex
       }));
       
-      // Update our position in the database
       if (user && session.sessionId) {
         await updateStudentSlide(session.sessionId, user.id, newIndex);
       }
@@ -179,7 +171,6 @@ const StudentView: React.FC = () => {
     );
   }
   
-  // Show join form if not in a session
   if (!session.presentationId || !session.sessionId) {
     return (
       <div className="container max-w-md py-12">
@@ -211,7 +202,6 @@ const StudentView: React.FC = () => {
     );
   }
   
-  // Show the presentation
   const currentSlide = slides[session.currentSlide];
   const syncEnabled = sessionData?.is_synced ?? true;
   

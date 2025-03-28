@@ -27,6 +27,7 @@ import {
   endPresentationSession
 } from '@/services/lessonService';
 import { useRealTimeSync, useRealTimeCollection } from '@/hooks/useRealTimeSync';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PresentationSession {
   id: string;
@@ -34,6 +35,26 @@ interface PresentationSession {
   current_slide: number;
   is_synced: boolean;
   active_students: number;
+}
+
+// Define the participant and answer types based on database structure
+interface SessionParticipant {
+  id: string;
+  user_id: string;
+  current_slide: number;
+  joined_at: string;
+  last_active_at: string;
+}
+
+interface StudentAnswer {
+  id: string;
+  user_id: string;
+  session_id: string;
+  slide_id: string;
+  content_id: string;
+  answer: string;
+  is_correct: boolean | null;
+  submitted_at: string;
 }
 
 const LessonPresentation: React.FC = () => {
@@ -65,7 +86,7 @@ const LessonPresentation: React.FC = () => {
   const {
     data: participants,
     loading: participantsLoading
-  } = useRealTimeCollection(
+  } = useRealTimeCollection<SessionParticipant>(
     'session_participants',
     'session_id',
     sessionId,
@@ -76,7 +97,7 @@ const LessonPresentation: React.FC = () => {
   const {
     data: answers,
     loading: answersLoading
-  } = useRealTimeCollection(
+  } = useRealTimeCollection<StudentAnswer>(
     'student_answers',
     'session_id',
     sessionId,
@@ -153,7 +174,7 @@ const LessonPresentation: React.FC = () => {
         studentId: participant.user_id,
         studentName: `Student ${participant.user_id.substring(0, 5)}`,
         lessonId: lessonId || '',
-        currentSlide: participant.current_slide,
+        currentSlide: participant.current_slide.toString(),
         completedBlocks: studentAnswers.map(answer => answer.content_id),
         responses: studentAnswers.map(answer => ({
           studentId: answer.user_id,

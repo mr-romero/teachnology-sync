@@ -1,7 +1,13 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { Lesson, LessonSlide } from "@/types/lesson";
+import { Lesson, LessonSlide, LessonBlock } from "@/types/lesson";
 import { v4 as uuidv4 } from 'uuid';
+import { Database } from "@/integrations/supabase/types";
+import { Json } from "@/integrations/supabase/types";
+
+// Helper function to convert any object to Json type
+const toJson = <T>(data: T): Json => {
+  return data as unknown as Json;
+};
 
 // Convert Supabase slide format to application Lesson format
 export const convertDbSlideToAppSlide = (slide: any): LessonSlide => {
@@ -18,10 +24,10 @@ export const convertAppLessonToDbFormat = (lesson: Lesson) => {
     id: slide.id,
     presentation_id: lesson.id,
     slide_order: index,
-    content: {
+    content: toJson({
       title: slide.title,
       blocks: slide.blocks
-    }
+    })
   }));
 
   return {
@@ -215,7 +221,7 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
 
 // Start a new presentation session
 export const startPresentationSession = async (lessonId: string): Promise<string | null> => {
-  // Generate a 6-character join code (or use the function we created in the database)
+  // Generate a 6-character join code
   const { data: joinCodeData } = await supabase.rpc('generate_join_code');
   const joinCode = joinCodeData || Math.random().toString(36).substring(2, 8).toUpperCase();
   
@@ -226,8 +232,7 @@ export const startPresentationSession = async (lessonId: string): Promise<string
       join_code: joinCode,
       started_at: new Date().toISOString(),
       is_synced: true,
-      current_slide: 0,
-      active_students: 0
+      current_slide: 0
     })
     .select('id, join_code')
     .single();
