@@ -19,7 +19,8 @@ import {
   getLessonById, 
   startPresentationSession, 
   updateSessionSlide,
-  endPresentationSession
+  endPresentationSession,
+  getActiveSessionForLesson
 } from '@/services/lessonService';
 import { useRealTimeSync, useRealTimeCollection } from '@/hooks/useRealTimeSync';
 import { supabase } from '@/integrations/supabase/client';
@@ -109,88 +110,46 @@ const LessonPresentation: React.FC = () => {
   );
   
   useEffect(() => {
-    const checkExistingSession = async () => {
-      if (!lessonId || !user) return;
-      
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const specificSessionId = urlParams.get('sessionId');
-        
-        if (specificSessionId) {
-          const { data, error } = await supabase
-            .from('presentation_sessions')
-            .select('id, join_code, current_slide')
-            .eq('id', specificSessionId)
-            .is('ended_at', null)
-            .single();
-            
-          if (error) {
-            console.error('Error fetching specified session:', error);
-            return;
-          }
-          
-          if (data) {
-            setHasExistingSession(true);
-            setSessionId(data.id);
-            setJoinCode(data.join_code);
-            setCurrentSlideIndex(data.current_slide);
-            toast.success(`Reconnected to existing session with code: ${data.join_code}`);
-            return;
-          }
-        }
-        
-        const { data, error } = await supabase
-          .from('presentation_sessions')
-          .select('id, join_code, current_slide')
-          .eq('presentation_id', lessonId)
-          .is('ended_at', null)
-          .order('started_at', { ascending: false })
-          .limit(1);
-          
-        if (error) {
-          console.error('Error checking for existing session:', error);
-          return;
-        }
-        
-        if (data && data.length > 0) {
-          setHasExistingSession(true);
-          setSessionId(data[0].id);
-          setJoinCode(data[0].join_code);
-          setCurrentSlideIndex(data[0].current_slide);
-          toast.success(`Reconnected to existing session with code: ${data[0].join_code}`);
-        }
-      } catch (error) {
-        console.error('Error in checkExistingSession:', error);
-      }
+    // Clear any existing polling intervals to prevent memory leaks
+    return () => {
+      const storedIntervals = JSON.parse(localStorage.getItem('activePollingIntervals') || '[]');
+      storedIntervals.forEach((id: number) => clearInterval(id));
+      localStorage.setItem('activePollingIntervals', '[]');
     };
-    
-    checkExistingSession();
-  }, [lessonId, user]);
-  
+  }, []);
+
+  // Replace the complex session management with a simpler approach
   useEffect(() => {
-    const initLesson = async () => {
+    const loadLessonAndSession = async () => {
       if (!lessonId || !user) return;
       
       try {
         setLoading(true);
         
+        // 1. First, load the lesson data
         const fetchedLesson = await getLessonById(lessonId);
-        
         if (!fetchedLesson) {
           toast.error("Lesson not found");
           navigate('/dashboard');
           return;
         }
-        
         setLesson(fetchedLesson);
         
-        if (!hasExistingSession) {
+        // 2. Check URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const forceNew = urlParams.get('forceNew') === 'true';
+        const specificSessionId = urlParams.get('sessionId');
+        
+        console.log("Loading lesson and session...");
+        console.log("Force new session:", forceNew);
+        console.log("Specific session ID:", specificSessionId);
+        
+        // 3. If we're forcing a new session, create one
+        if (forceNew) {
+          console.log("Creating new session as requested");
           const code = await startPresentationSession(lessonId);
-          
           if (code) {
-            setJoinCode(code);
-            toast.success(`Session started with join code: ${code}`);
-            
+            // Get the new session ID
             const { data } = await supabase
               .from('presentation_sessions')
               .select('id')
@@ -199,14 +158,81 @@ const LessonPresentation: React.FC = () => {
               .single();
               
             if (data) {
+              console.log("New session created with ID:", data.id, "and code:", code);
               setSessionId(data.id);
+              setJoinCode(code);
+              setCurrentSlideIndex(0);
+              toast.success(`New session started with code: ${code}`);
+              
+              // Remove forceNew from URL without page reload
+              const newUrl = new URL(window.location.href);
+              newUrl.searchParams.delete('forceNew');
+              window.history.replaceState({}, '', newUrl);
+            }
+          }
+          setLoading(false);
+          return;
+        }
+        
+        // 4. If we have a specific session ID from the URL, try to use it
+        if (specificSessionId) {
+          console.log("Looking for specific session:", specificSessionId);
+          const { data, error } = await supabase
+            .from('presentation_sessions')
+            .select('id, join_code, current_slide')
+            .eq('id', specificSessionId)
+            .is('ended_at', null)
+            .single();
+            
+          if (!error && data) {
+            console.log("Found specific session:", data);
+            setSessionId(data.id);
+            setJoinCode(data.join_code);
+            setCurrentSlideIndex(data.current_slide);
+            toast.success(`Connected to session with code: ${data.join_code}`);
+            setLoading(false);
+            return;
+          } else {
+            console.log("Specified session not found or ended");
+          }
+        }
+        
+        // 5. If we don't have a specific session, look for any active session for this lesson
+        console.log("Looking for any active session for lesson:", lessonId);
+        const existingSession = await getActiveSessionForLesson(lessonId);
+        
+        if (existingSession) {
+          console.log("Found existing session:", existingSession);
+          setSessionId(existingSession.id);
+          setJoinCode(existingSession.join_code);
+          setCurrentSlideIndex(existingSession.current_slide);
+          toast.success(`Reconnected to existing session with code: ${existingSession.join_code}`);
+        } else {
+          // 6. If no active session exists, create a new one
+          console.log("No active session found, creating a new one");
+          const code = await startPresentationSession(lessonId);
+          if (code) {
+            // Get the new session ID
+            const { data } = await supabase
+              .from('presentation_sessions')
+              .select('id')
+              .eq('join_code', code)
+              .is('ended_at', null)
+              .single();
+              
+            if (data) {
+              console.log("New session created with ID:", data.id, "and code:", code);
+              setSessionId(data.id);
+              setJoinCode(code);
+              setCurrentSlideIndex(0);
+              toast.success(`New session started with code: ${code}`);
             }
           } else {
             toast.error("Failed to start presentation session");
           }
         }
       } catch (error) {
-        console.error('Error initializing lesson presentation:', error);
+        console.error('Error loading lesson and session:', error);
         toast.error('An error occurred loading the presentation');
         navigate('/dashboard');
       } finally {
@@ -214,8 +240,8 @@ const LessonPresentation: React.FC = () => {
       }
     };
     
-    initLesson();
-  }, [lessonId, user, navigate, hasExistingSession]);
+    loadLessonAndSession();
+  }, [lessonId, user, navigate]);
   
   useEffect(() => {
     if (sessionData && !sessionLoading) {
@@ -278,6 +304,20 @@ const LessonPresentation: React.FC = () => {
     setStudentProgressData(progressData);
   }, [participants, answers, participantsLoading, answersLoading, lessonId, studentProgressData.length]);
   
+  // Add session to localStorage when it's established
+  useEffect(() => {
+    if (sessionId && lessonId && joinCode) {
+      // Store session info in localStorage to remember between page reloads
+      localStorage.setItem('lastTeacherSession', JSON.stringify({
+        sessionId,
+        lessonId,
+        joinCode,
+        currentSlideIndex,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }, [sessionId, lessonId, joinCode, currentSlideIndex]);
+
   const handlePreviousSlide = async () => {
     if (currentSlideIndex > 0 && sessionId) {
       const newIndex = currentSlideIndex - 1;

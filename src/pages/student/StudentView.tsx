@@ -311,6 +311,17 @@ const StudentView: React.FC = () => {
               </div>
             </div>
             
+            {/* Add session code display */}
+            <div className="mb-4 bg-muted/20 rounded-md p-2 flex justify-between items-center">
+              <div className="text-sm">
+                <span className="font-medium">Session Code:</span> 
+                <span className="ml-2 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Session ID: {sessionId.substring(0, 8)}...
+              </div>
+            </div>
+            
             <LessonSlideView 
               slide={currentSlide} 
               isStudentView={true}

@@ -395,3 +395,28 @@ export const endPresentationSession = async (sessionId: string): Promise<boolean
     
   return !error;
 };
+
+// Find existing active session for a lesson
+export const getActiveSessionForLesson = async (lessonId: string): Promise<{ id: string, join_code: string, current_slide: number } | null> => {
+  try {
+    // Attempt to find an active session for this lesson
+    const { data, error } = await supabase
+      .from('presentation_sessions')
+      .select('id, join_code, current_slide')
+      .eq('presentation_id', lessonId)
+      .is('ended_at', null)
+      .order('started_at', { ascending: false })
+      .limit(1);
+      
+    if (error || !data || data.length === 0) {
+      console.log("No active session found for lesson:", lessonId);
+      return null;
+    }
+    
+    console.log("Found active session:", data[0]);
+    return data[0];
+  } catch (error) {
+    console.error('Error in getActiveSessionForLesson:', error);
+    return null;
+  }
+};

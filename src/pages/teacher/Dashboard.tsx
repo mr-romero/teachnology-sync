@@ -59,6 +59,9 @@ const Dashboard: React.FC = () => {
       if (!user) return;
       
       try {
+        // Log what we're trying to do
+        console.log("Fetching active sessions for dashboard...");
+        
         const { data, error } = await supabase
           .from('presentation_sessions')
           .select(`
@@ -73,6 +76,9 @@ const Dashboard: React.FC = () => {
           
         if (error) throw error;
         
+        // Log what we received from the database
+        console.log("Active sessions response:", data);
+        
         if (data) {
           const sessionsWithStudentCount = await Promise.all(
             data.map(async (session) => {
@@ -81,7 +87,8 @@ const Dashboard: React.FC = () => {
                 .select('*', { count: 'exact', head: true })
                 .eq('session_id', session.id);
                 
-              return {
+              // Format session with student count
+              const formattedSession = {
                 id: session.id,
                 join_code: session.join_code,
                 presentation_id: session.presentation_id,
@@ -89,9 +96,16 @@ const Dashboard: React.FC = () => {
                 started_at: session.started_at,
                 active_students: count || 0
               };
+              
+              // Log each session as we process it
+              console.log(`Session ${formattedSession.id} | Code: ${formattedSession.join_code}`);
+              
+              return formattedSession;
             })
           );
           
+          // Log the final processed sessions before setting state
+          console.log("Processed sessions for dashboard:", sessionsWithStudentCount);
           setActiveSessions(sessionsWithStudentCount);
         }
       } catch (error) {
@@ -289,12 +303,20 @@ const Dashboard: React.FC = () => {
                       Edit
                     </Link>
                   </Button>
-                  <Button asChild>
-                    <Link to={`/teacher/${lesson.id}`}>
-                      <Play className="mr-2 h-4 w-4" />
-                      Present
-                    </Link>
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button asChild>
+                      <Link to={`/teacher/${lesson.id}`}>
+                        <Play className="mr-2 h-4 w-4" />
+                        Present
+                      </Link>
+                    </Button>
+                    <Button variant="outline" asChild>
+                      <Link to={`/teacher/${lesson.id}?forceNew=true`}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        New Session
+                      </Link>
+                    </Button>
+                  </div>
                 </CardFooter>
               </Card>
             ))}
