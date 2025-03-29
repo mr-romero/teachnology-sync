@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { LessonSlide, LessonBlock, QuestionBlock } from '@/types/lesson';
 import { Input } from '@/components/ui/input';
@@ -12,13 +11,17 @@ interface LessonSlideViewProps {
   isStudentView?: boolean;
   studentId?: string;
   onResponseSubmit?: (blockId: string, response: string | boolean) => void;
+  onAnswerSubmit?: (blockId: string, answer: string | number | boolean) => void;
+  answeredBlocks?: string[];
 }
 
 const LessonSlideView: React.FC<LessonSlideViewProps> = ({ 
   slide, 
   isStudentView = false,
   studentId,
-  onResponseSubmit
+  onResponseSubmit,
+  onAnswerSubmit,
+  answeredBlocks = []
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   
@@ -27,7 +30,9 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   };
   
   const handleSubmitResponse = (blockId: string) => {
-    if (onResponseSubmit && blockId in responses) {
+    if (onAnswerSubmit && blockId in responses) {
+      onAnswerSubmit(blockId, responses[blockId]);
+    } else if (onResponseSubmit && blockId in responses) {
       onResponseSubmit(blockId, responses[blockId]);
     }
   };

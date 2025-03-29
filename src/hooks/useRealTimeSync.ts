@@ -70,8 +70,8 @@ export function useRealTimeSync<T>(
           if (payload.eventType === 'DELETE') {
             setData(null);
           } else {
-            // Use direct type assertion to avoid deep instantiation
-            setData(payload.new as T);
+            // Fix the deep type instantiation by avoiding nested generic types
+            setData(payload.new as unknown as T);
           }
         }
       )

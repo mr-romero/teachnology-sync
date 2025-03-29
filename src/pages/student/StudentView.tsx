@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import { LessonSlide } from '@/types/lesson';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
-import { ArrowRight, ArrowLeft, Lock } from 'lucide-react';
+import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { LockIcon } from 'lucide-react';
 import { 
   joinPresentationSession,
   getLessonById,
@@ -36,7 +36,6 @@ const StudentView: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [answeredBlocks, setAnsweredBlocks] = useState<string[]>([]);
   
-  // Use real-time updates to sync with the teacher's presentation
   const { 
     data: sessionData,
     loading: sessionLoading
@@ -47,18 +46,15 @@ const StudentView: React.FC = () => {
     null
   );
   
-  // When session data changes, update the current slide if sync is enabled
   useEffect(() => {
     if (sessionData && sessionData.is_synced && !sessionLoading) {
       setCurrentSlideIndex(sessionData.current_slide);
-      // Update in database that student is on this slide
       if (user && sessionId) {
         updateStudentSlide(sessionId, user.id, sessionData.current_slide);
       }
     }
   }, [sessionData, sessionLoading, user, sessionId]);
   
-  // Check if student has an active session
   useEffect(() => {
     const checkActiveSession = async () => {
       if (!user) return;
@@ -94,7 +90,6 @@ const StudentView: React.FC = () => {
           setPresentationId(sessionInfo.presentation_id);
           setCurrentSlideIndex(data[0].current_slide);
           
-          // Load the lesson data
           const lessonData = await getLessonById(sessionInfo.presentation_id);
           if (lessonData) {
             setLesson(lessonData);
@@ -110,7 +105,6 @@ const StudentView: React.FC = () => {
     checkActiveSession();
   }, [user]);
   
-  // Get previously answered blocks
   useEffect(() => {
     const getAnsweredBlocks = async () => {
       if (!sessionId || !user) return;
@@ -158,7 +152,6 @@ const StudentView: React.FC = () => {
       setSessionId(result.sessionId);
       setPresentationId(result.presentationId);
       
-      // Fetch the lesson data
       const lessonData = await getLessonById(result.presentationId);
       
       if (!lessonData) {
@@ -183,7 +176,6 @@ const StudentView: React.FC = () => {
       const newIndex = currentSlideIndex - 1;
       setCurrentSlideIndex(newIndex);
       
-      // Update student's current slide in the database
       if (user && sessionId) {
         await updateStudentSlide(sessionId, user.id, newIndex);
       }
@@ -195,7 +187,6 @@ const StudentView: React.FC = () => {
       const newIndex = currentSlideIndex + 1;
       setCurrentSlideIndex(newIndex);
       
-      // Update student's current slide in the database
       if (user && sessionId) {
         await updateStudentSlide(sessionId, user.id, newIndex);
       }
@@ -275,7 +266,7 @@ const StudentView: React.FC = () => {
               <div className="flex items-center space-x-2">
                 {isSynced && (
                   <div className="flex items-center text-sm text-muted-foreground">
-                    <Lock className="h-4 w-4 mr-1" />
+                    <LockIcon className="h-4 w-4 mr-1" />
                     <span>Teacher controlled</span>
                   </div>
                 )}
