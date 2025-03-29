@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -85,8 +86,8 @@ export function useRealTimeSync<T>(
           if (payload.eventType === 'DELETE') {
             setData(null);
           } else {
-            // Use a simpler type assertion to avoid infinite depth
-            setData(payload.new as T);
+            // Fix: Use a simpler approach to avoid excessive type depth
+            setData(payload.new as unknown as T);
           }
         }
       )

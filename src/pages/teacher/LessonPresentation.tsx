@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,32 +7,28 @@ import {
   ArrowLeft, 
   ArrowRight, 
   ArrowLeftCircle,
-  Eye, 
-  Users, 
-  Lock, 
-  Unlock, 
-  Copy,
-  UserCircle
+  Eye,
+  UserCircle,
+  LayoutGrid,
+  LayoutList
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson, LessonSlide, StudentProgress } from '@/types/lesson';
 import { toast } from '@/components/ui/sonner';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
-import StudentResponseList from '@/components/lesson/StudentResponseList';
 import { 
   getLessonById, 
   startPresentationSession, 
-  getSessionParticipants,
-  getSessionAnswers,
   updateSessionSlide,
   endPresentationSession
 } from '@/services/lessonService';
 import { useRealTimeSync, useRealTimeCollection } from '@/hooks/useRealTimeSync';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import SlideCarousel from '@/components/lesson/SlideCarousel';
+import StudentProgressGrid from '@/components/lesson/StudentProgressGrid';
+import LessonControls from '@/components/lesson/LessonControls';
 
 interface PresentationSession {
   id: string;
@@ -74,7 +71,10 @@ const LessonPresentation: React.FC = () => {
   const [studentProgressData, setStudentProgressData] = useState<StudentProgress[]>([]);
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [hasExistingSession, setHasExistingSession] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('slides');
+  const [activeTab, setActiveTab] = useState<string>('grid');
+  const [studentPacingEnabled, setStudentPacingEnabled] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   const { 
     data: sessionData,
@@ -235,14 +235,13 @@ const LessonPresentation: React.FC = () => {
     
     // Set a less frequent polling interval to avoid resource exhaustion
     const pollingInterval = setInterval(() => {
-      // Only refresh if not already in progress
       refreshParticipants();
       
       // Stagger the refreshes to avoid concurrent requests
       setTimeout(() => {
         refreshAnswers();
       }, 1000);
-    }, 10000); // Reduced from 5000ms to 10000ms (10 seconds)
+    }, 10000);
     
     return () => clearInterval(pollingInterval);
   }, [sessionId, refreshParticipants, refreshAnswers]);
@@ -304,6 +303,18 @@ const LessonPresentation: React.FC = () => {
     }
   };
   
+  const handleSlideClick = async (index: number) => {
+    if (lesson && sessionId && index >= 0 && index < lesson.slides.length) {
+      const success = await updateSessionSlide(sessionId, index);
+      
+      if (success) {
+        setCurrentSlideIndex(index);
+      } else {
+        toast.error("Failed to update slide");
+      }
+    }
+  };
+  
   const toggleSyncMode = async () => {
     if (!sessionId || !sessionData) return;
     
@@ -355,13 +366,21 @@ const LessonPresentation: React.FC = () => {
     toast.success(anonymousMode ? "Student names visible" : "Student names hidden");
   };
   
-  const toggleStudentView = () => {
-    setStudentView(!studentView);
+  const toggleStudentPacing = () => {
+    setStudentPacingEnabled(!studentPacingEnabled);
+    toast.success(studentPacingEnabled 
+      ? "Students limited to one slide at a time" 
+      : "Students can view multiple slides"
+    );
   };
   
-  const copyJoinCode = () => {
-    navigator.clipboard.writeText(joinCode);
-    toast.success("Join code copied to clipboard");
+  const togglePause = () => {
+    setIsPaused(!isPaused);
+    toast.success(isPaused ? "Session resumed" : "Session paused");
+  };
+  
+  const toggleStudentView = () => {
+    setStudentView(!studentView);
   };
   
   const endSession = async () => {
@@ -398,7 +417,7 @@ const LessonPresentation: React.FC = () => {
   const activeStudents = participants?.length ?? 0;
 
   return (
-    <div className="container py-4">
+    <div className="container py-4 max-w-full">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
           <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
@@ -416,209 +435,169 @@ const LessonPresentation: React.FC = () => {
             <Eye className="mr-2 h-4 w-4" />
             {studentView ? "Teacher View" : "Student View"}
           </Button>
-          
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={endSession}
-          >
-            End Session
-          </Button>
         </div>
       </div>
       
       {!studentView ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="mb-4">
-                <TabsTrigger value="slides">Slides</TabsTrigger>
-                <TabsTrigger value="students">
-                  Students
-                  {activeStudents > 0 && (
-                    <Badge variant="secondary" className="ml-2">{activeStudents}</Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="slides">
-                <Card className="mb-4">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
-                      <div className="text-sm text-muted-foreground">
-                        Slide {currentSlideIndex + 1} of {lesson.slides.length}
+        <div className="space-y-4">
+          {/* Control Bar */}
+          <LessonControls 
+            joinCode={joinCode}
+            activeStudents={activeStudents}
+            anonymousMode={anonymousMode}
+            syncEnabled={syncEnabled}
+            studentPacingEnabled={studentPacingEnabled}
+            isPaused={isPaused}
+            onToggleAnonymous={toggleAnonymousMode}
+            onToggleSync={toggleSyncMode}
+            onTogglePacing={toggleStudentPacing}
+            onTogglePause={togglePause}
+            onEndSession={endSession}
+          />
+          
+          {/* Slide Carousel */}
+          <div className="mb-4">
+            <SlideCarousel 
+              slides={lesson.slides}
+              currentSlideIndex={currentSlideIndex}
+              onSlideClick={handleSlideClick}
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            {/* Current Slide Preview */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
+                    <div className="text-sm text-muted-foreground">
+                      Slide {currentSlideIndex + 1} of {lesson.slides.length}
+                    </div>
+                  </div>
+                  
+                  <LessonSlideView slide={currentSlide} />
+                  
+                  <div className="flex justify-between mt-6">
+                    <Button 
+                      onClick={handlePreviousSlide} 
+                      disabled={currentSlideIndex === 0}
+                      className="flex items-center"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Previous
+                    </Button>
+                    <Button 
+                      onClick={handleNextSlide} 
+                      disabled={currentSlideIndex === lesson.slides.length - 1}
+                      className="flex items-center"
+                    >
+                      Next
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+            
+            {/* Student Progress */}
+            <div className="lg:col-span-3">
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Student Progress</h2>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant={viewMode === 'grid' ? "default" : "outline"} 
+                        size="icon"
+                        onClick={() => setViewMode('grid')}
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant={viewMode === 'list' ? "default" : "outline"} 
+                        size="icon"
+                        onClick={() => setViewMode('list')}
+                      >
+                        <LayoutList className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {participantsLoading ? (
+                    <div className="text-center py-8">Loading student data...</div>
+                  ) : (
+                    viewMode === 'grid' ? (
+                      <div className="max-h-[550px] overflow-auto">
+                        <StudentProgressGrid 
+                          studentProgress={studentProgressData}
+                          slides={lesson.slides}
+                          anonymousMode={anonymousMode}
+                        />
                       </div>
-                    </div>
-                    
-                    <LessonSlideView slide={currentSlide} />
-                    
-                    <div className="flex justify-between mt-6">
-                      <Button 
-                        onClick={handlePreviousSlide} 
-                        disabled={currentSlideIndex === 0}
-                        className="flex items-center"
-                      >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Previous
-                      </Button>
-                      <Button 
-                        onClick={handleNextSlide} 
-                        disabled={currentSlideIndex === lesson.slides.length - 1}
-                        className="flex items-center"
-                      >
-                        Next
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              
-              <TabsContent value="students">
-                <Card>
-                  <CardContent className="p-6">
-                    <h2 className="text-xl font-semibold mb-4">Student Participants</h2>
-                    
-                    {participants && participants.length > 0 ? (
-                      <ScrollArea className="h-[400px]">
-                        <div className="space-y-4">
-                          {participants.map((participant) => {
-                            const studentProgress = studentProgressData.find(
-                              p => p.studentId === participant.user_id
-                            );
-                            const answeredCount = studentProgress?.completedBlocks.length || 0;
-                            
-                            return (
-                              <div key={participant.id} className="border rounded-md p-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center">
-                                    <UserCircle className="h-8 w-8 mr-3 text-primary" />
-                                    <div>
-                                      <h3 className="font-medium">
-                                        {anonymousMode 
-                                          ? `Student ${participant.user_id.substring(0, 5)}` 
-                                          : `Student ${participant.user_id.substring(0, 8)}`}
-                                      </h3>
-                                      <p className="text-sm text-muted-foreground">
-                                        Joined: {new Date(participant.joined_at).toLocaleTimeString()}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <Badge variant={
-                                      parseInt(participant.current_slide.toString()) === currentSlideIndex 
-                                        ? "default" 
-                                        : "secondary"
-                                    }>
-                                      Slide {parseInt(participant.current_slide.toString()) + 1}
-                                    </Badge>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      Answers: {answeredCount}
+                    ) : (
+                      <div className="max-h-[550px] overflow-auto space-y-4">
+                        {studentProgressData.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            No students have joined this session yet
+                          </div>
+                        ) : (
+                          studentProgressData.map((student, index) => (
+                            <div key={student.studentId} className="border rounded-md p-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                  <UserCircle className="h-8 w-8 mr-3 text-primary" />
+                                  <div>
+                                    <h3 className="font-medium">
+                                      {anonymousMode 
+                                        ? `Student ${index + 1}` 
+                                        : student.studentName}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                      Current: Slide {parseInt(student.currentSlide) + 1}
                                     </p>
                                   </div>
                                 </div>
-                                
-                                {studentProgress?.responses && studentProgress.responses.length > 0 && (
-                                  <>
-                                    <Separator className="my-3" />
-                                    <div>
-                                      <h4 className="text-sm font-medium mb-2">Responses:</h4>
-                                      <div className="space-y-2">
-                                        {studentProgress.responses.map((response, idx) => (
-                                          <div key={idx} className="text-sm bg-muted p-2 rounded">
-                                            <p className="font-medium">Q: Block {response.blockId.substring(0, 6)}</p>
-                                            <p>A: {response.response}</p>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  </>
-                                )}
+                                <div className="text-right">
+                                  <p className="text-xs text-muted-foreground">
+                                    Answers: {student.responses.length}
+                                  </p>
+                                </div>
                               </div>
-                            );
-                          })}
-                        </div>
-                      </ScrollArea>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground">
-                        No students have joined this session yet
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-          
-          <div className="lg:col-span-1">
-            <div className="space-y-4">
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-medium mb-1">Join Code</h3>
-                  <div className="flex justify-between items-center">
-                    <div className="text-xl font-semibold">{joinCode}</div>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={copyJoinCode}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {activeStudents} active student{activeStudents !== 1 ? 's' : ''}
-                  </div>
-                </CardContent>
-              </Card>
-            
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-medium mb-3">Lesson Controls</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Sync Student Slides</span>
-                      <Button 
-                        variant={syncEnabled ? "default" : "outline"} 
-                        size="sm" 
-                        onClick={toggleSyncMode}
-                        className={syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}
-                      >
-                        {syncEnabled ? (
-                          <>
-                            <Lock className="mr-2 h-4 w-4" />
-                            Synced
-                          </>
-                        ) : (
-                          <>
-                            <Unlock className="mr-2 h-4 w-4" />
-                            Free
-                          </>
+                              
+                              {student.responses.length > 0 && (
+                                <>
+                                  <Separator className="my-3" />
+                                  <div>
+                                    <h4 className="text-sm font-medium mb-2">Responses:</h4>
+                                    <div className="space-y-2">
+                                      {student.responses.map((response, idx) => (
+                                        <div key={idx} className="text-sm bg-muted p-2 rounded flex justify-between items-start">
+                                          <div>
+                                            <p className="font-medium">Slide {lesson.slides.findIndex(s => s.id === response.slideId) + 1}, Block {response.blockId.substring(0, 6)}</p>
+                                            <p className="truncate max-w-[300px]">A: {String(response.response)}</p>
+                                          </div>
+                                          <div>
+                                            {response.isCorrect === true ? (
+                                              <span className="text-green-600 font-medium">Correct</span>
+                                            ) : response.isCorrect === false ? (
+                                              <span className="text-red-500 font-medium">Incorrect</span>
+                                            ) : (
+                                              <span className="text-muted-foreground">Pending</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          ))
                         )}
-                      </Button>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Anonymous Mode</span>
-                      <Button 
-                        variant={anonymousMode ? "default" : "outline"} 
-                        size="sm" 
-                        onClick={toggleAnonymousMode}
-                      >
-                        {anonymousMode ? <Users className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="font-medium mb-3">Student Responses</h3>
-                  <StudentResponseList 
-                    studentProgress={studentProgressData}
-                    currentSlideId={currentSlide.id}
-                    anonymousMode={anonymousMode}
-                  />
+                      </div>
+                    )
+                  )}
                 </CardContent>
               </Card>
             </div>
