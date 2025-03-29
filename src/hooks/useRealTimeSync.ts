@@ -85,8 +85,8 @@ export function useRealTimeSync<T extends Record<string, any>>(
           throw fetchError;
         }
         
-        // Use type assertion with 'as T' to properly convert the returned data
-        setData(fetchedData as T);
+        // Fix: Use double assertion to safely convert the returned data
+        setData(fetchedData as unknown as T);
       } catch (err) {
         console.error(`Error fetching ${tableName}:`, err);
         setError(err instanceof Error ? err : new Error(String(err)));
@@ -110,8 +110,8 @@ export function useRealTimeSync<T extends Record<string, any>>(
         if (payload.eventType === 'DELETE') {
           setData(null);
         } else {
-          // Use proper type assertion to ensure type safety
-          setData(payload.new as T);
+          // Fix: Use double assertion for proper type conversion
+          setData(payload.new as unknown as T);
         }
       })
       .subscribe();
@@ -162,8 +162,8 @@ export function useRealTimeCollection<T extends Record<string, any>>(
         throw fetchError;
       }
       
-      // Use proper type assertion
-      setData(fetchedData as T[]);
+      // Fix: Use double assertion for proper type conversion
+      setData(fetchedData as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${tableName} collection:`, err);
       setError(err instanceof Error ? err : new Error(String(err)));
