@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LessonSlide, LessonBlock, QuestionBlock } from '@/types/lesson';
+import { LessonSlide, LessonBlock, QuestionBlock, GridSpan } from '@/types/lesson';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -90,6 +90,14 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
       return slide.layout.blockPositions[blockId];
     }
     return { row: 0, column: 0 };
+  };
+  
+  // Get block span from layout
+  const getBlockSpan = (blockId: string): GridSpan => {
+    if (slide.layout?.blockSpans?.[blockId]) {
+      return slide.layout.blockSpans[blockId];
+    }
+    return { columnSpan: 1, rowSpan: 1 };
   };
   
   // Group blocks by grid position
@@ -300,8 +308,26 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     return { width: '100%', height: 'auto' };
   };
 
+  // Check if a cell is covered by another block's span
+  const isCellCoveredBySpan = (row: number, column: number) => {
+    return Object.entries(slide.layout?.blockPositions || {}).some(([blockId, pos]) => {
+      if (pos.row !== row || pos.column !== column) {
+        const blockSpan = getBlockSpan(blockId);
+        if (!blockSpan.columnSpan || blockSpan.columnSpan <= 1) return false;
+        
+        // Check if this span covers our position
+        return (
+          pos.row === row && // Same row
+          pos.column < column && // Column starts before current col
+          pos.column + (blockSpan.columnSpan || 1) > column // Span extends past current col
+        );
+      }
+      return false;
+    });
+  };
+
   // Check if we should use grid layout
-  const useGridLayout = slide.layout?.gridRows && slide.layout?.gridColumns && slide.layout.gridRows > 1 || slide.layout?.gridColumns > 1;
+  const useGridLayout = slide.layout?.gridRows && slide.layout?.gridColumns && (slide.layout.gridRows > 1 || slide.layout.gridColumns > 1);
   const blocksByPosition = useGridLayout ? getBlocksByPosition() : null;
   
   // Grid size
@@ -332,33 +358,35 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
             gridTemplateColumns: `repeat(${gridSize.columns}, minmax(0, 1fr))`
           }}
         >
-          {/* Render all grid cells */}
+          {/* Render all grid cells with blocks */}
           {Object.keys(blocksByPosition!).map(position => {
             const [row, col] = position.split('-').map(Number);
             const blocksInPosition = blocksByPosition![position] || [];
             
+            // Skip rendering a cell if there's another cell that spans into this position
+            if (isCellCoveredBySpan(row, col)) return null;
+            
             if (blocksInPosition.length === 0) return null;
             
-            return (
-              <div 
-                key={position}
-                className="p-2"
-                style={{
-                  gridRow: row + 1, // 1-based in CSS grid
-                  gridColumn: col + 1 // 1-based in CSS grid
-                }}
-              >
-                {blocksInPosition.map((block) => (
-                  <div 
-                    key={block.id} 
-                    className="relative mb-4 p-4 border rounded-md"
-                  >
-                    {/* Block content */}
-                    {renderBlock(block)}
-                  </div>
-                ))}
-              </div>
-            );
+            return blocksInPosition.map((block) => {
+              const blockSpan = getBlockSpan(block.id);
+              
+              return (
+                <div 
+                  key={block.id} 
+                  className="relative mb-4 p-4 border rounded-md"
+                  style={{
+                    gridRow: row + 1, // 1-based in CSS grid
+                    gridColumn: `${col + 1} / span ${blockSpan.columnSpan || 1}`, // Explicit span syntax
+                    gridRowStart: row + 1,
+                    gridRowEnd: row + 1 + (blockSpan.rowSpan || 1)
+                  }}
+                >
+                  {/* Block content */}
+                  {renderBlock(block)}
+                </div>
+              );
+            });
           })}
         </div>
       ) : (

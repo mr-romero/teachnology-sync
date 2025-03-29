@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LessonSlide, LessonBlock, GridPosition } from '@/types/lesson';
+import { LessonSlide, LessonBlock, GridPosition, GridSpan } from '@/types/lesson';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Trash, 
   Copy,
@@ -14,7 +15,11 @@ import {
   PanelTopIcon,
   Plus,
   Minus,
-  MoveIcon
+  MoveIcon,
+  StretchHorizontal,
+  StretchVertical,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { 
   Tooltip,
@@ -25,6 +30,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Define DnD item types
 const ItemTypes = {
@@ -39,24 +45,121 @@ interface DragItem {
   originalPosition?: GridPosition;
 }
 
-// Item types for column spans
-interface ColumnSpan {
-  start: number;
-  end: number;
-}
-
-// Define a grid position type
-interface GridPosition {
-  row: number;
-  column: number;
-}
-
 // Main component
 interface BlockBasedSlideEditorProps {
   slide: LessonSlide;
   onUpdateSlide: (updatedSlide: LessonSlide) => void;
   renderBlockPreview: (block: LessonBlock) => React.ReactNode;
 }
+
+// Span Controls - new component for setting columns spans
+const SpanControls = ({ 
+  blockId, 
+  span,
+  maxColumns,
+  maxRows,
+  onUpdateSpan 
+}: { 
+  blockId: string; 
+  span?: GridSpan;
+  maxColumns: number;
+  maxRows: number;
+  onUpdateSpan: (blockId: string, span: GridSpan) => void;
+}) => {
+  const columnSpan = span?.columnSpan || 1;
+  const rowSpan = span?.rowSpan || 1;
+  
+  return (
+    <div className="flex items-center space-x-2 mt-2">
+      <div className="flex items-center">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              disabled={columnSpan <= 1}
+              onClick={() => onUpdateSpan(blockId, { 
+                ...span, 
+                columnSpan: Math.max(1, (columnSpan || 1) - 1) 
+              })}
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Reduce column span</TooltipContent>
+        </Tooltip>
+        
+        <div className="mx-1 flex items-center space-x-1">
+          <StretchHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium">{columnSpan}</span>
+        </div>
+        
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              disabled={columnSpan >= maxColumns}
+              onClick={() => onUpdateSpan(blockId, { 
+                ...span, 
+                columnSpan: Math.min(maxColumns, (columnSpan || 1) + 1) 
+              })}
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Increase column span</TooltipContent>
+        </Tooltip>
+      </div>
+      
+      {/* We can enable row span controls later if needed */}
+      {/* <div className="flex items-center">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              disabled={rowSpan <= 1}
+              onClick={() => onUpdateSpan(blockId, { 
+                ...span, 
+                rowSpan: Math.max(1, (rowSpan || 1) - 1) 
+              })}
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Reduce row span</TooltipContent>
+        </Tooltip>
+        
+        <div className="mx-1 flex items-center space-x-1">
+          <StretchVertical className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium">{rowSpan}</span>
+        </div>
+        
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              disabled={rowSpan >= maxRows}
+              onClick={() => onUpdateSpan(blockId, { 
+                ...span, 
+                rowSpan: Math.min(maxRows, (rowSpan || 1) + 1) 
+              })}
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Increase row span</TooltipContent>
+        </Tooltip>
+      </div> */}
+    </div>
+  );
+};
 
 // Grid Controls component for choosing layouts
 const GridLayoutControls = ({ 
@@ -282,7 +385,11 @@ const DraggableBlock = ({
   onDuplicate, 
   onDelete, 
   renderPreview,
-  position
+  position,
+  span,
+  maxColumns,
+  maxRows,
+  onUpdateSpan
 }: { 
   block: LessonBlock; 
   isSelected: boolean;
@@ -291,6 +398,10 @@ const DraggableBlock = ({
   onDelete: () => void;
   renderPreview: (block: LessonBlock) => React.ReactNode;
   position: GridPosition;
+  span?: GridSpan;
+  maxColumns: number;
+  maxRows: number;
+  onUpdateSpan: (blockId: string, span: GridSpan) => void;
 }) => {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.BLOCK,
@@ -310,13 +421,25 @@ const DraggableBlock = ({
       className={cn(
         "relative mb-4 p-4 border rounded-md group transition-all cursor-move",
         isSelected ? "ring-2 ring-primary" : "",
-        isDragging ? "opacity-50" : "opacity-100"
+        isDragging ? "opacity-50" : "opacity-100",
+        // Add a visual indicator for blocks that span multiple columns
+        span?.columnSpan && span.columnSpan > 1 ? "border-violet-300 border-2 bg-violet-50/30" : ""
       )}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
       }}
     >
+      {/* Span indicator badge - show for blocks that span multiple columns */}
+      {span?.columnSpan && span.columnSpan > 1 && (
+        <Badge 
+          variant="span" 
+          className="absolute top-1 right-1 z-10"
+        >
+          Spans {span.columnSpan} columns
+        </Badge>
+      )}
+    
       {/* Drag handle */}
       <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-100">
         <MoveIcon className="h-4 w-4 text-muted-foreground" />
@@ -352,6 +475,28 @@ const DraggableBlock = ({
           <Trash className="h-3 w-3" />
         </Button>
       </div>
+
+      {/* Column span controls - show when selected */}
+      {isSelected && (
+        <div className="mt-3 pt-3 border-t">
+          <div className="flex justify-between items-center">
+            <span className="text-xs font-medium text-muted-foreground">
+              {maxColumns > 1 ? 
+                `Column span (max: ${maxColumns})` : 
+                "Add more columns to enable spanning"}
+            </span>
+            {maxColumns > 1 && (
+              <SpanControls 
+                blockId={block.id}
+                span={span}
+                maxColumns={maxColumns}
+                maxRows={maxRows}
+                onUpdateSpan={onUpdateSpan}
+              />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -361,12 +506,14 @@ const DroppableCell = ({
   position, 
   onDrop, 
   isEmpty, 
-  children 
+  children,
+  span = { columnSpan: 1, rowSpan: 1 }
 }: { 
   position: GridPosition; 
   onDrop: (blockId: string, position: GridPosition) => void;
   isEmpty: boolean;
   children: React.ReactNode;
+  span?: GridSpan;
 }) => {
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: ItemTypes.BLOCK,
@@ -392,7 +539,9 @@ const DroppableCell = ({
       )}
       style={{
         gridRow: position.row + 1, // 1-based in CSS grid
-        gridColumn: position.column + 1 // 1-based in CSS grid
+        gridColumn: span.columnSpan && span.columnSpan > 1
+          ? `${position.column + 1} / span ${span.columnSpan}` // Apply span
+          : `${position.column + 1}` // No span
       }}
     >
       {children}
@@ -535,6 +684,39 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
         };
       });
     }
+    
+    onUpdateSlide(updatedSlide);
+  };
+
+  // Function to get block span
+  const getBlockSpan = (blockId: string): GridSpan => {
+    if (slide.layout?.blockSpans?.[blockId]) {
+      return slide.layout.blockSpans[blockId];
+    }
+    return { columnSpan: 1, rowSpan: 1 };
+  };
+
+  // Function to update block span
+  const handleUpdateBlockSpan = (blockId: string, span: GridSpan) => {
+    const updatedSlide = { ...slide };
+    
+    // Ensure we have layout information
+    if (!updatedSlide.layout) {
+      updatedSlide.layout = {
+        gridRows: 1,
+        gridColumns: 1,
+        blockPositions: {},
+        blockSpans: {}
+      };
+    }
+    
+    // Ensure blockSpans exists
+    if (!updatedSlide.layout.blockSpans) {
+      updatedSlide.layout.blockSpans = {};
+    }
+    
+    // Update the span for this block
+    updatedSlide.layout.blockSpans[blockId] = span;
     
     onUpdateSlide(updatedSlide);
   };
@@ -698,6 +880,22 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
   const isInSingleColumnWithMultipleBlocks = 
     (slide.layout?.gridColumns || 1) === 1 && 
     slide.blocks.length > 1;
+
+  // Correctly calculate max span for a block based on its position and grid size
+  const getMaxSpan = (position: GridPosition): { maxColumns: number; maxRows: number } => {
+    const totalCols = slide.layout?.gridColumns || 1;
+    const totalRows = slide.layout?.gridRows || 1;
+    
+    // Calculate remaining columns from current position
+    const remainingCols = totalCols - position.column;
+    // Calculate remaining rows from current position
+    const remainingRows = totalRows - position.row;
+    
+    return {
+      maxColumns: remainingCols,
+      maxRows: remainingRows
+    };
+  };
   
   return (
     <DndProvider backend={HTML5Backend}>
@@ -710,7 +908,7 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
                 'Drag a block to create a two-column layout' : 
                 selectedBlockId ? 
                   'Select a cell to place the block or drag blocks between cells' : 
-                  'Select a block to position it'}
+                  'Select a block to position it or make it span multiple columns'}
             </p>
             <GridLayoutControls 
               onChangeGridSize={handleGridSizeChange}
@@ -743,10 +941,39 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
                 const blocksInPosition = blocksByPosition[position] || [];
                 const cellPosition = { row, column: col };
                 
+                // Skip rendering a cell if there's another cell that spans into this position
+                const isSpannedOver = Object.entries(slide.layout?.blockPositions || {}).some(([blockId, pos]) => {
+                  if (pos.row !== row || pos.column !== col) {
+                    const blockSpan = getBlockSpan(blockId);
+                    if (!blockSpan.columnSpan || blockSpan.columnSpan <= 1) return false;
+                    
+                    // Check if this span covers our position
+                    return (
+                      pos.row === row && // Same row
+                      pos.column < col && // Column starts before current col
+                      pos.column + (blockSpan.columnSpan || 1) > col // Span extends past current col
+                    );
+                  }
+                  return false;
+                });
+                
+                // Skip this cell if it's being spanned over by another block
+                if (isSpannedOver) return null;
+                
+                // If this cell contains a block that spans multiple columns,
+                // we need to pass that span information to the DroppableCell
+                let cellSpan = { columnSpan: 1, rowSpan: 1 };
+                
+                if (blocksInPosition.length > 0) {
+                  const block = blocksInPosition[0]; // Get the first block in this position
+                  cellSpan = getBlockSpan(block.id);
+                }
+                
                 return (
                   <DroppableCell 
                     key={position}
                     position={cellPosition}
+                    span={cellSpan}
                     onDrop={(blockId, position) => {
                       // Check if we should handle this as a special case for creating columns
                       if (isInSingleColumnWithMultipleBlocks && col === 1 && row === 0) {
@@ -766,18 +993,31 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
                         </span>
                       </div>
                     ) : (
-                      blocksInPosition.map((block) => (
-                        <DraggableBlock
-                          key={block.id}
-                          block={block}
-                          isSelected={selectedBlockId === block.id}
-                          onSelect={() => setSelectedBlockId(block.id)}
-                          onDuplicate={() => handleDuplicateBlock(block.id)}
-                          onDelete={() => handleDeleteBlock(block.id)}
-                          renderPreview={renderBlockPreview}
-                          position={cellPosition}
-                        />
-                      ))
+                      blocksInPosition.map((block) => {
+                        const blockSpan = getBlockSpan(block.id);
+                        const { maxColumns, maxRows } = getMaxSpan(cellPosition);
+                        
+                        return (
+                          <div 
+                            key={block.id}
+                            className="block-container w-full"
+                          >
+                            <DraggableBlock
+                              block={block}
+                              isSelected={selectedBlockId === block.id}
+                              onSelect={() => setSelectedBlockId(block.id)}
+                              onDuplicate={() => handleDuplicateBlock(block.id)}
+                              onDelete={() => handleDeleteBlock(block.id)}
+                              renderPreview={renderBlockPreview}
+                              position={cellPosition}
+                              span={blockSpan}
+                              maxColumns={maxColumns}
+                              maxRows={maxRows}
+                              onUpdateSpan={handleUpdateBlockSpan}
+                            />
+                          </div>
+                        );
+                      })
                     )}
                   </DroppableCell>
                 );

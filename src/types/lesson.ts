@@ -44,6 +44,12 @@ export interface GridPosition {
   column: number;
 }
 
+// Define grid span type for blocks that span multiple cells
+export interface GridSpan {
+  columnSpan?: number; // Number of columns this block spans (default: 1)
+  rowSpan?: number;    // Number of rows this block spans (default: 1)
+}
+
 export interface LessonSlide {
   id: string;
   title: string;
@@ -58,6 +64,7 @@ export interface SlideLayout {
   gridColumns?: number;  // Number of columns in the grid
   blockPositions?: Record<string, GridPosition>;  // Map of blockId to grid position
   blockSizes?: Record<string, { width: string, height: string }>;  // Map of blockId to sizes
+  blockSpans?: Record<string, GridSpan>;  // Map of blockId to column/row span
   
   // Legacy column-based positioning (keeping for backward compatibility)
   columnCount?: number;  // Number of columns (1-4)
