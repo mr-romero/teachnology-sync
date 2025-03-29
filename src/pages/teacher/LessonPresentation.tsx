@@ -27,10 +27,8 @@ import { useRealTimeSync, useRealTimeCollection } from '@/hooks/useRealTimeSync'
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import SlideCarousel from '@/components/lesson/SlideCarousel';
-import StudentProgressGrid from '@/components/lesson/StudentProgressGrid';
+import LessonMatrix from '@/components/lesson/LessonMatrix';
 import StudentResponseList from '@/components/lesson/StudentResponseList';
-import LessonControls from '@/components/lesson/LessonControls';
 
 interface PresentationSession {
   id: string;
@@ -482,102 +480,54 @@ const LessonPresentation: React.FC = () => {
         <TabsContent value="progress">
           <div className="space-y-4">
             <Card className="border shadow-sm">
-              <CardContent className="p-3">
-                <div className="flex flex-row gap-6 items-center">
-                  <div className="flex-shrink-0 w-[200px]">
-                    <LessonControls 
-                      joinCode={joinCode}
-                      activeStudents={activeStudents}
-                      anonymousMode={anonymousMode}
-                      syncEnabled={syncEnabled}
-                      studentPacingEnabled={studentPacingEnabled}
-                      isPaused={isPaused}
-                      onToggleAnonymous={toggleAnonymousMode}
-                      onToggleSync={toggleSyncMode}
-                      onTogglePacing={toggleStudentPacing}
-                      onTogglePause={togglePause}
-                      onEndSession={endSession}
-                      onSortChange={setSortBy}
-                    />
-                  </div>
-                  <div className="flex-grow pl-1">
-                    <SlideCarousel 
-                      slides={lesson.slides}
-                      currentSlideIndex={currentSlideIndex}
-                      onSlideClick={handleSlideClick}
-                    />
-                  </div>
-                </div>
+              <CardContent className="p-4">
+                {/* Replace the separate components with the integrated LessonMatrix */}
+                <LessonMatrix
+                  slides={lesson.slides}
+                  studentProgress={studentProgressData}
+                  currentSlideIndex={currentSlideIndex}
+                  joinCode={joinCode}
+                  activeStudents={activeStudents}
+                  anonymousMode={anonymousMode}
+                  syncEnabled={syncEnabled}
+                  studentPacingEnabled={studentPacingEnabled}
+                  isPaused={isPaused}
+                  sortBy={sortBy}
+                  isLoading={participantsLoading || answersLoading}
+                  onToggleAnonymous={toggleAnonymousMode}
+                  onToggleSync={toggleSyncMode}
+                  onTogglePacing={toggleStudentPacing}
+                  onTogglePause={togglePause}
+                  onSortChange={setSortBy}
+                  onSlideClick={handleSlideClick}
+                />
               </CardContent>
             </Card>
             
+            {/* Keep the student response list view for detailed answers */}
             <Card className="w-full border shadow-sm">
               <CardContent className="p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-semibold">Student Progress</h2>
-                    <Badge variant="outline" className="text-xs">
-                      {activeStudents} {activeStudents === 1 ? 'student' : 'students'} online
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button 
-                      variant={viewMode === 'grid' ? "default" : "outline"} 
-                      size="icon"
-                      onClick={() => setViewMode('grid')}
-                      className="h-7 w-7"
-                    >
-                      <LayoutGrid className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button 
-                      variant={viewMode === 'list' ? "default" : "outline"} 
-                      size="icon"
-                      onClick={() => setViewMode('list')}
-                      className="h-7 w-7"
-                    >
-                      <LayoutList className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {viewMode === 'grid' ? (
-                  <div className="max-h-[500px]">
-                    <StudentProgressGrid 
+                <h3 className="text-sm font-medium mb-3">Current Slide Responses</h3>
+                <div className="max-h-[300px] overflow-auto">
+                  {participantsLoading || answersLoading ? (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      Loading responses...
+                    </div>
+                  ) : (
+                    <StudentResponseList
                       studentProgress={studentProgressData}
-                      slides={lesson.slides}
+                      currentSlideId={currentSlide.id}
                       anonymousMode={anonymousMode}
-                      sortBy={sortBy}
-                      isLoading={participantsLoading || answersLoading}
                     />
-                  </div>
-                ) : (
-                  <div className="max-h-[500px] overflow-auto space-y-3">
-                    {participantsLoading || answersLoading ? (
-                      <div className="text-center py-4 text-sm text-muted-foreground">
-                        Loading student data...
-                      </div>
-                    ) : studentProgressData.length === 0 ? (
-                      <div className="text-center py-4 text-sm text-muted-foreground">
-                        No students have joined this session yet
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="text-xs font-medium ml-1">Current Student Responses:</div>
-                        <StudentResponseList
-                          studentProgress={studentProgressData}
-                          currentSlideId={currentSlide.id}
-                          anonymousMode={anonymousMode}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
         
         <TabsContent value="student">
+          {/* Keep the student view unchanged */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
               <CardContent className="p-4">
