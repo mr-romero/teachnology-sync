@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,7 @@ const LessonPresentation: React.FC = () => {
   const [joinCode, setJoinCode] = useState<string>('');
   const [studentProgress, setStudentProgress] = useState<StudentProgress[]>([]);
   const [anonymousMode, setAnonymousMode] = useState(false);
+  const [hasExistingSession, setHasExistingSession] = useState(false);
   
   const { 
     data: sessionData,
@@ -81,7 +83,8 @@ const LessonPresentation: React.FC = () => {
   
   const {
     data: participants,
-    loading: participantsLoading
+    loading: participantsLoading,
+    refresh: refreshParticipants
   } = useRealTimeCollection<SessionParticipant>(
     'session_participants',
     'session_id',
@@ -91,13 +94,48 @@ const LessonPresentation: React.FC = () => {
   
   const {
     data: answers,
-    loading: answersLoading
+    loading: answersLoading,
+    refresh: refreshAnswers
   } = useRealTimeCollection<StudentAnswer>(
     'student_answers',
     'session_id',
     sessionId,
     'submitted_at'
   );
+  
+  // Check for existing active session on load
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      if (!lessonId || !user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('presentation_sessions')
+          .select('id, join_code, current_slide')
+          .eq('presentation_id', lessonId)
+          .is('ended_at', null)
+          .order('started_at', { ascending: false })
+          .limit(1);
+          
+        if (error) {
+          console.error('Error checking for existing session:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          setHasExistingSession(true);
+          setSessionId(data[0].id);
+          setJoinCode(data[0].join_code);
+          setCurrentSlideIndex(data[0].current_slide);
+          toast.success(`Reconnected to existing session with code: ${data[0].join_code}`);
+        }
+      } catch (error) {
+        console.error('Error in checkExistingSession:', error);
+      }
+    };
+    
+    checkExistingSession();
+  }, [lessonId, user]);
   
   useEffect(() => {
     const initLesson = async () => {
@@ -116,24 +154,27 @@ const LessonPresentation: React.FC = () => {
         
         setLesson(fetchedLesson);
         
-        const code = await startPresentationSession(lessonId);
-        
-        if (code) {
-          setJoinCode(code);
-          toast.success(`Session started with join code: ${code}`);
+        // Only start a new session if there isn't an existing one
+        if (!hasExistingSession) {
+          const code = await startPresentationSession(lessonId);
           
-          const { data } = await supabase
-            .from('presentation_sessions')
-            .select('id')
-            .eq('join_code', code)
-            .is('ended_at', null)
-            .single();
+          if (code) {
+            setJoinCode(code);
+            toast.success(`Session started with join code: ${code}`);
             
-          if (data) {
-            setSessionId(data.id);
+            const { data } = await supabase
+              .from('presentation_sessions')
+              .select('id')
+              .eq('join_code', code)
+              .is('ended_at', null)
+              .single();
+              
+            if (data) {
+              setSessionId(data.id);
+            }
+          } else {
+            toast.error("Failed to start presentation session");
           }
-        } else {
-          toast.error("Failed to start presentation session");
         }
       } catch (error) {
         console.error('Error initializing lesson presentation:', error);
@@ -145,7 +186,7 @@ const LessonPresentation: React.FC = () => {
     };
     
     initLesson();
-  }, [lessonId, user, navigate]);
+  }, [lessonId, user, navigate, hasExistingSession]);
   
   useEffect(() => {
     if (sessionData && !sessionLoading) {
@@ -153,8 +194,28 @@ const LessonPresentation: React.FC = () => {
     }
   }, [sessionData, sessionLoading]);
   
+  // Poll for participants periodically to ensure we have up-to-date data
+  useEffect(() => {
+    if (!sessionId) return;
+    
+    // Initial refresh
+    refreshParticipants();
+    refreshAnswers();
+    
+    // Set up polling every 5 seconds
+    const pollingInterval = setInterval(() => {
+      refreshParticipants();
+      refreshAnswers();
+    }, 5000);
+    
+    return () => clearInterval(pollingInterval);
+  }, [sessionId, refreshParticipants, refreshAnswers]);
+  
   useEffect(() => {
     if (!participants || !answers || participantsLoading || answersLoading) return;
+    
+    console.log("Processing participants:", participants);
+    console.log("Processing answers:", answers);
     
     const progressData: StudentProgress[] = participants.map(participant => {
       const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);

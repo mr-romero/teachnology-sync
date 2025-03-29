@@ -11,207 +11,285 @@ import { ArrowRight, ArrowLeft, Lock } from 'lucide-react';
 import { 
   joinPresentationSession,
   getLessonById,
-  submitAnswer,
-  updateStudentSlide
+  updateStudentSlide,
+  submitAnswer
 } from '@/services/lessonService';
 import { useRealTimeSync } from '@/hooks/useRealTimeSync';
+import { supabase } from '@/integrations/supabase/client';
 
-interface SessionData {
+interface PresentationSession {
   id: string;
+  join_code: string;
   current_slide: number;
   is_synced: boolean;
-  presentation_id: string;
+  active_students: number;
 }
 
 const StudentView: React.FC = () => {
   const { user } = useAuth();
-  const [joinCode, setJoinCode] = useState('');
-  const [sessionId, setSessionId] = useState('');
-  const [presentationId, setPresentationId] = useState('');
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [slides, setSlides] = useState<LessonSlide[]>([]);
-  const [isJoined, setIsJoined] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [joinCode, setJoinCode] = useState<string>('');
+  const [sessionId, setSessionId] = useState<string>('');
+  const [presentationId, setPresentationId] = useState<string>('');
+  const [lesson, setLesson] = useState<{ title: string; slides: LessonSlide[] } | null>(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
+  const [isJoined, setIsJoined] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [answeredBlocks, setAnsweredBlocks] = useState<string[]>([]);
   
+  // Use real-time updates to sync with the teacher's presentation
   const { 
     data: sessionData,
-    loading: sessionLoading,
-    error: sessionError
-  } = useRealTimeSync<SessionData>(
+    loading: sessionLoading
+  } = useRealTimeSync<PresentationSession>(
     'presentation_sessions',
     'id',
     sessionId,
     null
   );
   
+  // When session data changes, update the current slide if sync is enabled
   useEffect(() => {
-    if (sessionData && sessionData.is_synced) {
-      if (currentSlideIndex !== sessionData.current_slide) {
-        setCurrentSlideIndex(sessionData.current_slide);
-        
-        if (sessionId && user) {
-          updateStudentSlide(sessionId, user.id, sessionData.current_slide)
-            .catch(err => console.error('Error updating student slide:', err));
-        }
+    if (sessionData && sessionData.is_synced && !sessionLoading) {
+      setCurrentSlideIndex(sessionData.current_slide);
+      // Update in database that student is on this slide
+      if (user && sessionId) {
+        updateStudentSlide(sessionId, user.id, sessionData.current_slide);
       }
     }
-  }, [sessionData, currentSlideIndex, sessionId, user]);
+  }, [sessionData, sessionLoading, user, sessionId]);
+  
+  // Check if student has an active session
+  useEffect(() => {
+    const checkActiveSession = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('session_participants')
+          .select(`
+            session_id,
+            current_slide,
+            presentation_sessions(
+              id,
+              join_code,
+              presentation_id,
+              is_synced,
+              ended_at
+            )
+          `)
+          .eq('user_id', user.id)
+          .is('presentation_sessions.ended_at', null)
+          .order('joined_at', { ascending: false })
+          .limit(1);
+          
+        if (error) {
+          console.error('Error checking active sessions:', error);
+          return;
+        }
+        
+        if (data && data.length > 0 && data[0].presentation_sessions) {
+          const sessionInfo = data[0].presentation_sessions;
+          setSessionId(sessionInfo.id);
+          setJoinCode(sessionInfo.join_code);
+          setPresentationId(sessionInfo.presentation_id);
+          setCurrentSlideIndex(data[0].current_slide);
+          
+          // Load the lesson data
+          const lessonData = await getLessonById(sessionInfo.presentation_id);
+          if (lessonData) {
+            setLesson(lessonData);
+            setIsJoined(true);
+            toast.success('Reconnected to active session');
+          }
+        }
+      } catch (error) {
+        console.error('Error in checkActiveSession:', error);
+      }
+    };
+    
+    checkActiveSession();
+  }, [user]);
+  
+  // Get previously answered blocks
+  useEffect(() => {
+    const getAnsweredBlocks = async () => {
+      if (!sessionId || !user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('student_answers')
+          .select('content_id')
+          .eq('session_id', sessionId)
+          .eq('user_id', user.id);
+          
+        if (error) {
+          console.error('Error fetching answered blocks:', error);
+          return;
+        }
+        
+        if (data) {
+          setAnsweredBlocks(data.map(item => item.content_id));
+        }
+      } catch (error) {
+        console.error('Error in getAnsweredBlocks:', error);
+      }
+    };
+    
+    getAnsweredBlocks();
+  }, [sessionId, user]);
   
   const handleJoinSession = async () => {
-    if (!joinCode || !user) return;
+    if (!joinCode.trim() || !user) {
+      toast.error('Please enter a valid join code');
+      return;
+    }
     
     setLoading(true);
+    
     try {
-      const response = await joinPresentationSession(joinCode, user.id);
+      const result = await joinPresentationSession(joinCode.trim(), user.id);
       
-      if (!response) {
-        toast.error("Invalid join code or session not found");
+      if (!result) {
+        toast.error('Failed to join session. Invalid code or session has ended.');
         setLoading(false);
         return;
       }
       
-      setSessionId(response.sessionId);
-      setPresentationId(response.presentationId);
+      setSessionId(result.sessionId);
+      setPresentationId(result.presentationId);
       
-      const lesson = await getLessonById(response.presentationId);
+      // Fetch the lesson data
+      const lessonData = await getLessonById(result.presentationId);
       
-      if (!lesson) {
-        toast.error("Lesson not found. The teacher may have deleted it.");
+      if (!lessonData) {
+        toast.error('Failed to load lesson data');
         setLoading(false);
-        setIsJoined(false);
         return;
       }
       
-      setSlides(lesson.slides);
+      setLesson(lessonData);
       setIsJoined(true);
-      toast.success("Successfully joined session");
+      toast.success('Successfully joined the lesson');
     } catch (error) {
       console.error('Error joining session:', error);
-      toast.error("Failed to join session");
+      toast.error('An error occurred while joining the session');
     } finally {
       setLoading(false);
     }
   };
   
   const handlePreviousSlide = async () => {
-    if (currentSlideIndex > 0 && !sessionData?.is_synced) {
+    if (currentSlideIndex > 0 && lesson) {
       const newIndex = currentSlideIndex - 1;
       setCurrentSlideIndex(newIndex);
       
-      if (sessionId && user) {
+      // Update student's current slide in the database
+      if (user && sessionId) {
         await updateStudentSlide(sessionId, user.id, newIndex);
       }
     }
   };
   
   const handleNextSlide = async () => {
-    if (currentSlideIndex < slides.length - 1 && !sessionData?.is_synced) {
+    if (lesson && currentSlideIndex < lesson.slides.length - 1) {
       const newIndex = currentSlideIndex + 1;
       setCurrentSlideIndex(newIndex);
       
-      if (sessionId && user) {
+      // Update student's current slide in the database
+      if (user && sessionId) {
         await updateStudentSlide(sessionId, user.id, newIndex);
       }
     }
   };
   
-  const handleSubmitResponse = async (blockId: string, response: string | boolean) => {
-    if (!sessionId || !user || !slides[currentSlideIndex]) return;
+  const handleSubmitAnswer = async (blockId: string, answer: string | number | boolean) => {
+    if (!user || !sessionId || !lesson) return;
     
     try {
-      const currentSlide = slides[currentSlideIndex];
-      await submitAnswer(sessionId, currentSlide.id, blockId, user.id, response);
-      toast.success("Response submitted");
+      const currentSlide = lesson.slides[currentSlideIndex];
+      
+      const success = await submitAnswer(
+        sessionId,
+        currentSlide.id,
+        blockId,
+        user.id,
+        answer
+      );
+      
+      if (success) {
+        setAnsweredBlocks(prev => [...prev, blockId]);
+        toast.success('Answer submitted');
+      } else {
+        toast.error('Failed to submit answer');
+      }
     } catch (error) {
-      console.error('Error submitting response:', error);
-      toast.error("Failed to submit response");
+      console.error('Error submitting answer:', error);
+      toast.error('An error occurred while submitting your answer');
     }
   };
   
-  if (!isJoined) {
-    return (
-      <div className="container max-w-md mx-auto py-12">
-        <Card>
-          <CardContent className="pt-6">
-            <h1 className="text-2xl font-bold mb-6 text-center">Join a Session</h1>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="join-code" className="text-sm font-medium">
-                  Enter the code provided by your teacher
-                </label>
-                <Input
-                  id="join-code"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="Enter join code"
-                  maxLength={6}
-                  className="text-center text-lg"
-                />
-              </div>
-              <Button 
-                className="w-full"
-                onClick={handleJoinSession}
-                disabled={loading || !joinCode}
-              >
-                {loading ? "Joining..." : "Join Session"}
-              </Button>
+  const renderJoinForm = () => (
+    <div className="flex flex-col items-center justify-center min-h-[70vh]">
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6">
+          <h1 className="text-2xl font-bold text-center mb-6">Join a Lesson</h1>
+          <div className="space-y-4">
+            <div>
+              <label htmlFor="join-code" className="block text-sm font-medium mb-1">
+                Enter Join Code
+              </label>
+              <Input
+                id="join-code"
+                placeholder="Enter 6-character code"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                className="text-center text-lg uppercase"
+                maxLength={6}
+              />
             </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+            <Button 
+              onClick={handleJoinSession} 
+              className="w-full"
+              disabled={loading}
+            >
+              {loading ? 'Joining...' : 'Join Lesson'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
   
-  if (sessionLoading || loading || slides.length === 0) {
+  const renderLessonView = () => {
+    if (!lesson) return null;
+    
+    const currentSlide = lesson.slides[currentSlideIndex];
+    const isSynced = sessionData?.is_synced ?? false;
+    
     return (
-      <div className="container py-12 flex justify-center">
-        <p>Loading lesson...</p>
-      </div>
-    );
-  }
-  
-  if (sessionError) {
-    return (
-      <div className="container py-12 flex justify-center">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">Error loading session</p>
-          <Button onClick={() => setIsJoined(false)}>Return to Join Screen</Button>
-        </div>
-      </div>
-    );
-  }
-  
-  const currentSlide = slides[currentSlideIndex];
-  const isSynced = sessionData?.is_synced ?? false;
-  
-  if (!currentSlide) {
-    return (
-      <div className="container py-12 flex justify-center">
-        <div className="text-center">
-          <p className="text-amber-500 mb-4">Slide not found. The presentation may have been modified.</p>
-          <Button onClick={() => setIsJoined(false)}>Return to Join Screen</Button>
-        </div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="container py-8">
-      <div className="max-w-3xl mx-auto">
+      <div className="container max-w-4xl mx-auto py-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
-              <div className="text-sm text-muted-foreground">
-                Slide {currentSlideIndex + 1} of {slides.length}
+              <h1 className="text-xl font-semibold">{lesson.title}</h1>
+              <div className="flex items-center space-x-2">
+                {isSynced && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <Lock className="h-4 w-4 mr-1" />
+                    <span>Teacher controlled</span>
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground">
+                  Slide {currentSlideIndex + 1} of {lesson.slides.length}
+                </div>
               </div>
             </div>
             
             <LessonSlideView 
               slide={currentSlide} 
-              isStudentView={true}
-              studentId={user?.id}
-              onResponseSubmit={handleSubmitResponse}
+              isStudentView={true} 
+              onAnswerSubmit={handleSubmitAnswer}
+              answeredBlocks={answeredBlocks}
             />
             
             <div className="flex justify-between mt-6">
@@ -225,23 +303,22 @@ const StudentView: React.FC = () => {
               </Button>
               <Button 
                 onClick={handleNextSlide} 
-                disabled={currentSlideIndex === slides.length - 1 || isSynced}
+                disabled={currentSlideIndex === lesson.slides.length - 1 || isSynced}
                 className="flex items-center"
               >
                 Next
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
-            
-            {isSynced && (
-              <div className="text-center mt-4 py-1 bg-green-100 dark:bg-green-900/30 rounded-md text-sm">
-                <Lock className="h-4 w-4 inline-block mr-1" />
-                The teacher is controlling navigation
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
+    );
+  };
+  
+  return (
+    <div className="container mx-auto px-4 py-8">
+      {!isJoined ? renderJoinForm() : renderLessonView()}
     </div>
   );
 };

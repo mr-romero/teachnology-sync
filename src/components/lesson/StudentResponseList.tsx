@@ -20,13 +20,18 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
   useEffect(() => {
     // Count active students (those who are in the student progress array)
     setActiveStudentCount(studentProgress.length);
-  }, [studentProgress]);
+    
+    // Log for debugging
+    console.log("Student progress updated:", studentProgress);
+    console.log("Current slide ID:", currentSlideId);
+  }, [studentProgress, currentSlideId]);
   
   // If there are no students yet, show a message
   if (studentProgress.length === 0) {
     return (
       <div className="text-center py-6 text-muted-foreground">
         <p>No students have joined yet</p>
+        <p className="text-xs mt-2">Students will appear here when they join using the join code</p>
       </div>
     );
   }
@@ -35,6 +40,8 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
   const currentSlideResponses = studentProgress.flatMap(student => 
     student.responses.filter(response => response.slideId === currentSlideId)
   );
+  
+  console.log("Filtered responses for current slide:", currentSlideResponses);
   
   // Show active students even if they haven't responded yet
   if (currentSlideResponses.length === 0) {
@@ -81,7 +88,7 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
       
       {Object.entries(responsesByBlock).map(([blockId, responses]) => (
         <div key={blockId} className="border rounded-md p-3">
-          <h4 className="text-sm font-medium mb-2">Question {blockId.split('-')[1]}</h4>
+          <h4 className="text-sm font-medium mb-2">Question {blockId.split('-')[1] || blockId}</h4>
           <div className="space-y-2">
             {responses.map((response, index) => (
               <div 

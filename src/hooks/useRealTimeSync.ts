@@ -124,7 +124,7 @@ export function useRealTimeCollection<T>(
         
         if (fetchError) throw fetchError;
         
-        setData(result as unknown as T[]);
+        setData(result as T[]);
       } catch (err) {
         console.error(`Error fetching ${table} collection:`, err);
         setError(err as Error);
