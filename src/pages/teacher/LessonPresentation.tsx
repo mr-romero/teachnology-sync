@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -72,7 +71,7 @@ const LessonPresentation: React.FC = () => {
   const [studentView, setStudentView] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [joinCode, setJoinCode] = useState<string>('');
-  const [studentProgress, setStudentProgress] = useState<StudentProgress[]>([]);
+  const [studentProgressData, setStudentProgressData] = useState<StudentProgress[]>([]);
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [hasExistingSession, setHasExistingSession] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('slides');
@@ -109,7 +108,6 @@ const LessonPresentation: React.FC = () => {
     'submitted_at'
   );
   
-  // Check for existing active session on load
   useEffect(() => {
     const checkExistingSession = async () => {
       if (!lessonId || !user) return;
@@ -160,7 +158,6 @@ const LessonPresentation: React.FC = () => {
         
         setLesson(fetchedLesson);
         
-        // Only start a new session if there isn't an existing one
         if (!hasExistingSession) {
           const code = await startPresentationSession(lessonId);
           
@@ -200,15 +197,12 @@ const LessonPresentation: React.FC = () => {
     }
   }, [sessionData, sessionLoading]);
   
-  // Poll for participants periodically to ensure we have up-to-date data
   useEffect(() => {
     if (!sessionId) return;
     
-    // Initial refresh
     refreshParticipants();
     refreshAnswers();
     
-    // Set up polling every 5 seconds
     const pollingInterval = setInterval(() => {
       refreshParticipants();
       refreshAnswers();
@@ -245,7 +239,7 @@ const LessonPresentation: React.FC = () => {
       };
     });
     
-    setStudentProgress(progressData);
+    setStudentProgressData(progressData);
   }, [participants, answers, participantsLoading, answersLoading, lessonId]);
   
   const handlePreviousSlide = async () => {
@@ -435,7 +429,7 @@ const LessonPresentation: React.FC = () => {
                       <ScrollArea className="h-[400px]">
                         <div className="space-y-4">
                           {participants.map((participant) => {
-                            const studentProgress = studentProgress.find(
+                            const studentProgress = studentProgressData.find(
                               p => p.studentId === participant.user_id
                             );
                             const answeredCount = studentProgress?.completedBlocks.length || 0;
@@ -566,7 +560,7 @@ const LessonPresentation: React.FC = () => {
                 <CardContent className="p-4">
                   <h3 className="font-medium mb-3">Student Responses</h3>
                   <StudentResponseList 
-                    studentProgress={studentProgress}
+                    studentProgress={studentProgressData}
                     currentSlideId={currentSlide.id}
                     anonymousMode={anonymousMode}
                   />
