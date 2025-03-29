@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -37,7 +36,6 @@ interface PresentationSession {
   active_students: number;
 }
 
-// Define the participant and answer types based on database structure
 interface SessionParticipant {
   id: string;
   user_id: string;
@@ -71,7 +69,6 @@ const LessonPresentation: React.FC = () => {
   const [studentProgress, setStudentProgress] = useState<StudentProgress[]>([]);
   const [anonymousMode, setAnonymousMode] = useState(false);
   
-  // Get current session data with real-time updates
   const { 
     data: sessionData,
     loading: sessionLoading 
@@ -82,7 +79,6 @@ const LessonPresentation: React.FC = () => {
     null
   );
   
-  // Get session participants with real-time updates
   const {
     data: participants,
     loading: participantsLoading
@@ -93,7 +89,6 @@ const LessonPresentation: React.FC = () => {
     'joined_at'
   );
   
-  // Get student answers with real-time updates
   const {
     data: answers,
     loading: answersLoading
@@ -104,7 +99,6 @@ const LessonPresentation: React.FC = () => {
     'submitted_at'
   );
   
-  // Initialize lesson and session
   useEffect(() => {
     const initLesson = async () => {
       if (!lessonId || !user) return;
@@ -112,7 +106,6 @@ const LessonPresentation: React.FC = () => {
       try {
         setLoading(true);
         
-        // Fetch lesson data
         const fetchedLesson = await getLessonById(lessonId);
         
         if (!fetchedLesson) {
@@ -123,14 +116,12 @@ const LessonPresentation: React.FC = () => {
         
         setLesson(fetchedLesson);
         
-        // Create or get an active session
         const code = await startPresentationSession(lessonId);
         
         if (code) {
           setJoinCode(code);
           toast.success(`Session started with join code: ${code}`);
           
-          // Get session ID
           const { data } = await supabase
             .from('presentation_sessions')
             .select('id')
@@ -156,14 +147,12 @@ const LessonPresentation: React.FC = () => {
     initLesson();
   }, [lessonId, user, navigate]);
   
-  // Update slide index when session data changes
   useEffect(() => {
     if (sessionData && !sessionLoading) {
       setCurrentSlideIndex(sessionData.current_slide);
     }
   }, [sessionData, sessionLoading]);
   
-  // Process participant and answer data
   useEffect(() => {
     if (!participants || !answers || participantsLoading || answersLoading) return;
     
@@ -223,15 +212,25 @@ const LessonPresentation: React.FC = () => {
     
     const newSyncState = !sessionData.is_synced;
     
-    const { error } = await supabase
-      .from('presentation_sessions')
-      .update({ is_synced: newSyncState })
-      .eq('id', sessionId);
-    
-    if (error) {
-      toast.error("Failed to update sync mode");
-    } else {
-      toast.success(newSyncState ? "All students synced to your view" : "Students can now navigate freely");
+    try {
+      const { error } = await supabase
+        .from('presentation_sessions')
+        .update({ is_synced: newSyncState })
+        .eq('id', sessionId);
+      
+      if (error) {
+        console.error("Error updating sync mode:", error);
+        toast.error("Failed to update sync mode");
+        return;
+      }
+      
+      toast.success(newSyncState 
+        ? "All students synced to your view" 
+        : "Students can now navigate freely"
+      );
+    } catch (err) {
+      console.error("Exception in toggleSyncMode:", err);
+      toast.error("An error occurred while updating sync mode");
     }
   };
   
@@ -280,7 +279,7 @@ const LessonPresentation: React.FC = () => {
   
   const currentSlide = lesson.slides[currentSlideIndex];
   const syncEnabled = sessionData?.is_synced ?? true;
-  const activeStudents = sessionData?.active_students ?? 0;
+  const activeStudents = participants?.length ?? 0;
 
   return (
     <div className="container py-4">
@@ -379,8 +378,19 @@ const LessonPresentation: React.FC = () => {
                         variant={syncEnabled ? "default" : "outline"} 
                         size="sm" 
                         onClick={toggleSyncMode}
+                        className={syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}
                       >
-                        {syncEnabled ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
+                        {syncEnabled ? (
+                          <>
+                            <Lock className="mr-2 h-4 w-4" />
+                            Synced
+                          </>
+                        ) : (
+                          <>
+                            <Unlock className="mr-2 h-4 w-4" />
+                            Free
+                          </>
+                        )}
                       </Button>
                     </div>
                     <div className="flex items-center justify-between">

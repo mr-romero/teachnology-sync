@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,7 +32,6 @@ const StudentView: React.FC = () => {
   const [isJoined, setIsJoined] = useState(false);
   const [loading, setLoading] = useState(false);
   
-  // Get session data with real-time updates
   const { 
     data: sessionData,
     loading: sessionLoading,
@@ -45,13 +43,11 @@ const StudentView: React.FC = () => {
     null
   );
   
-  // If synced, update slide when session updates
   useEffect(() => {
     if (sessionData && sessionData.is_synced) {
       if (currentSlideIndex !== sessionData.current_slide) {
         setCurrentSlideIndex(sessionData.current_slide);
         
-        // Update the student's slide in the database
         if (sessionId && user) {
           updateStudentSlide(sessionId, user.id, sessionData.current_slide)
             .catch(err => console.error('Error updating student slide:', err));
@@ -60,7 +56,6 @@ const StudentView: React.FC = () => {
     }
   }, [sessionData, currentSlideIndex, sessionId, user]);
   
-  // Handle join session
   const handleJoinSession = async () => {
     if (!joinCode || !user) return;
     
@@ -77,7 +72,6 @@ const StudentView: React.FC = () => {
       setSessionId(response.sessionId);
       setPresentationId(response.presentationId);
       
-      // Fetch lesson data
       const lesson = await getLessonById(response.presentationId);
       
       if (!lesson) {
@@ -98,13 +92,11 @@ const StudentView: React.FC = () => {
     }
   };
   
-  // Handle navigation
   const handlePreviousSlide = async () => {
     if (currentSlideIndex > 0 && !sessionData?.is_synced) {
       const newIndex = currentSlideIndex - 1;
       setCurrentSlideIndex(newIndex);
       
-      // Update the student's slide in the database
       if (sessionId && user) {
         await updateStudentSlide(sessionId, user.id, newIndex);
       }
@@ -116,14 +108,12 @@ const StudentView: React.FC = () => {
       const newIndex = currentSlideIndex + 1;
       setCurrentSlideIndex(newIndex);
       
-      // Update the student's slide in the database
       if (sessionId && user) {
         await updateStudentSlide(sessionId, user.id, newIndex);
       }
     }
   };
   
-  // Handle answer submission
   const handleSubmitResponse = async (blockId: string, response: string | boolean) => {
     if (!sessionId || !user || !slides[currentSlideIndex]) return;
     
@@ -171,7 +161,6 @@ const StudentView: React.FC = () => {
     );
   }
   
-  // Show loading state
   if (sessionLoading || loading || slides.length === 0) {
     return (
       <div className="container py-12 flex justify-center">
@@ -180,7 +169,6 @@ const StudentView: React.FC = () => {
     );
   }
   
-  // Show error state
   if (sessionError) {
     return (
       <div className="container py-12 flex justify-center">
@@ -193,7 +181,7 @@ const StudentView: React.FC = () => {
   }
   
   const currentSlide = slides[currentSlideIndex];
-  const isSynced = sessionData?.is_synced || false;
+  const isSynced = sessionData?.is_synced ?? false;
   
   if (!currentSlide) {
     return (
@@ -245,8 +233,9 @@ const StudentView: React.FC = () => {
             </div>
             
             {isSynced && (
-              <div className="text-center mt-4 text-sm text-muted-foreground">
-                Navigation controlled by teacher
+              <div className="text-center mt-4 py-1 bg-green-100 dark:bg-green-900/30 rounded-md text-sm">
+                <Lock className="h-4 w-4 inline-block mr-1" />
+                The teacher is controlling navigation
               </div>
             )}
           </CardContent>
