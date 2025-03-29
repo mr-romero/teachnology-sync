@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { Pause } from 'lucide-react';
 
 interface LessonSlideViewProps {
   slide: LessonSlide;
@@ -13,6 +14,7 @@ interface LessonSlideViewProps {
   onResponseSubmit?: (blockId: string, response: string | boolean) => void;
   onAnswerSubmit?: (blockId: string, answer: string | number | boolean) => void;
   answeredBlocks?: string[];
+  isPaused?: boolean; // Add isPaused prop
 }
 
 const LessonSlideView: React.FC<LessonSlideViewProps> = ({ 
@@ -21,7 +23,8 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   studentId,
   onResponseSubmit,
   onAnswerSubmit,
-  answeredBlocks = []
+  answeredBlocks = [],
+  isPaused = false // Default to not paused
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   
@@ -75,10 +78,11 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   
   const renderQuestionBlock = (block: QuestionBlock) => {
     const studentCanRespond = isStudentView && studentId;
+    const isAnswered = answeredBlocks.includes(block.id);
     
     if (block.questionType === 'multiple-choice') {
       return (
-        <div className="my-4 p-4 bg-primary/5 rounded-md">
+        <div className="my-4 p-4 bg-primary/5 rounded-md relative">
           <p className="font-medium mb-3">{block.question}</p>
           
           {studentCanRespond ? (
@@ -86,11 +90,20 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               <RadioGroup 
                 value={responses[block.id] as string} 
                 onValueChange={(value) => handleResponseChange(block.id, value)}
+                disabled={isPaused || isAnswered}
               >
                 {block.options?.map((option, index) => (
                   <div key={index} className="flex items-center space-x-2">
-                    <RadioGroupItem value={option} id={`${block.id}-option-${index}`} />
-                    <Label htmlFor={`${block.id}-option-${index}`}>{option}</Label>
+                    <RadioGroupItem 
+                      value={option} 
+                      id={`${block.id}-option-${index}`}
+                      disabled={isPaused || isAnswered}
+                    />
+                    <Label 
+                      htmlFor={`${block.id}-option-${index}`}
+                    >
+                      {option}
+                    </Label>
                   </div>
                 ))}
               </RadioGroup>
@@ -99,9 +112,9 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
                 className="mt-3" 
                 size="sm" 
                 onClick={() => handleSubmitResponse(block.id)}
-                disabled={!responses[block.id]}
+                disabled={!responses[block.id] || isPaused || isAnswered}
               >
-                Submit
+                {isAnswered ? "Submitted" : "Submit"}
               </Button>
             </div>
           ) : (
@@ -123,7 +136,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     
     if (block.questionType === 'true-false') {
       return (
-        <div className="my-4 p-4 bg-primary/5 rounded-md">
+        <div className="my-4 p-4 bg-primary/5 rounded-md relative">
           <p className="font-medium mb-3">{block.question}</p>
           
           {studentCanRespond ? (
@@ -131,14 +144,31 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               <RadioGroup 
                 value={responses[block.id] === true ? "true" : responses[block.id] === false ? "false" : ""} 
                 onValueChange={(value) => handleResponseChange(block.id, value === "true")}
+                disabled={isPaused || isAnswered}
               >
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="true" id={`${block.id}-true`} />
-                  <Label htmlFor={`${block.id}-true`}>True</Label>
+                  <RadioGroupItem 
+                    value="true" 
+                    id={`${block.id}-true`}
+                    disabled={isPaused || isAnswered}
+                  />
+                  <Label 
+                    htmlFor={`${block.id}-true`}
+                  >
+                    True
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="false" id={`${block.id}-false`} />
-                  <Label htmlFor={`${block.id}-false`}>False</Label>
+                  <RadioGroupItem 
+                    value="false" 
+                    id={`${block.id}-false`}
+                    disabled={isPaused || isAnswered}
+                  />
+                  <Label 
+                    htmlFor={`${block.id}-false`}
+                  >
+                    False
+                  </Label>
                 </div>
               </RadioGroup>
               
@@ -146,9 +176,9 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
                 className="mt-3" 
                 size="sm" 
                 onClick={() => handleSubmitResponse(block.id)}
-                disabled={!(block.id in responses)}
+                disabled={!(block.id in responses) || isPaused || isAnswered}
               >
-                Submit
+                {isAnswered ? "Submitted" : "Submit"}
               </Button>
             </div>
           ) : (
@@ -177,7 +207,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     
     if (block.questionType === 'free-response') {
       return (
-        <div className="my-4 p-4 bg-primary/5 rounded-md">
+        <div className="my-4 p-4 bg-primary/5 rounded-md relative">
           <p className="font-medium mb-3">{block.question}</p>
           
           {studentCanRespond ? (
@@ -186,13 +216,14 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
                 placeholder="Enter your answer here..."
                 value={responses[block.id] as string || ''}
                 onChange={(e) => handleResponseChange(block.id, e.target.value)}
+                disabled={isPaused || isAnswered}
               />
               <Button 
                 size="sm" 
                 onClick={() => handleSubmitResponse(block.id)}
-                disabled={!responses[block.id]}
+                disabled={!responses[block.id] || isPaused || isAnswered}
               >
-                Submit
+                {isAnswered ? "Submitted" : "Submit"}
               </Button>
             </div>
           ) : (
@@ -214,7 +245,18 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Semi-transparent overlay when paused - only show for student view */}
+      {isStudentView && isPaused && (
+        <div className="absolute inset-0 bg-amber-50/70 backdrop-blur-[0px] z-10 flex items-center justify-center rounded-lg">
+          <div className="bg-white/90 p-4 rounded-md shadow-md text-center border border-amber-200">
+            <Pause className="h-8 w-8 mx-auto text-amber-500 mb-2" />
+            <h3 className="text-lg font-semibold text-amber-700">Session Paused</h3>
+            <p className="text-amber-600">The teacher has paused this session</p>
+          </div>
+        </div>
+      )}
+
       {slide.blocks.map((block) => (
         <div key={block.id} className="mb-4">
           {renderBlock(block)}

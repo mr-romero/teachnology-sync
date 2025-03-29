@@ -233,6 +233,7 @@ export const startPresentationSession = async (lessonId: string): Promise<string
         join_code: joinCode,
         started_at: new Date().toISOString(),
         is_synced: true,
+        is_paused: false,
         current_slide: 0
       })
       .select('id, join_code')
@@ -320,13 +321,60 @@ export const updateSessionSlide = async (sessionId: string, slideIndex: number):
 
 // Update student's current slide
 export const updateStudentSlide = async (sessionId: string, userId: string, slideIndex: number): Promise<boolean> => {
-  const { error } = await supabase
-    .from('session_participants')
-    .update({ current_slide: slideIndex, last_active_at: new Date().toISOString() })
-    .eq('session_id', sessionId)
-    .eq('user_id', userId);
+  try {
+    // First, check if the student's navigation should be restricted
+    try {
+      // Get session data - only request fields we know exist
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('presentation_sessions')
+        .select('is_synced')
+        .eq('id', sessionId)
+        .single();
+        
+      if (sessionError) {
+        console.error('Error fetching session sync status:', sessionError);
+        // Continue anyway to support older database versions
+      } else if (sessionData && sessionData.is_synced) {
+        // If in sync mode, students shouldn't update their position at all
+        console.log('Student attempted to navigate while in sync mode');
+        return false;
+      }
+      
+      // Check if paced slides are configured
+      // This is a separate query to handle if the column doesn't exist
+      try {
+        const { data, error } = await supabase.rpc('check_paced_slides', { 
+          session_id: sessionId,
+          slide_idx: slideIndex
+        });
+        
+        // If the RPC function exists and returns false, slide is not allowed
+        if (!error && data === false) {
+          console.warn(`Student attempted to navigate to non-allowed slide: ${slideIndex}`);
+          return false;
+        }
+      } catch (rpcError) {
+        // RPC function might not exist, just continue
+        console.log('Paced slides check not available:', rpcError);
+      }
+    } catch (checkError) {
+      // If any error happens during restriction checks, log it but still
+      // allow the update to proceed (fail open for backwards compatibility)
+      console.warn('Error checking navigation restrictions:', checkError);
+    }
     
-  return !error;
+    // Update the student's current slide
+    const { error } = await supabase
+      .from('session_participants')
+      .update({ current_slide: slideIndex, last_active_at: new Date().toISOString() })
+      .eq('session_id', sessionId)
+      .eq('user_id', userId);
+      
+    return !error;
+  } catch (error) {
+    console.error('Error in updateStudentSlide:', error);
+    return false;
+  }
 };
 
 // Submit an answer to a question

@@ -10,7 +10,8 @@ import {
   Eye,
   UserCircle,
   LayoutGrid,
-  LayoutList
+  LayoutList,
+  Pause
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson, LessonSlide, StudentProgress } from '@/types/lesson';
@@ -36,6 +37,8 @@ interface PresentationSession {
   current_slide: number;
   is_synced: boolean;
   active_students: number;
+  is_paused: boolean;
+  paced_slides?: number[]; // Add paced_slides array
 }
 
 interface SessionParticipant {
@@ -75,6 +78,11 @@ const LessonPresentation: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<string>('lastName');
   const [activeTab, setActiveTab] = useState('progress');
+  
+  // Add new state for slide selection
+  const [isSelectingSlides, setIsSelectingSlides] = useState(false);
+  const [selectedSlides, setSelectedSlides] = useState<number[]>([]);
+  const [pacedSlides, setPacedSlides] = useState<number[]>([]);
   
   const { 
     data: sessionData,
@@ -319,7 +327,22 @@ const LessonPresentation: React.FC = () => {
 
   const handlePreviousSlide = async () => {
     if (currentSlideIndex > 0 && sessionId) {
-      const newIndex = currentSlideIndex - 1;
+      let newIndex = currentSlideIndex - 1;
+
+      // If pacing is enabled, find the previous allowed slide
+      if (studentPacingEnabled && pacedSlides.length > 0) {
+        // Find the index of the current slide in the pacedSlides array
+        const currentPacedIndex = pacedSlides.findIndex(index => index === currentSlideIndex);
+        
+        if (currentPacedIndex > 0) {
+          // Get the previous slide in the pacedSlides array
+          newIndex = pacedSlides[currentPacedIndex - 1];
+        } else {
+          // Already at the first paced slide, don't navigate
+          return;
+        }
+      }
+      
       const success = await updateSessionSlide(sessionId, newIndex);
       
       if (success) {
@@ -332,7 +355,22 @@ const LessonPresentation: React.FC = () => {
   
   const handleNextSlide = async () => {
     if (lesson && currentSlideIndex < lesson.slides.length - 1 && sessionId) {
-      const newIndex = currentSlideIndex + 1;
+      let newIndex = currentSlideIndex + 1;
+
+      // If pacing is enabled, find the next allowed slide
+      if (studentPacingEnabled && pacedSlides.length > 0) {
+        // Find the index of the current slide in the pacedSlides array
+        const currentPacedIndex = pacedSlides.findIndex(index => index === currentSlideIndex);
+        
+        if (currentPacedIndex !== -1 && currentPacedIndex < pacedSlides.length - 1) {
+          // Get the next slide in the pacedSlides array
+          newIndex = pacedSlides[currentPacedIndex + 1];
+        } else {
+          // Already at the last paced slide or not in paced slides, don't navigate
+          return;
+        }
+      }
+      
       const success = await updateSessionSlide(sessionId, newIndex);
       
       if (success) {
@@ -344,6 +382,21 @@ const LessonPresentation: React.FC = () => {
   };
   
   const handleSlideClick = async (index: number) => {
+    // Only select slides if in selection mode, otherwise navigate
+    if (isSelectingSlides) {
+      handleSlideSelection(index);
+      return;
+    }
+    
+    // Check if we can navigate to this slide (if pacing is enabled)
+    if (studentPacingEnabled && pacedSlides.length > 0) {
+      // Only allow navigation to paced slides
+      if (!pacedSlides.includes(index)) {
+        toast.info("This slide is not available for student access");
+        return;
+      }
+    }
+    
     if (lesson && sessionId && index >= 0 && index < lesson.slides.length) {
       const success = await updateSessionSlide(sessionId, index);
       
@@ -354,9 +407,26 @@ const LessonPresentation: React.FC = () => {
       }
     }
   };
-  
+
   const toggleSyncMode = async () => {
     if (!sessionId || !sessionData) return;
+    
+    // If student pacing is enabled, we need to disable it first
+    if (studentPacingEnabled) {
+      toast.info("Disabling student pacing to enable teacher sync");
+      setStudentPacingEnabled(false);
+      setPacedSlides([]);
+      
+      // Update database to clear paced slides
+      try {
+        await supabase
+          .from('presentation_sessions')
+          .update({ paced_slides: [] })
+          .eq('id', sessionId);
+      } catch (error) {
+        console.error("Error clearing paced slides:", error);
+      }
+    }
     
     const newSyncState = !sessionData.is_synced;
     
@@ -403,17 +473,194 @@ const LessonPresentation: React.FC = () => {
   };
   
   const toggleStudentPacing = () => {
-    setStudentPacingEnabled(!studentPacingEnabled);
-    toast.success(studentPacingEnabled 
-      ? "Students limited to one slide at a time" 
-      : "Students can view multiple slides"
-    );
+    // Instead of toggling, always go into slide selection mode when clicked
+    
+    // If sync is enabled, disable it first
+    if (sessionData?.is_synced) {
+      toggleSyncMode();
+    }
+    
+    // Enter slide selection mode - use existing selectedSlides if they exist
+    setIsSelectingSlides(true);
+    
+    // If pacing is already enabled, start with current paced slides
+    if (studentPacingEnabled && pacedSlides.length > 0) {
+      setSelectedSlides([...pacedSlides]);
+    } else {
+      // Otherwise start with current slide selected
+      setSelectedSlides([currentSlideIndex]);
+    }
+    
+    toast.success("Select slides for student pacing");
   };
   
-  const togglePause = () => {
-    setIsPaused(!isPaused);
-    toast.success(isPaused ? "Session resumed" : "Session paused");
+  // Function to handle slide selection during pacing mode
+  const handleSlideSelection = (index: number) => {
+    if (!isSelectingSlides) return;
+    
+    setSelectedSlides(prev => {
+      // If slide is already selected, remove it
+      if (prev.includes(index)) {
+        return prev.filter(slideIndex => slideIndex !== index);
+      } else {
+        // Otherwise add it
+        return [...prev, index];
+      }
+    });
   };
+  
+  // Function to confirm slide selection
+  const confirmSlideSelection = async () => {
+    if (selectedSlides.length === 0) {
+      toast.error("Please select at least one slide");
+      return;
+    }
+    
+    // Sort slides by index for better navigation
+    const sortedSlides = [...selectedSlides].sort((a, b) => a - b);
+    
+    // Update database with selected slides
+    try {
+      const { error } = await supabase
+        .from('presentation_sessions')
+        .update({ paced_slides: sortedSlides })
+        .eq('id', sessionId);
+      
+      if (error) {
+        console.error("Error updating paced slides:", error);
+        toast.error("Failed to update paced slides");
+        return;
+      }
+      
+      // Update local state
+      setPacedSlides(sortedSlides);
+      setStudentPacingEnabled(true);
+      setIsSelectingSlides(false);
+      
+      // If current slide is not in the paced slides, navigate to the first paced slide
+      if (!sortedSlides.includes(currentSlideIndex) && sortedSlides.length > 0) {
+        handleSlideClick(sortedSlides[0]);
+      }
+      
+      toast.success(`Students can now only access ${sortedSlides.length} selected slides`);
+    } catch (err) {
+      console.error("Exception saving paced slides:", err);
+      toast.error("An error occurred while updating paced slides");
+    }
+  };
+  
+  // Function to cancel slide selection
+  const cancelSlideSelection = () => {
+    setIsSelectingSlides(false);
+    
+    // Also disable pacing when canceling selection
+    setStudentPacingEnabled(false);
+    setPacedSlides([]);
+    
+    // Clear paced slides in database
+    if (sessionId) {
+      try {
+        supabase
+          .from('presentation_sessions')
+          .update({ paced_slides: [] })
+          .eq('id', sessionId)
+          .then(() => {
+            console.log("Paced slides cleared after cancellation");
+          })
+          .catch(err => {
+            console.error("Error clearing paced slides:", err);
+          });
+      } catch (err) {
+        console.error("Exception clearing paced slides:", err);
+      }
+    }
+    
+    toast.info("Slide selection cancelled and pacing disabled");
+  };
+  
+  // Add keyboard handler for escape key to exit selection mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isSelectingSlides) {
+        cancelSlideSelection();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSelectingSlides]);
+  
+  // Function to disable student pacing entirely
+  const disableStudentPacing = async () => {
+    setIsSelectingSlides(false);
+    setStudentPacingEnabled(false);
+    setSelectedSlides([]);
+    setPacedSlides([]);
+    
+    // Clear paced slides in database
+    if (sessionId) {
+      try {
+        const { error } = await supabase
+          .from('presentation_sessions')
+          .update({ paced_slides: [] })
+          .eq('id', sessionId);
+        
+        if (error) {
+          console.error("Error clearing paced slides:", error);
+          toast.error("Failed to clear paced slides");
+          return;
+        }
+      } catch (err) {
+        console.error("Exception clearing paced slides:", err);
+        toast.error("An error occurred while clearing paced slides");
+      }
+    }
+    
+    toast.success("Student slide pacing disabled");
+  };
+
+  const togglePause = async () => {
+    if (!sessionId) return;
+    
+    const newPauseState = !isPaused;
+    
+    try {
+      // Update the pause state in the database
+      const { error } = await supabase
+        .from('presentation_sessions')
+        .update({ is_paused: newPauseState })
+        .eq('id', sessionId);
+      
+      if (error) {
+        console.error("Error updating pause state:", error);
+        toast.error("Failed to update pause state");
+        return;
+      }
+      
+      // Only update local state if database update was successful
+      setIsPaused(newPauseState);
+      toast.success(newPauseState ? "Session paused" : "Session resumed");
+    } catch (err) {
+      console.error("Exception in togglePause:", err);
+      toast.error("An error occurred while updating pause state");
+    }
+  };
+  
+  // Add a useEffect to track the is_paused state from the database
+  useEffect(() => {
+    if (sessionData) {
+      // Update the local state based on the database value
+      if (sessionData.is_paused !== undefined) {
+        setIsPaused(!!sessionData.is_paused);
+      }
+      
+      // Load paced slides from database
+      if (sessionData.paced_slides) {
+        setPacedSlides(sessionData.paced_slides);
+        setStudentPacingEnabled(sessionData.paced_slides.length > 0);
+      }
+    }
+  }, [sessionData]);
   
   const endSession = async () => {
     if (!sessionId) return;
@@ -481,7 +728,7 @@ const LessonPresentation: React.FC = () => {
           <div className="space-y-4">
             <Card className="border shadow-sm">
               <CardContent className="p-4">
-                {/* Replace the separate components with the integrated LessonMatrix */}
+                {/* Update the LessonMatrix component with needed props */}
                 <LessonMatrix
                   slides={lesson.slides}
                   studentProgress={studentProgressData}
@@ -500,6 +747,12 @@ const LessonPresentation: React.FC = () => {
                   onTogglePause={togglePause}
                   onSortChange={setSortBy}
                   onSlideClick={handleSlideClick}
+                  isSelectingSlides={isSelectingSlides}
+                  selectedSlides={selectedSlides}
+                  pacedSlides={pacedSlides}
+                  onSlideSelection={handleSlideSelection}
+                  onConfirmSelection={confirmSlideSelection}
+                  onCancelSelection={cancelSlideSelection}
                 />
               </CardContent>
             </Card>
@@ -539,7 +792,11 @@ const LessonPresentation: React.FC = () => {
                 </div>
                 
                 <div className="border rounded-md p-2 bg-muted/5">
-                  <LessonSlideView slide={currentSlide} isStudentView={true} />
+                  <LessonSlideView 
+                    slide={currentSlide} 
+                    isStudentView={true} 
+                    isPaused={isPaused} 
+                  />
                 </div>
                 
                 <div className="flex justify-between items-center mt-3">
@@ -574,6 +831,15 @@ const LessonPresentation: React.FC = () => {
                   <div className="text-center mt-3 text-xs text-muted-foreground bg-muted/10 rounded-md p-2">
                     <span className="flex items-center justify-center gap-1">
                       Navigation controlled by teacher
+                    </span>
+                  </div>
+                )}
+
+                {isPaused && (
+                  <div className="text-center mt-3 text-xs text-amber-600 bg-amber-50 rounded-md p-2">
+                    <span className="flex items-center justify-center gap-1">
+                      <Pause className="h-3.5 w-3.5 mr-1" />
+                      Responses paused by teacher
                     </span>
                   </div>
                 )}

@@ -15,6 +15,7 @@ export type Database = {
           ended_at: string | null
           id: string
           is_synced: boolean
+          is_paused: boolean
           join_code: string
           presentation_id: string
           started_at: string
@@ -24,6 +25,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           is_synced?: boolean
+          is_paused?: boolean
           join_code?: string
           presentation_id: string
           started_at?: string
@@ -33,6 +35,7 @@ export type Database = {
           ended_at?: string | null
           id?: string
           is_synced?: boolean
+          is_paused?: boolean
           join_code?: string
           presentation_id?: string
           started_at?: string

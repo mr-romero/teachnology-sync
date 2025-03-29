@@ -10,18 +10,21 @@ import { LessonSlide } from '@/types/lesson';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check } from 'lucide-react';
 
 interface SlideCarouselProps {
   slides: LessonSlide[];
   currentSlideIndex: number;
   onSlideClick: (index: number) => void;
+  // Add new props for paced slides
+  allowedSlides?: number[];
 }
 
 const SlideCarousel: React.FC<SlideCarouselProps> = ({
   slides,
   currentSlideIndex,
-  onSlideClick
+  onSlideClick,
+  allowedSlides = []
 }) => {
   // Function to generate a mini visual preview of a slide that resembles the actual student view
   const renderMiniSlidePreview = (slide: LessonSlide, index: number) => {
@@ -32,6 +35,9 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
     const hasText = slide.blocks.some(block => block.type === 'text');
     const hasGraph = slide.blocks.some(block => block.type === 'graph');
     
+    // Check if this slide is a paced slide (allowed for student navigation)
+    const isPacedSlide = allowedSlides.length > 0 && allowedSlides.includes(index);
+    
     // Get first text content for preview
     const firstTextBlock = slide.blocks.find(block => block.type === 'text');
     const textPreview = firstTextBlock?.content ? 
@@ -41,18 +47,32 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
       <Card 
         className={cn(
           "rounded-md border hover:border-primary transition-all duration-200 overflow-hidden cursor-pointer h-full",
-          index === currentSlideIndex ? "border-primary border-2 ring-2 ring-primary/30 shadow-md" : "border-muted-foreground/10"
+          index === currentSlideIndex ? "border-primary border-2 ring-2 ring-primary/30 shadow-md" : 
+          isPacedSlide ? "border-blue-400 border-2 shadow-sm" : "border-muted-foreground/10"
         )}
         onClick={() => onSlideClick(index)}
       >
-        <CardContent className="p-3 flex flex-col h-full w-full overflow-hidden">
+        <CardContent className={cn(
+          "p-3 flex flex-col h-full w-full overflow-hidden",
+          isPacedSlide && "bg-blue-50/50"
+        )}>
           {/* Slide number badge and title */}
           <div className="flex justify-between items-center mb-2">
             <Badge 
-              variant={index === currentSlideIndex ? "default" : "outline"} 
-              className="h-5 w-5 p-0 flex items-center justify-center text-[10px]"
+              variant={
+                index === currentSlideIndex ? "default" : 
+                isPacedSlide ? "secondary" : "outline"
+              } 
+              className="h-5 p-1 flex items-center justify-center text-[10px]"
             >
-              {index + 1}
+              {isPacedSlide && allowedSlides.indexOf(index) !== -1 && (
+                <span className="flex items-center gap-0.5">
+                  {allowedSlides.indexOf(index) + 1}/{allowedSlides.length}
+                </span>
+              )}
+              {!isPacedSlide && (
+                <span>{index + 1}</span>
+              )}
             </Badge>
             
             {/* Title */}
@@ -99,7 +119,8 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
               {/* Bottom divider to simulate slide content */}
               <div className={cn(
                 "h-1 w-full rounded-full mt-2",
-                index === currentSlideIndex ? "bg-primary/20" : "bg-muted"
+                index === currentSlideIndex ? "bg-primary/20" : 
+                isPacedSlide ? "bg-blue-300/30" : "bg-muted"
               )}></div>
             </div>
           </div>
@@ -112,18 +133,41 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && currentSlideIndex > 0) {
-        onSlideClick(currentSlideIndex - 1);
+        // If pacing is enabled, find the previous allowed slide
+        if (allowedSlides.length > 0) {
+          const currentAllowedIndex = allowedSlides.indexOf(currentSlideIndex);
+          if (currentAllowedIndex > 0) {
+            onSlideClick(allowedSlides[currentAllowedIndex - 1]);
+            return;
+          }
+        } else {
+          onSlideClick(currentSlideIndex - 1);
+        }
       } else if (e.key === 'ArrowRight' && currentSlideIndex < slides.length - 1) {
-        onSlideClick(currentSlideIndex + 1);
+        // If pacing is enabled, find the next allowed slide
+        if (allowedSlides.length > 0) {
+          const currentAllowedIndex = allowedSlides.indexOf(currentSlideIndex);
+          if (currentAllowedIndex !== -1 && currentAllowedIndex < allowedSlides.length - 1) {
+            onSlideClick(allowedSlides[currentAllowedIndex + 1]);
+            return;
+          }
+        } else {
+          onSlideClick(currentSlideIndex + 1);
+        }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentSlideIndex, slides.length, onSlideClick]);
+  }, [currentSlideIndex, slides.length, onSlideClick, allowedSlides]);
 
   return (
     <div className="w-full">
+      {allowedSlides.length > 0 && (
+        <div className="text-xs text-blue-700 mb-2 bg-blue-50 rounded-md p-2">
+          <span className="font-medium">Student pacing enabled:</span> Students can only navigate between the {allowedSlides.length} highlighted slides
+        </div>
+      )}
+      
       <Carousel
         opts={{
           align: 'start',
@@ -150,7 +194,14 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
       
       {/* Current slide indicator */}
       <div className="flex justify-center mt-4 text-xs text-muted-foreground">
-        Slide {currentSlideIndex + 1} of {slides.length}
+        {allowedSlides.length > 0 && allowedSlides.includes(currentSlideIndex) ? (
+          <span>
+            Selected slide {allowedSlides.indexOf(currentSlideIndex) + 1} of {allowedSlides.length} 
+            (Slide {currentSlideIndex + 1} of {slides.length})
+          </span>
+        ) : (
+          <span>Slide {currentSlideIndex + 1} of {slides.length}</span>
+        )}
       </div>
     </div>
   );

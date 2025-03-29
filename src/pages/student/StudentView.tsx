@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import { LessonSlide } from '@/types/lesson';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Pause } from 'lucide-react';
 import { LockIcon } from 'lucide-react';
 import { 
   joinPresentationSession,
@@ -17,12 +17,15 @@ import {
 import { useRealTimeSync } from '@/hooks/useRealTimeSync';
 import { supabase } from '@/integrations/supabase/client';
 
+// Update interface to include paced_slides property
 interface PresentationSession {
   id: string;
   join_code: string;
   current_slide: number;
   is_synced: boolean;
   active_students: number;
+  is_paused: boolean;
+  paced_slides?: number[]; // Add this to match the teacher's interface
 }
 
 const StudentView: React.FC = () => {
@@ -36,6 +39,8 @@ const StudentView: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [answeredBlocks, setAnsweredBlocks] = useState<string[]>([]);
   const [hasActiveSession, setHasActiveSession] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [allowedSlides, setAllowedSlides] = useState<number[]>([]);
   
   const { 
     data: sessionData,
@@ -48,14 +53,59 @@ const StudentView: React.FC = () => {
   );
   
   useEffect(() => {
-    if (sessionData && sessionData.is_synced && !sessionLoading) {
-      setCurrentSlideIndex(sessionData.current_slide);
-      if (user && sessionId) {
-        updateStudentSlide(sessionId, user.id, sessionData.current_slide);
+    if (sessionData && !sessionLoading) {
+      // First, update current slide based on sync mode
+      if (sessionData.is_synced) {
+        setCurrentSlideIndex(sessionData.current_slide);
+        
+        // When in sync mode, paced slides don't matter
+        // because the teacher controls everything
+        setAllowedSlides([]);
+      } else {
+        // When not in sync mode, check if we have paced slides
+        if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
+          console.log("Received paced slides from server:", sessionData.paced_slides);
+          setAllowedSlides(sessionData.paced_slides);
+          
+          // If current slide is not in allowed slides, navigate to the closest allowed slide
+          if (!sessionData.paced_slides.includes(sessionData.current_slide)) {
+            // Find closest allowed slide
+            const nextSlides = sessionData.paced_slides.filter(index => index >= sessionData.current_slide);
+            const prevSlides = sessionData.paced_slides.filter(index => index < sessionData.current_slide);
+            
+            let targetSlide = sessionData.current_slide;
+            if (nextSlides.length > 0) {
+              targetSlide = nextSlides[0]; // First slide ahead
+            } else if (prevSlides.length > 0) {
+              targetSlide = prevSlides[prevSlides.length - 1]; // Last slide behind
+            } else if (sessionData.paced_slides.length > 0) {
+              targetSlide = sessionData.paced_slides[0]; // First allowed slide
+            }
+            
+            console.log("Navigating to allowed slide:", targetSlide);
+            setCurrentSlideIndex(targetSlide);
+            if (user) {
+              updateStudentSlide(sessionId, user.id, targetSlide);
+            }
+          } else {
+            // Current slide is allowed, just update to the teacher's position
+            setCurrentSlideIndex(sessionData.current_slide);
+          }
+        } else {
+          // No paced slides, free navigation
+          setAllowedSlides([]);
+          // Still follow the teacher's initial slide position
+          setCurrentSlideIndex(sessionData.current_slide);
+        }
+      }
+      
+      // Update the local isPaused state based on the database value
+      if (sessionData.is_paused !== undefined) {
+        setIsPaused(!!sessionData.is_paused);
       }
     }
-  }, [sessionData, sessionLoading, user, sessionId]);
-  
+  }, [sessionData, sessionLoading, sessionId, user]);
+
   useEffect(() => {
     const checkActiveSession = async () => {
       if (!user) return;
@@ -198,7 +248,38 @@ const StudentView: React.FC = () => {
   
   const handlePreviousSlide = async () => {
     if (currentSlideIndex > 0 && lesson) {
-      const newIndex = currentSlideIndex - 1;
+      let newIndex = currentSlideIndex - 1;
+      
+      // If there are paced slides (allowed slides), find the previous allowed slide
+      if (allowedSlides.length > 0) {
+        // Find the index of the current slide in allowedSlides array
+        const currentAllowedIndex = allowedSlides.indexOf(currentSlideIndex);
+        
+        if (currentAllowedIndex > 0) {
+          // Get the previous slide in the allowed slides array
+          newIndex = allowedSlides[currentAllowedIndex - 1];
+        } else if (currentAllowedIndex === -1) {
+          // Current slide is not in allowed slides, find the closest previous allowed slide
+          const previousAllowedSlides = allowedSlides.filter(index => index < currentSlideIndex);
+          if (previousAllowedSlides.length > 0) {
+            newIndex = Math.max(...previousAllowedSlides);
+          } else {
+            // No previous allowed slides, stay on current slide
+            return;
+          }
+        } else {
+          // Already at the first allowed slide, can't go back
+          return;
+        }
+        
+        // Extra verification to ensure we only navigate to allowed slides
+        if (!allowedSlides.includes(newIndex)) {
+          console.warn("Attempted to navigate to non-allowed slide:", newIndex);
+          return;
+        }
+      }
+      
+      console.log("Navigating to previous slide:", newIndex);
       setCurrentSlideIndex(newIndex);
       
       if (user && sessionId) {
@@ -209,7 +290,38 @@ const StudentView: React.FC = () => {
   
   const handleNextSlide = async () => {
     if (lesson && currentSlideIndex < lesson.slides.length - 1) {
-      const newIndex = currentSlideIndex + 1;
+      let newIndex = currentSlideIndex + 1;
+      
+      // If there are paced slides (allowed slides), find the next allowed slide
+      if (allowedSlides.length > 0) {
+        // Find the index of the current slide in allowedSlides array
+        const currentAllowedIndex = allowedSlides.indexOf(currentSlideIndex);
+        
+        if (currentAllowedIndex !== -1 && currentAllowedIndex < allowedSlides.length - 1) {
+          // Get the next slide in the allowed slides array
+          newIndex = allowedSlides[currentAllowedIndex + 1];
+        } else if (currentAllowedIndex === -1) {
+          // Current slide is not in allowed slides, find the closest next allowed slide
+          const nextAllowedSlides = allowedSlides.filter(index => index > currentSlideIndex);
+          if (nextAllowedSlides.length > 0) {
+            newIndex = Math.min(...nextAllowedSlides);
+          } else {
+            // No next allowed slides, stay on current slide
+            return;
+          }
+        } else {
+          // Already at the last allowed slide, can't go forward
+          return;
+        }
+        
+        // Extra verification to ensure we only navigate to allowed slides
+        if (!allowedSlides.includes(newIndex)) {
+          console.warn("Attempted to navigate to non-allowed slide:", newIndex);
+          return;
+        }
+      }
+      
+      console.log("Navigating to next slide:", newIndex);
       setCurrentSlideIndex(newIndex);
       
       if (user && sessionId) {
@@ -291,6 +403,7 @@ const StudentView: React.FC = () => {
     
     const currentSlide = lesson.slides[currentSlideIndex];
     const isSynced = sessionData?.is_synced ?? false;
+    const isPacedMode = allowedSlides.length > 0;
     
     return (
       <div className="container max-w-4xl mx-auto py-4">
@@ -322,26 +435,62 @@ const StudentView: React.FC = () => {
               </div>
             </div>
             
+            {/* Add paced slides info if enabled */}
+            {isPacedMode && !isSynced && (
+              <div className="mb-4 bg-blue-50 border border-blue-200 rounded-md p-2 text-blue-700 text-sm">
+                <div className="flex items-center">
+                  <span className="font-medium mr-2">Guided Navigation:</span>
+                  <span>Teacher has limited navigation to specific slides</span>
+                </div>
+                <div className="text-xs mt-1">
+                  Allowed slides: {allowedSlides.map(index => index + 1).join(', ')}
+                </div>
+              </div>
+            )}
+            
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
+            </div>
+            
             <LessonSlideView 
               slide={currentSlide} 
               isStudentView={true}
               studentId={user?.id}
               onAnswerSubmit={handleSubmitAnswer}
               answeredBlocks={answeredBlocks}
+              isPaused={isPaused}
             />
             
             <div className="flex justify-between mt-6">
               <Button 
                 onClick={handlePreviousSlide} 
-                disabled={currentSlideIndex === 0 || isSynced}
+                disabled={
+                  currentSlideIndex === 0 || 
+                  isSynced || 
+                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0)
+                }
                 className="flex items-center"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Previous
               </Button>
+              
+              {/* If in paced mode, show current position in sequence */}
+              {isPacedMode && !isSynced && (
+                <div className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md flex items-center">
+                  {allowedSlides.indexOf(currentSlideIndex) !== -1 ? 
+                    `${allowedSlides.indexOf(currentSlideIndex) + 1} of ${allowedSlides.length} selected slides` :
+                    "Outside of selected slides"}
+                </div>
+              )}
+              
               <Button 
                 onClick={handleNextSlide} 
-                disabled={currentSlideIndex === lesson.slides.length - 1 || isSynced}
+                disabled={
+                  currentSlideIndex === lesson.slides.length - 1 || 
+                  isSynced || 
+                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1)
+                }
                 className="flex items-center"
               >
                 Next

@@ -100,7 +100,7 @@ const LessonControls: React.FC<LessonControlsProps> = ({
             onClick={onToggleSync}
             className={`h-10 w-10 rounded-full p-0 ${syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}`}
           >
-            {syncEnabled ? <Lock size={16} /> : <Unlock size={16} />}
+            {syncEnabled ? <Unlock size={16} /> : <Lock size={16} />}
           </Button>
           <span className="text-[10px]">Synced</span>
         </div>
@@ -111,9 +111,9 @@ const LessonControls: React.FC<LessonControlsProps> = ({
             onClick={onTogglePause}
             className={`h-10 w-10 rounded-full p-0 ${isPaused ? "bg-amber-500 hover:bg-amber-600" : ""}`}
           >
-            {isPaused ? <Pause size={16} /> : <Play size={16} />}
+            {isPaused ? <Play size={16} /> : <Pause size={16} />}
           </Button>
-          <span className="text-[10px]">Pause</span>
+          <span className="text-[10px]">{isPaused ? "Resume" : "Pause"}</span>
         </div>
       </div>
       

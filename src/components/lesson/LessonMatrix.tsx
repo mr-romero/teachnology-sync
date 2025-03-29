@@ -20,7 +20,11 @@ import {
   Image,
   BarChart2,
   CheckCircle,
-  ArrowDownAZ
+  ArrowDownAZ,
+  Glasses,
+  LayoutGrid,
+  Check,
+  X
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StudentProgress, LessonSlide } from '@/types/lesson';
@@ -45,12 +49,20 @@ interface LessonMatrixProps {
   isPaused: boolean;
   sortBy?: string;
   isLoading?: boolean;
+  // Add new props for slide selection
+  isSelectingSlides?: boolean;
+  selectedSlides?: number[];
+  pacedSlides?: number[];
   onToggleAnonymous: () => void;
   onToggleSync: () => void;
   onTogglePacing: () => void;
   onTogglePause: () => void;
   onSortChange?: (sortBy: string) => void;
   onSlideClick: (index: number) => void;
+  // Add new props for selection actions
+  onSlideSelection?: (index: number) => void;
+  onConfirmSelection?: () => void;
+  onCancelSelection?: () => void;
 }
 
 const LessonMatrix: React.FC<LessonMatrixProps> = ({
@@ -65,12 +77,19 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
   isPaused,
   sortBy = "lastName",
   isLoading = false,
+  // New props with defaults
+  isSelectingSlides = false,
+  selectedSlides = [],
+  pacedSlides = [],
   onToggleAnonymous,
   onToggleSync,
   onTogglePacing,
   onTogglePause,
   onSortChange,
-  onSlideClick
+  onSlideClick,
+  onSlideSelection = () => {},
+  onConfirmSelection = () => {},
+  onCancelSelection = () => {}
 }) => {
   const slidesContainerRef = useRef<HTMLDivElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -188,6 +207,15 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
     }
   }, [currentSlideIndex]);
 
+  // Handle clicks on slide headers depending on mode
+  const handleSlideHeaderClick = (index: number) => {
+    if (isSelectingSlides) {
+      onSlideSelection(index);
+    } else {
+      onSlideClick(index);
+    }
+  };
+
   // Function to generate slide header content - mini preview of slide
   const renderSlideHeader = (slide: LessonSlide, index: number) => {
     // Get representative content from the slide
@@ -196,6 +224,12 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
     const hasImage = slide.blocks.some(block => block.type === 'image');
     const hasText = slide.blocks.some(block => block.type === 'text');
     const hasGraph = slide.blocks.some(block => block.type === 'graph');
+    
+    // Check if this slide is selected in selection mode
+    const isSelected = isSelectingSlides && selectedSlides.includes(index);
+    
+    // Check if this slide is a paced slide (when not in selection mode)
+    const isPacedSlide = !isSelectingSlides && studentPacingEnabled && pacedSlides.includes(index);
     
     // Get first text content for preview
     const firstTextBlock = slide.blocks.find(block => block.type === 'text');
@@ -206,19 +240,38 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
       <div 
         className={cn(
           "p-2 w-[120px] h-[100px] cursor-pointer flex flex-col border border-transparent rounded-md transition-all duration-200",
-          index === currentSlideIndex 
-            ? "bg-primary/10 border-primary/50" 
-            : "hover:bg-muted/40"
+          isSelected 
+            ? "bg-green-100 border-green-500" 
+            : isPacedSlide
+              ? "bg-blue-50 border-blue-200"
+              : index === currentSlideIndex 
+                ? "bg-primary/10 border-primary/50" 
+                : "hover:bg-muted/40"
         )}
-        onClick={() => onSlideClick(index)}
+        onClick={() => handleSlideHeaderClick(index)}
       >
         {/* Slide number and title */}
         <div className="flex justify-between items-center mb-1">
           <Badge 
-            variant={index === currentSlideIndex ? "default" : "outline"} 
-            className="h-5 w-5 p-0 flex items-center justify-center text-[10px]"
+            variant={
+              isSelected 
+                ? "success" 
+                : isPacedSlide
+                  ? "secondary"
+                  : index === currentSlideIndex 
+                    ? "default" 
+                    : "outline"
+            } 
+            className="h-5 flex items-center justify-center text-[10px] px-1.5"
           >
-            {index + 1}
+            {isSelected ? (
+              <div className="flex items-center gap-1">
+                <Check className="h-3 w-3" />
+                <span>{index + 1}</span>
+              </div>
+            ) : (
+              <span>{index + 1}</span>
+            )}
           </Badge>
           
           <div className="text-[9px] font-medium truncate w-[80%] text-right">
@@ -260,6 +313,36 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
 
   return (
     <div className="flex flex-col space-y-3">
+      {/* Selection Mode Information Banner */}
+      {isSelectingSlides && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-2 text-sm text-blue-700 flex justify-between items-center">
+          <div>
+            <span className="font-medium">Slide Selection Mode:</span> Select slides students will be able to access
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onCancelSelection}
+              className="h-8 bg-white border-gray-300"
+            >
+              <X className="h-4 w-4 mr-1 text-gray-500" />
+              Cancel
+            </Button>
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={onConfirmSelection}
+              className={`h-8 ${selectedSlides.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={selectedSlides.length === 0}
+            >
+              <Check className="h-4 w-4 mr-1" />
+              Confirm Selection
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
         {/* More graceful scroll controls that don't cover slide content */}
@@ -289,80 +372,110 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
         <div className="flex border-b bg-muted/10">
           {/* Fixed Control Column Header */}
           <div className="flex-shrink-0 w-[200px] border-r p-2 flex flex-col justify-between">
-            <div className="flex items-center justify-center">
-              <div className="flex items-center">
-                <div className="font-medium text-xs mr-1">Code:</div>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={copyJoinCode}
-                  className="flex gap-1 items-center h-6 px-2"
-                >
-                  <span className="font-mono text-primary font-bold text-xs">{joinCode}</span>
-                  <Copy className="h-3 w-3" />
-                </Button>
+            {isSelectingSlides ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <div className="text-xs font-medium mb-1 text-center">
+                  Selected: {selectedSlides.length} slides
+                </div>
+                <div className="text-[10px] text-muted-foreground text-center px-2">
+                  Click on slides to select or deselect them for student access
+                </div>
               </div>
-            </div>
-            
-            <div className="flex items-center justify-between mt-2">
-              <div className="flex gap-1.5 w-full justify-center">
-                <Button
-                  variant={anonymousMode ? "default" : "outline"}
-                  size="sm"
-                  onClick={onToggleAnonymous}
-                  className="h-7 w-7 rounded-full p-0"
-                  title={anonymousMode ? "Show names" : "Hide names"}
-                >
-                  {anonymousMode ? <UserX size={12} /> : <Users size={12} />}
-                </Button>
-                
-                <Button
-                  variant={studentPacingEnabled ? "default" : "outline"}
-                  size="sm"
-                  onClick={onTogglePacing}
-                  className="h-7 w-7 rounded-full p-0"
-                  title={studentPacingEnabled ? "Student pacing on" : "Student pacing off"}
-                >
-                  <FastForward size={12} />
-                </Button>
-                
-                <Button
-                  variant={syncEnabled ? "default" : "outline"}
-                  size="sm"
-                  onClick={onToggleSync}
-                  className={`h-7 w-7 rounded-full p-0 ${syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}`}
-                  title={syncEnabled ? "Students locked to teacher view" : "Students can navigate freely"}
-                >
-                  {syncEnabled ? <Lock size={12} /> : <Unlock size={12} />}
-                </Button>
-                
-                <Button
-                  variant={isPaused ? "default" : "outline"}
-                  size="sm"
-                  onClick={onTogglePause}
-                  className={`h-7 w-7 rounded-full p-0 ${isPaused ? "bg-amber-500 hover:bg-amber-600" : ""}`}
-                  title={isPaused ? "Resume session" : "Pause session"}
-                >
-                  {isPaused ? <Pause size={12} /> : <Play size={12} />}
-                </Button>
-              </div>
-            </div>
-            
-            <div className="flex justify-center mt-2">
-              <Select onValueChange={onSortChange} defaultValue={sortBy}>
-                <SelectTrigger className="h-7 w-[140px] text-xs">
-                  <div className="flex items-center gap-1">
-                    <ArrowDownAZ className="h-3.5 w-3.5 text-muted-foreground" />
-                    <SelectValue placeholder="Sort by" />
+            ) : (
+              <>
+                <div className="flex items-center justify-center">
+                  <div className="flex items-center">
+                    <div className="font-medium text-xs mr-1">Code:</div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={copyJoinCode}
+                      className="flex gap-1 items-center h-6 px-2"
+                    >
+                      <span className="font-mono text-primary font-bold text-xs">{joinCode}</span>
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="lastName">Last Name</SelectItem>
-                  <SelectItem value="firstName">First Name</SelectItem>
-                  <SelectItem value="joinTime">Join Time</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+                
+                <div className="flex items-center justify-between mt-2">
+                  {/* Anonymize button with label */}
+                  <div className="flex flex-col items-center w-[60px]">
+                    <Button
+                      variant={anonymousMode ? "default" : "outline"}
+                      size="sm"
+                      onClick={onToggleAnonymous}
+                      className="h-8 w-8 rounded-full p-0 mb-1"
+                      title={anonymousMode ? "Show names" : "Hide names"}
+                    >
+                      <Glasses size={14} />
+                    </Button>
+                    <span className="text-[9px] text-muted-foreground">Anonymize</span>
+                  </div>
+                  
+                  {/* Pace button with label */}
+                  <div className="flex flex-col items-center w-[60px]">
+                    <Button
+                      variant={studentPacingEnabled ? "default" : "outline"}
+                      size="sm"
+                      onClick={onTogglePacing}
+                      className={`h-8 w-8 rounded-full p-0 mb-1 ${studentPacingEnabled ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                      title={studentPacingEnabled ? "Edit paced slides" : "Enable student pacing"}
+                    >
+                      <LayoutGrid size={14} />
+                    </Button>
+                    <span className="text-[9px] text-muted-foreground">Pace</span>
+                  </div>
+                  
+                  {/* Sync button with label - MODIFIED FOR REVERSED LOCK BEHAVIOR */}
+                  <div className="flex flex-col items-center w-[60px]">
+                    <Button
+                      variant={syncEnabled ? "default" : "outline"}
+                      size="sm"
+                      onClick={onToggleSync}
+                      className={`h-8 w-8 rounded-full p-0 mb-1 ${syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}`}
+                      title={syncEnabled ? "Students follow teacher view" : "Students can navigate freely"}
+                      disabled={studentPacingEnabled}
+                    >
+                      {syncEnabled ? <Unlock size={14} /> : <Lock size={14} />}
+                    </Button>
+                    <span className="text-[9px] text-muted-foreground text-center">Sync</span>
+                  </div>
+                  
+                  {/* Pause button with label */}
+                  <div className="flex flex-col items-center w-[60px]">
+                    <Button
+                      variant={isPaused ? "default" : "outline"}
+                      size="sm"
+                      onClick={onTogglePause}
+                      className={`h-8 w-8 rounded-full p-0 mb-1 ${isPaused ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+                      title={isPaused ? "Resume session" : "Pause session"}
+                    >
+                      {isPaused ? <Play size={14} /> : <Pause size={14} />}
+                    </Button>
+                    <span className="text-[9px] text-muted-foreground text-center">
+                      {isPaused ? "Resume" : "Pause"}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center mt-3">
+                  <Select onValueChange={onSortChange} defaultValue={sortBy}>
+                    <SelectTrigger className="h-7 w-[140px] text-xs">
+                      <div className="flex items-center gap-1">
+                        <ArrowDownAZ className="h-3.5 w-3.5 text-muted-foreground" />
+                        <SelectValue placeholder="Sort by" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="lastName">Last Name</SelectItem>
+                      <SelectItem value="firstName">First Name</SelectItem>
+                      <SelectItem value="joinTime">Join Time</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
           </div>
           
           {/* Scrollable Slide Headers */}
@@ -424,21 +537,31 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                       </div>
                     </td>
                     
-                    {slides.map((slide, slideIndex) => (
-                      <td 
-                        key={`${student.studentId}-${slide.id}`} 
-                        className={cn(
-                          "text-center p-2", 
-                          parseInt(student.currentSlide) === slideIndex 
-                            ? "bg-primary/5"
-                            : slideIndex === currentSlideIndex 
-                              ? "bg-primary/5"
-                              : ""
-                        )}
-                      >
-                        {getStatusIcon(student, slide.id)}
-                      </td>
-                    ))}
+                    {slides.map((slide, slideIndex) => {
+                      // Determine cell styling based on selection state and current position
+                      const isPacedCell = !isSelectingSlides && studentPacingEnabled && pacedSlides.includes(slideIndex);
+                      const isSelectedCell = isSelectingSlides && selectedSlides.includes(slideIndex);
+                      
+                      return (
+                        <td 
+                          key={`${student.studentId}-${slide.id}`} 
+                          className={cn(
+                            "text-center p-2", 
+                            isSelectedCell
+                              ? "bg-green-50"
+                              : isPacedCell
+                                ? "bg-blue-50"
+                                : parseInt(student.currentSlide) === slideIndex 
+                                  ? "bg-primary/5"
+                                  : slideIndex === currentSlideIndex 
+                                    ? "bg-primary/5"
+                                    : ""
+                          )}
+                        >
+                          {getStatusIcon(student, slide.id)}
+                        </td>
+                      );
+                    })}
                   </tr>
                 ))
               )}
@@ -451,7 +574,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
       <div className="flex justify-between items-center pt-1">
         <Button 
           onClick={() => onSlideClick(currentSlideIndex - 1)} 
-          disabled={currentSlideIndex === 0}
+          disabled={currentSlideIndex === 0 || isSelectingSlides}
           size="sm"
           variant="outline"
           className="flex items-center gap-1"
@@ -466,7 +589,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
         
         <Button 
           onClick={() => onSlideClick(currentSlideIndex + 1)} 
-          disabled={currentSlideIndex === slides.length - 1}
+          disabled={currentSlideIndex === slides.length - 1 || isSelectingSlides}
           size="sm"
           variant="outline"
           className="flex items-center gap-1"
