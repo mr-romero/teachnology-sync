@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import { LessonSlide } from '@/types/lesson';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
-import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Lock } from 'lucide-react';
 import { 
   joinPresentationSession,
   getLessonById,

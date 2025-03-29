@@ -39,7 +39,7 @@ export function useRealTimeSync<T>(
         
         // Only set data if it exists
         if (result) {
-          setData(result as unknown as T);
+          setData(result as T);
         } else {
           console.warn(`No data found for ${table} with ${column} = ${value}`);
           setData(null);
@@ -70,8 +70,8 @@ export function useRealTimeSync<T>(
           if (payload.eventType === 'DELETE') {
             setData(null);
           } else {
-            // Use type assertion instead of generic type to avoid deep instantiation
-            setData(payload.new as unknown as T);
+            // Use direct type assertion to avoid deep instantiation
+            setData(payload.new as T);
           }
         }
       )
