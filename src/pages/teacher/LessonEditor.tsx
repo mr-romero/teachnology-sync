@@ -433,40 +433,86 @@ const LessonEditor: React.FC = () => {
             </div>
             
             <div className="bg-card rounded-lg p-4 shadow-sm">
-              <h3 className="font-medium mb-3">Add Content</h3>
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" onClick={() => handleAddBlock('text')}>
-                  Text
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleAddBlock('image')}>
-                  Image
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleAddBlock('question')}>
-                  Question
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => handleAddBlock('graph')}>
-                  Graph
-                </Button>
+              <h3 className="font-medium mb-3">Content Blocks</h3>
+              <div className="grid grid-cols-1 gap-3">
+                <div 
+                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  onClick={() => handleAddBlock('text')}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', 'text');
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                >
+                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-blue-100 text-blue-600 mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17 6.1H3"/>
+                      <path d="M21 12.1H3"/>
+                      <path d="M15.1 18H3"/>
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium">Text</span>
+                </div>
+                
+                <div 
+                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  onClick={() => handleAddBlock('image')}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', 'image');
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                >
+                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-violet-100 text-violet-600 mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                      <circle cx="9" cy="9" r="2"/>
+                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium">Image</span>
+                </div>
+                
+                <div 
+                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  onClick={() => handleAddBlock('question')}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', 'question');
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                >
+                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-amber-100 text-amber-600 mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"/>
+                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                      <path d="M12 17h.01"/>
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium">Question</span>
+                </div>
+                
+                <div 
+                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  onClick={() => handleAddBlock('graph')}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('text/plain', 'graph');
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                >
+                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-green-100 text-green-600 mb-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 3v18h18"/>
+                      <path d="m19 9-5 5-4-4-3 3"/>
+                    </svg>
+                  </div>
+                  <span className="text-sm font-medium">Graph</span>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground mt-3 text-center">Drag and drop blocks directly into the editor</p>
             </div>
           </div>
-          
-          {currentSlide && currentSlide.blocks.length > 0 && (
-            <div className="bg-card rounded-lg p-4 shadow-sm">
-              <h3 className="font-medium mb-3">Edit Content</h3>
-              {currentSlide.blocks.map((block) => (
-                <div key={block.id} className="mb-4 border-b pb-4 last:border-b-0 last:pb-0">
-                  <LessonBlockEditor
-                    block={block}
-                    onUpdate={(updatedBlock) => 
-                      handleUpdateBlock(currentSlide.id, block.id, updatedBlock as LessonBlock)
-                    }
-                    onDelete={() => handleDeleteBlock(currentSlide.id, block.id)}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="lg:col-span-3">

@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LessonSlide, LessonBlock, GridPosition, GridSpan } from '@/types/lesson';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { toast } from '@/components/ui/sonner';
 import { 
   Trash, 
   Copy,
@@ -27,23 +26,24 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger,
+  PopoverClose
+} from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-// Define DnD item types
-const ItemTypes = {
-  BLOCK: 'block',
-  CELL: 'cell'
-};
-
-// Define DnD drag item structure
-interface DragItem {
-  type: string;
-  id: string;
-  originalPosition?: GridPosition;
-}
+import LessonBlockEditor from './LessonBlockEditor';
 
 // Main component
 interface BlockBasedSlideEditorProps {
@@ -403,25 +403,11 @@ const DraggableBlock = ({
   maxRows: number;
   onUpdateSpan: (blockId: string, span: GridSpan) => void;
 }) => {
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: ItemTypes.BLOCK,
-    item: { 
-      type: ItemTypes.BLOCK, 
-      id: block.id,
-      originalPosition: position
-    },
-    collect: (monitor) => ({
-      isDragging: !!monitor.isDragging(),
-    }),
-  }), [block.id, position]);
-
   return (
     <div 
-      ref={drag}
       className={cn(
         "relative mb-4 p-4 border rounded-md group transition-all cursor-move",
         isSelected ? "ring-2 ring-primary" : "",
-        isDragging ? "opacity-50" : "opacity-100",
         // Add a visual indicator for blocks that span multiple columns
         span?.columnSpan && span.columnSpan > 1 ? "border-violet-300 border-2 bg-violet-50/30" : ""
       )}
@@ -434,7 +420,7 @@ const DraggableBlock = ({
       {span?.columnSpan && span.columnSpan > 1 && (
         <Badge 
           variant="span" 
-          className="absolute top-1 right-1 z-10"
+          className="absolute bottom-2 left-2 z-10 bg-violet-100 text-violet-700 hover:bg-violet-100"
         >
           Spans {span.columnSpan} columns
         </Badge>
@@ -466,6 +452,22 @@ const DraggableBlock = ({
         <Button 
           variant="ghost" 
           size="icon" 
+          className="h-6 w-6 bg-background/80 backdrop-blur-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            // Here we would trigger the settings dialog for this block
+            if (window.showBlockSettings) {
+              window.showBlockSettings(block.id);
+            }
+          }}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 15 15" fill="none" className="h-3 w-3">
+            <path d="M8.625 2.5C8.625 3.12132 8.12132 3.625 7.5 3.625C6.87868 3.625 6.375 3.12132 6.375 2.5C6.375 1.87868 6.87868 1.375 7.5 1.375C8.12132 1.375 8.625 1.87868 8.625 2.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM7.5 13.625C8.12132 13.625 8.625 13.1213 8.625 12.5C8.625 11.8787 8.12132 11.375 7.5 11.375C6.87868 11.375 6.375 11.8787 6.375 12.5C6.375 13.1213 6.87868 13.625 7.5 13.625Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path>
+          </svg>
+        </Button>
+        <Button 
+          variant="ghost" 
+          size="icon" 
           className="h-6 w-6 bg-background/80 backdrop-blur-sm text-destructive"
           onClick={(e) => {
             e.stopPropagation();
@@ -475,28 +477,6 @@ const DraggableBlock = ({
           <Trash className="h-3 w-3" />
         </Button>
       </div>
-
-      {/* Column span controls - show when selected */}
-      {isSelected && (
-        <div className="mt-3 pt-3 border-t">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-medium text-muted-foreground">
-              {maxColumns > 1 ? 
-                `Column span (max: ${maxColumns})` : 
-                "Add more columns to enable spanning"}
-            </span>
-            {maxColumns > 1 && (
-              <SpanControls 
-                blockId={block.id}
-                span={span}
-                maxColumns={maxColumns}
-                maxRows={maxRows}
-                onUpdateSpan={onUpdateSpan}
-              />
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -515,26 +495,10 @@ const DroppableCell = ({
   children: React.ReactNode;
   span?: GridSpan;
 }) => {
-  const [{ isOver, canDrop }, drop] = useDrop(() => ({
-    accept: ItemTypes.BLOCK,
-    drop: (item: DragItem) => {
-      if (item.id) {
-        onDrop(item.id, position);
-      }
-      return { position };
-    },
-    collect: (monitor) => ({
-      isOver: !!monitor.isOver(),
-      canDrop: !!monitor.canDrop(),
-    }),
-  }), [position, onDrop]);
-
   return (
     <div 
-      ref={drop}
       className={cn(
         "min-h-[100px] p-2 rounded-md border border-dashed transition-colors",
-        isOver && canDrop ? "bg-primary/10 border-primary" : 
         isEmpty ? "bg-muted/5 border-muted" : "border-transparent"
       )}
       style={{
@@ -873,6 +837,81 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
     return false;
   };
 
+  // Handle dropping a new block type from the sidebar
+  const handleDropNewBlockType = (blockType: string, position: GridPosition) => {
+    // Create a new block based on the type
+    let newBlock: LessonBlock;
+    const blockId = `block-${Date.now()}`;
+    
+    switch (blockType) {
+      case 'text':
+        newBlock = {
+          id: blockId,
+          type: 'text',
+          content: 'Enter your text here'
+        };
+        break;
+      case 'image':
+        newBlock = {
+          id: blockId,
+          type: 'image',
+          url: 'https://placehold.co/600x400?text=Image+Placeholder',
+          alt: 'Description of image'
+        };
+        break;
+      case 'question':
+        newBlock = {
+          id: blockId,
+          type: 'question',
+          questionType: 'multiple-choice',
+          question: 'Enter your question here',
+          options: ['Option 1', 'Option 2', 'Option 3'],
+          correctAnswer: 'Option 1'
+        };
+        break;
+      case 'graph':
+        newBlock = {
+          id: blockId,
+          type: 'graph',
+          equation: 'y = x^2',
+          settings: {
+            xMin: -10,
+            xMax: 10,
+            yMin: -10,
+            yMax: 10
+          }
+        };
+        break;
+      default:
+        return;
+    }
+    
+    // Add the block to the slide
+    const updatedSlide = { ...slide };
+    updatedSlide.blocks = [...updatedSlide.blocks, newBlock];
+    
+    // Make sure layout exists
+    if (!updatedSlide.layout) {
+      updatedSlide.layout = {
+        gridRows: Math.max(2, position.row + 1),
+        gridColumns: Math.max(2, position.column + 1),
+        blockPositions: {},
+      };
+    }
+    
+    // Ensure blockPositions exists
+    if (!updatedSlide.layout.blockPositions) {
+      updatedSlide.layout.blockPositions = {};
+    }
+    
+    // Position the new block
+    updatedSlide.layout.blockPositions[blockId] = position;
+    
+    onUpdateSlide(updatedSlide);
+    
+    return blockId;
+  };
+
   const blocksByPosition = getBlocksByPosition();
   
   // Track if we're in single column mode with multiple blocks
@@ -897,136 +936,251 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
     };
   };
   
+  // Add a global handler to display settings when showBlockSettings is called
+  const [blockSettingsDialogOpen, setBlockSettingsDialogOpen] = useState(false);
+  const [currentEditingBlock, setCurrentEditingBlock] = useState<LessonBlock | null>(null);
+
+  useEffect(() => {
+    // Define the window method for showing block settings
+    window.showBlockSettings = (blockId: string) => {
+      // Find the block to make it active for editing
+      const block = slide.blocks.find(b => b.id === blockId);
+      if (block) {
+        setSelectedBlockId(blockId);
+        setCurrentEditingBlock(block);
+        setBlockSettingsDialogOpen(true);
+      }
+    };
+    
+    return () => {
+      // Clean up when component unmounts
+      delete window.showBlockSettings;
+    };
+  }, [slide.blocks]);
+
+  // Handle block update from settings dialog
+  const handleUpdateBlockFromSettings = (updatedBlock: LessonBlock) => {
+    const updatedSlide = { ...slide };
+    
+    // Find and update the block
+    updatedSlide.blocks = updatedSlide.blocks.map(block => 
+      block.id === updatedBlock.id ? updatedBlock : block
+    );
+    
+    onUpdateSlide(updatedSlide);
+  };
+
   return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="w-full">
-        <div className="mb-4 flex justify-between items-center">
-          <h3 className="text-sm font-medium">Slide Layout</h3>
-          <div className="flex items-center space-x-2">
-            <p className="text-xs text-muted-foreground mr-2">
-              {isInSingleColumnWithMultipleBlocks ? 
-                'Drag a block to create a two-column layout' : 
-                selectedBlockId ? 
-                  'Select a cell to place the block or drag blocks between cells' : 
-                  'Select a block to position it or make it span multiple columns'}
-            </p>
-            <GridLayoutControls 
-              onChangeGridSize={handleGridSizeChange}
-              gridSize={gridSize}
-              selectedBlockId={selectedBlockId}
-              onPositionBlock={handlePositionBlock}
-            />
-          </div>
+    <div className="w-full">
+      <div className="mb-4 flex justify-between items-center">
+        <h3 className="text-sm font-medium">Slide Layout</h3>
+        <div className="flex items-center space-x-2">
+          <p className="text-xs text-muted-foreground mr-2">
+            {isInSingleColumnWithMultipleBlocks ? 
+              'Drag a block to create a two-column layout' : 
+              selectedBlockId ? 
+                'Select a cell to place the block or drag blocks between cells' : 
+                'Select a block to position it or make it span multiple columns'}
+          </p>
+          <GridLayoutControls 
+            onChangeGridSize={handleGridSizeChange}
+            gridSize={gridSize}
+            selectedBlockId={selectedBlockId}
+            onPositionBlock={handlePositionBlock}
+          />
         </div>
-        
-        <div className="min-h-[300px] border-dashed border-2 rounded-lg p-6 bg-background relative">
-          {slide.blocks.length === 0 ? (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center text-muted-foreground py-12">
-                <p>No content blocks yet</p>
-                <p className="text-sm">Add blocks from the panel on the left and position them using the Grid Layout button</p>
-              </div>
+      </div>
+      
+      <div 
+        className="min-h-[300px] border-dashed border-2 rounded-lg p-6 bg-background relative"
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          const blockType = e.dataTransfer.getData('text/plain');
+          
+          if (blockType && ['text', 'image', 'question', 'graph'].includes(blockType)) {
+            // Get drop position relative to grid
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Calculate grid position based on percentages
+            const cols = gridSize.columns || 1;
+            const rows = gridSize.rows || 1;
+            
+            const col = Math.min(Math.floor((x / rect.width) * cols), cols - 1);
+            const row = Math.min(Math.floor((y / rect.height) * rows), rows - 1);
+            
+            // Add the new block
+            handleDropNewBlockType(blockType, { row, column: col });
+          }
+        }}
+      >
+        {slide.blocks.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center text-muted-foreground py-12">
+              <p>No content blocks yet</p>
+              <p className="text-sm">Add blocks from the panel on the left and position them using the Grid Layout button</p>
             </div>
-          ) : (
-            <div 
-              className="grid gap-4" 
-              style={{ 
-                gridTemplateRows: `repeat(${gridSize.rows}, minmax(0, auto))`,
-                gridTemplateColumns: `repeat(${gridSize.columns}, minmax(0, 1fr))`
-              }}
-            >
-              {/* Render all grid cells */}
-              {Object.keys(blocksByPosition).map(position => {
-                const [row, col] = position.split('-').map(Number);
-                const blocksInPosition = blocksByPosition[position] || [];
-                const cellPosition = { row, column: col };
-                
-                // Skip rendering a cell if there's another cell that spans into this position
-                const isSpannedOver = Object.entries(slide.layout?.blockPositions || {}).some(([blockId, pos]) => {
-                  if (pos.row !== row || pos.column !== col) {
-                    const blockSpan = getBlockSpan(blockId);
-                    if (!blockSpan.columnSpan || blockSpan.columnSpan <= 1) return false;
-                    
-                    // Check if this span covers our position
-                    return (
-                      pos.row === row && // Same row
-                      pos.column < col && // Column starts before current col
-                      pos.column + (blockSpan.columnSpan || 1) > col // Span extends past current col
-                    );
-                  }
-                  return false;
-                });
-                
-                // Skip this cell if it's being spanned over by another block
-                if (isSpannedOver) return null;
-                
-                // If this cell contains a block that spans multiple columns,
-                // we need to pass that span information to the DroppableCell
-                let cellSpan = { columnSpan: 1, rowSpan: 1 };
-                
-                if (blocksInPosition.length > 0) {
-                  const block = blocksInPosition[0]; // Get the first block in this position
-                  cellSpan = getBlockSpan(block.id);
+          </div>
+        ) : (
+          <div 
+            className="grid gap-4" 
+            style={{ 
+              gridTemplateRows: `repeat(${gridSize.rows}, minmax(0, auto))`,
+              gridTemplateColumns: `repeat(${gridSize.columns}, minmax(0, 1fr))`
+            }}
+          >
+            {/* Render all grid cells */}
+            {Object.keys(blocksByPosition).map(position => {
+              const [row, col] = position.split('-').map(Number);
+              const blocksInPosition = blocksByPosition[position] || [];
+              const cellPosition = { row, column: col };
+              
+              // Skip rendering a cell if there's another cell that spans into this position
+              const isSpannedOver = Object.entries(slide.layout?.blockPositions || {}).some(([blockId, pos]) => {
+                if (pos.row !== row || pos.column !== col) {
+                  const blockSpan = getBlockSpan(blockId);
+                  if (!blockSpan.columnSpan || blockSpan.columnSpan <= 1) return false;
+                  
+                  // Check if this span covers our position
+                  return (
+                    pos.row === row && // Same row
+                    pos.column < col && // Column starts before current col
+                    pos.column + (blockSpan.columnSpan || 1) > col // Span extends past current col
+                  );
                 }
-                
-                return (
-                  <DroppableCell 
-                    key={position}
-                    position={cellPosition}
-                    span={cellSpan}
-                    onDrop={(blockId, position) => {
+                return false;
+              });
+              
+              // Skip this cell if it's being spanned over by another block
+              if (isSpannedOver) return null;
+              
+              // If this cell contains a block that spans multiple columns,
+              // we need to pass that span information to the DroppableCell
+              let cellSpan = { columnSpan: 1, rowSpan: 1 };
+              
+              if (blocksInPosition.length > 0) {
+                const block = blocksInPosition[0]; // Get the first block in this position
+                cellSpan = getBlockSpan(block.id);
+              }
+              
+              return (
+                <DroppableCell 
+                  key={position}
+                  position={cellPosition}
+                  span={cellSpan}
+                  onDrop={(blockId, position) => {
+                    // If this is a block ID, it's an existing block being moved
+                    if (blockId.startsWith('block-')) {
                       // Check if we should handle this as a special case for creating columns
                       if (isInSingleColumnWithMultipleBlocks && col === 1 && row === 0) {
                         handleDropInNewColumn(blockId);
                       } else {
                         handlePositionBlock(blockId, position);
                       }
-                    }}
-                    isEmpty={blocksInPosition.length === 0}
-                  >
-                    {blocksInPosition.length === 0 ? (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">
-                          {isInSingleColumnWithMultipleBlocks && col === 1 ? 
-                            "Drag here to create column" : 
-                            `Empty cell (Row ${row+1}, Col ${col+1})`}
-                        </span>
-                      </div>
-                    ) : (
-                      blocksInPosition.map((block) => {
-                        const blockSpan = getBlockSpan(block.id);
-                        const { maxColumns, maxRows } = getMaxSpan(cellPosition);
-                        
-                        return (
-                          <div 
-                            key={block.id}
-                            className="block-container w-full"
-                          >
-                            <DraggableBlock
-                              block={block}
-                              isSelected={selectedBlockId === block.id}
-                              onSelect={() => setSelectedBlockId(block.id)}
-                              onDuplicate={() => handleDuplicateBlock(block.id)}
-                              onDelete={() => handleDeleteBlock(block.id)}
-                              renderPreview={renderBlockPreview}
-                              position={cellPosition}
-                              span={blockSpan}
-                              maxColumns={maxColumns}
-                              maxRows={maxRows}
-                              onUpdateSpan={handleUpdateBlockSpan}
-                            />
-                          </div>
-                        );
-                      })
-                    )}
-                  </DroppableCell>
-                );
-              })}
-            </div>
+                    } else if (['text', 'image', 'question', 'graph'].includes(blockId)) {
+                      // This is a block type, create a new block
+                      handleDropNewBlockType(blockId, position);
+                    }
+                  }}
+                  isEmpty={blocksInPosition.length === 0}
+                >
+                  {blocksInPosition.length === 0 ? (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <span className="text-xs text-muted-foreground">
+                        {isInSingleColumnWithMultipleBlocks && col === 1 ? 
+                          "Drag here to create column" : 
+                          `Empty cell (Row ${row+1}, Col ${col+1})`}
+                      </span>
+                    </div>
+                  ) : (
+                    blocksInPosition.map((block) => {
+                      const blockSpan = getBlockSpan(block.id);
+                      const { maxColumns, maxRows } = getMaxSpan(cellPosition);
+                      
+                      return (
+                        <div 
+                          key={block.id}
+                          className="block-container w-full"
+                        >
+                          <DraggableBlock
+                            block={block}
+                            isSelected={selectedBlockId === block.id}
+                            onSelect={() => setSelectedBlockId(block.id)}
+                            onDuplicate={() => handleDuplicateBlock(block.id)}
+                            onDelete={() => handleDeleteBlock(block.id)}
+                            renderPreview={renderBlockPreview}
+                            position={cellPosition}
+                            span={blockSpan}
+                            maxColumns={maxColumns}
+                            maxRows={maxRows}
+                            onUpdateSpan={handleUpdateBlockSpan}
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                </DroppableCell>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    
+    {/* Block Settings Dialog */}
+    <Dialog open={blockSettingsDialogOpen} onOpenChange={setBlockSettingsDialogOpen}>
+      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="capitalize">{currentEditingBlock?.type} Block Settings</DialogTitle>
+          <DialogDescription>
+            Configure the settings for this block.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="py-4">
+          {currentEditingBlock && (
+            <LessonBlockEditor
+              block={currentEditingBlock}
+              onUpdate={(updatedBlock) => {
+                handleUpdateBlockFromSettings(updatedBlock as LessonBlock);
+                setCurrentEditingBlock(updatedBlock as LessonBlock);
+              }}
+              onDelete={() => {
+                handleDeleteBlock(currentEditingBlock.id);
+                setBlockSettingsDialogOpen(false);
+              }}
+            />
           )}
         </div>
-      </div>
-    </DndProvider>
+        
+        <div className="flex items-center justify-between border-t pt-4 mt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Column span:</span>
+            {currentEditingBlock && (
+              <SpanControls
+                blockId={currentEditingBlock.id}
+                span={getBlockSpan(currentEditingBlock.id)}
+                maxColumns={gridSize.columns - getBlockPosition(currentEditingBlock.id).column}
+                maxRows={gridSize.rows}
+                onUpdateSpan={handleUpdateBlockSpan}
+              />
+            )}
+          </div>
+          
+          <Button 
+            onClick={() => setBlockSettingsDialogOpen(false)}
+            variant="outline"
+          >
+            Close
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </div>
   );
 };
 
