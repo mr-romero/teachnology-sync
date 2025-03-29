@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -482,8 +483,8 @@ const LessonPresentation: React.FC = () => {
           <div className="space-y-4">
             <Card className="border shadow-sm">
               <CardContent className="p-3">
-                <div className="flex flex-row gap-4 items-center">
-                  <div className="flex-shrink-0">
+                <div className="flex flex-row gap-6 items-center">
+                  <div className="flex-shrink-0 w-[200px]">
                     <LessonControls 
                       joinCode={joinCode}
                       activeStudents={activeStudents}
@@ -499,7 +500,7 @@ const LessonPresentation: React.FC = () => {
                       onSortChange={setSortBy}
                     />
                   </div>
-                  <div className="flex-grow">
+                  <div className="flex-grow pl-1">
                     <SlideCarousel 
                       slides={lesson.slides}
                       currentSlideIndex={currentSlideIndex}
@@ -513,7 +514,12 @@ const LessonPresentation: React.FC = () => {
             <Card className="w-full border shadow-sm">
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-3">
-                  <h2 className="text-sm font-semibold">Student Progress</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold">Student Progress</h2>
+                    <Badge variant="outline" className="text-xs">
+                      {activeStudents} {activeStudents === 1 ? 'student' : 'students'} online
+                    </Badge>
+                  </div>
                   <div className="flex items-center gap-1">
                     <Button 
                       variant={viewMode === 'grid' ? "default" : "outline"} 
@@ -586,30 +592,39 @@ const LessonPresentation: React.FC = () => {
                   <LessonSlideView slide={currentSlide} isStudentView={true} />
                 </div>
                 
-                <div className="flex justify-between mt-3">
+                <div className="flex justify-between items-center mt-3">
                   <Button 
                     onClick={handlePreviousSlide} 
                     disabled={currentSlideIndex === 0 || syncEnabled}
-                    size="sm"
-                    className="text-xs h-7"
+                    size="default"
+                    className="flex items-center gap-1 h-9 px-3"
+                    variant={currentSlideIndex === 0 ? "outline" : "default"}
                   >
-                    <ArrowLeft className="mr-1 h-3 w-3" />
-                    Previous
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Previous</span>
                   </Button>
+                  
+                  <div className="text-xs font-medium bg-muted/20 rounded-md px-2 py-1">
+                    {currentSlideIndex + 1} / {lesson.slides.length}
+                  </div>
+                  
                   <Button 
                     onClick={handleNextSlide} 
                     disabled={currentSlideIndex === lesson.slides.length - 1 || syncEnabled}
-                    size="sm"
-                    className="text-xs h-7"
+                    size="default"
+                    className="flex items-center gap-1 h-9 px-3"
+                    variant={currentSlideIndex === lesson.slides.length - 1 ? "outline" : "default"}
                   >
-                    Next
-                    <ArrowRight className="ml-1 h-3 w-3" />
+                    <span>Next</span>
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
                 
                 {syncEnabled && (
-                  <div className="text-center mt-3 text-xs text-muted-foreground">
-                    Navigation controlled by teacher
+                  <div className="text-center mt-3 text-xs text-muted-foreground bg-muted/10 rounded-md p-2">
+                    <span className="flex items-center justify-center gap-1">
+                      Navigation controlled by teacher
+                    </span>
                   </div>
                 )}
               </CardContent>
