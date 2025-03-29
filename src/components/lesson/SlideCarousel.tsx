@@ -31,22 +31,21 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
       }}
       className="w-full"
     >
-      <CarouselContent>
+      <CarouselContent className="-ml-1">
         {slides.map((slide, index) => (
-          <CarouselItem key={slide.id} className="basis-1/6 min-w-24 sm:basis-1/6 md:basis-1/8">
+          <CarouselItem key={slide.id} className="basis-1/10 pl-1 md:basis-1/12 min-w-[40px]">
             <div 
-              className="p-1 cursor-pointer" 
+              className="cursor-pointer" 
               onClick={() => onSlideClick(index)}
             >
               <Card className={cn(
-                "rounded-lg border hover:border-primary transition-all duration-200",
+                "rounded-md border hover:border-primary transition-all duration-200",
                 index === currentSlideIndex ? "border-primary-600 border-2 bg-primary/5" : ""
               )}>
-                <CardContent className="p-2 flex flex-col items-center justify-center h-full">
-                  <div className="text-center font-medium text-xs truncate w-full">{index + 1}</div>
+                <CardContent className="p-1 flex items-center justify-center h-8">
                   <Badge 
                     variant={index === currentSlideIndex ? "default" : "outline"} 
-                    className="mt-1 text-xs h-5 w-5 p-0 flex items-center justify-center"
+                    className="h-5 w-5 p-0 flex items-center justify-center text-[10px]"
                   >
                     {index + 1}
                   </Badge>
@@ -56,8 +55,8 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
           </CarouselItem>
         ))}
       </CarouselContent>
-      <CarouselPrevious className="left-0" />
-      <CarouselNext className="right-0" />
+      <CarouselPrevious className="-left-4 h-6 w-6" />
+      <CarouselNext className="-right-4 h-6 w-6" />
     </Carousel>
   );
 };
