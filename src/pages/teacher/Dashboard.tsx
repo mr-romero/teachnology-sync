@@ -242,7 +242,7 @@ const Dashboard: React.FC = () => {
                           variant="outline"
                           asChild
                         >
-                          <Link to={`/teacher/${session.presentation_id}`}>
+                          <Link to={`/teacher/${session.presentation_id}?sessionId=${session.id}`}>
                             <Play className="h-4 w-4" />
                           </Link>
                         </Button>

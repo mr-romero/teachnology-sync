@@ -113,6 +113,35 @@ const LessonPresentation: React.FC = () => {
       if (!lessonId || !user) return;
       
       try {
+        // Check if a specific sessionId was provided in URL query params
+        const urlParams = new URLSearchParams(window.location.search);
+        const specificSessionId = urlParams.get('sessionId');
+        
+        if (specificSessionId) {
+          // If a specific sessionId was provided, use that one directly
+          const { data, error } = await supabase
+            .from('presentation_sessions')
+            .select('id, join_code, current_slide')
+            .eq('id', specificSessionId)
+            .is('ended_at', null)
+            .single();
+            
+          if (error) {
+            console.error('Error fetching specified session:', error);
+            return;
+          }
+          
+          if (data) {
+            setHasExistingSession(true);
+            setSessionId(data.id);
+            setJoinCode(data.join_code);
+            setCurrentSlideIndex(data.current_slide);
+            toast.success(`Reconnected to existing session with code: ${data.join_code}`);
+            return; // Exit early since we found our specific session
+          }
+        }
+        
+        // If no specific sessionId was provided or it wasn't found, fallback to finding latest session
         const { data, error } = await supabase
           .from('presentation_sessions')
           .select('id, join_code, current_slide')
@@ -200,13 +229,20 @@ const LessonPresentation: React.FC = () => {
   useEffect(() => {
     if (!sessionId) return;
     
+    // Initial refresh
     refreshParticipants();
     refreshAnswers();
     
+    // Set a less frequent polling interval to avoid resource exhaustion
     const pollingInterval = setInterval(() => {
+      // Only refresh if not already in progress
       refreshParticipants();
-      refreshAnswers();
-    }, 5000);
+      
+      // Stagger the refreshes to avoid concurrent requests
+      setTimeout(() => {
+        refreshAnswers();
+      }, 1000);
+    }, 10000); // Reduced from 5000ms to 10000ms (10 seconds)
     
     return () => clearInterval(pollingInterval);
   }, [sessionId, refreshParticipants, refreshAnswers]);
@@ -274,6 +310,7 @@ const LessonPresentation: React.FC = () => {
     const newSyncState = !sessionData.is_synced;
     
     try {
+      // First update the session's sync state
       const { error } = await supabase
         .from('presentation_sessions')
         .update({ is_synced: newSyncState })
@@ -283,6 +320,24 @@ const LessonPresentation: React.FC = () => {
         console.error("Error updating sync mode:", error);
         toast.error("Failed to update sync mode");
         return;
+      }
+      
+      // If students are now synced, force their slides to current position
+      if (newSyncState && participants && participants.length > 0) {
+        // Update all students to the current slide if syncing
+        for (const participant of participants) {
+          console.log(`Syncing student ${participant.user_id} to slide ${currentSlideIndex}`);
+          await supabase
+            .from('session_participants')
+            .update({ current_slide: currentSlideIndex })
+            .eq('session_id', sessionId)
+            .eq('user_id', participant.user_id);
+        }
+        
+        // Force refresh participants data
+        setTimeout(() => {
+          refreshParticipants();
+        }, 500);
       }
       
       toast.success(newSyncState 

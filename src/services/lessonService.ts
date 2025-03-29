@@ -289,11 +289,10 @@ export const joinPresentationSession = async (joinCode: string, userId: string):
       .single();
     
     if (currentSession) {
+      // Only update the current_slide to ensure compatibility with the database schema
       await supabase
         .from('presentation_sessions')
         .update({ 
-          // Safely add the active_students property if schema supports it
-          // If this fails, it won't break the app functionality
           current_slide: currentSession.current_slide // Keep existing value
         })
         .eq('id', session.id);
