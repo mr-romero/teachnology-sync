@@ -435,7 +435,6 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                       onClick={onToggleSync}
                       className={`h-8 w-8 rounded-full p-0 mb-1 ${syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}`}
                       title={syncEnabled ? "Students follow teacher view" : "Students can navigate freely"}
-                      disabled={studentPacingEnabled}
                     >
                       {syncEnabled ? <Unlock size={14} /> : <Lock size={14} />}
                     </Button>
@@ -541,6 +540,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                       // Determine cell styling based on selection state and current position
                       const isPacedCell = !isSelectingSlides && studentPacingEnabled && pacedSlides.includes(slideIndex);
                       const isSelectedCell = isSelectingSlides && selectedSlides.includes(slideIndex);
+                      const isStudentCurrentSlide = parseInt(student.currentSlide) === slideIndex;
                       
                       return (
                         <td 
@@ -551,11 +551,15 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                               ? "bg-green-50"
                               : isPacedCell
                                 ? "bg-blue-50"
-                                : parseInt(student.currentSlide) === slideIndex 
+                                : isStudentCurrentSlide
                                   ? "bg-primary/5"
                                   : slideIndex === currentSlideIndex 
                                     ? "bg-primary/5"
-                                    : ""
+                                    : "",
+                            // Add a prominent border when this is the student's current slide
+                            isStudentCurrentSlide
+                              ? "border-2 border-primary ring-1 ring-primary/30"
+                              : ""
                           )}
                         >
                           {getStatusIcon(student, slide.id)}
