@@ -1,6 +1,10 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Database } from '@/integrations/supabase/types';
+
+// Define valid table names to ensure type safety with Supabase client
+type TableNames = keyof Database['public']['Tables'];
 
 interface UseRealTimeSyncOptions {
   orderBy?: string;
@@ -15,7 +19,7 @@ interface UseRealTimeSyncOptions {
  * Hook for real-time synchronization with a Supabase table
  */
 export function useRealTimeSync<T extends Record<string, any>>(
-  tableName: string,
+  tableName: TableNames,
   filterColumn: string,
   filterValue: string | null,
   options: UseRealTimeSyncOptions | null
@@ -81,6 +85,7 @@ export function useRealTimeSync<T extends Record<string, any>>(
           throw fetchError;
         }
         
+        // Use type assertion with 'as T' to properly convert the returned data
         setData(fetchedData as T);
       } catch (err) {
         console.error(`Error fetching ${tableName}:`, err);
@@ -105,6 +110,7 @@ export function useRealTimeSync<T extends Record<string, any>>(
         if (payload.eventType === 'DELETE') {
           setData(null);
         } else {
+          // Use proper type assertion to ensure type safety
           setData(payload.new as T);
         }
       })
@@ -122,7 +128,7 @@ export function useRealTimeSync<T extends Record<string, any>>(
  * Hook for real-time collection synchronization with a Supabase table
  */
 export function useRealTimeCollection<T extends Record<string, any>>(
-  tableName: string,
+  tableName: TableNames,
   filterColumn: string,
   filterValue: string | null,
   orderBy: string | null = null
@@ -156,6 +162,7 @@ export function useRealTimeCollection<T extends Record<string, any>>(
         throw fetchError;
       }
       
+      // Use proper type assertion
       setData(fetchedData as T[]);
     } catch (err) {
       console.error(`Error fetching ${tableName} collection:`, err);
