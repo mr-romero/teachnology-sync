@@ -38,6 +38,12 @@ export interface GraphBlock extends BaseBlock {
 
 export type LessonBlock = TextBlock | ImageBlock | QuestionBlock | GraphBlock;
 
+// Define a grid position type
+export interface GridPosition {
+  row: number;
+  column: number;
+}
+
 export interface LessonSlide {
   id: string;
   title: string;
@@ -45,12 +51,18 @@ export interface LessonSlide {
   layout?: SlideLayout; // Optional layout configuration
 }
 
-// New interface for slide layout with columns
+// Updated slide layout interface with grid-based positioning
 export interface SlideLayout {
-  columnCount: number; // Number of columns (1-4)
-  columnWidths: number[]; // Array of percentages (should sum to 100)
-  blockAssignments: Record<string, number>; // Map of blockId to column index
-  blockSizes?: Record<string, { width: string, height: string }>; // Map of blockId to sizes
+  // Grid-based positioning (new system)
+  gridRows?: number;  // Number of rows in the grid
+  gridColumns?: number;  // Number of columns in the grid
+  blockPositions?: Record<string, GridPosition>;  // Map of blockId to grid position
+  blockSizes?: Record<string, { width: string, height: string }>;  // Map of blockId to sizes
+  
+  // Legacy column-based positioning (keeping for backward compatibility)
+  columnCount?: number;  // Number of columns (1-4)
+  columnWidths?: number[];  // Array of percentages (should sum to 100)
+  blockAssignments?: Record<string, number>;  // Map of blockId to column index
 }
 
 export interface Lesson {
@@ -80,4 +92,11 @@ export interface StudentProgress {
   currentSlide: string;
   completedBlocks: string[];
   responses: StudentResponse[];
+}
+
+export interface LessonData {
+  id: string;
+  title: string;
+  description?: string;
+  slides: LessonSlide[];
 }

@@ -14,7 +14,9 @@ export const convertDbSlideToAppSlide = (slide: any): LessonSlide => {
   return {
     id: slide.id,
     title: slide.content.title || 'Untitled Slide',
-    blocks: slide.content.blocks || []
+    blocks: slide.content.blocks || [],
+    // Add layout information from the database
+    layout: slide.content.layout || undefined
   };
 };
 
@@ -26,7 +28,9 @@ export const convertAppLessonToDbFormat = (lesson: Lesson) => {
     slide_order: index,
     content: toJson({
       title: slide.title,
-      blocks: slide.blocks
+      blocks: slide.blocks,
+      // Include layout information in the content JSON
+      layout: slide.layout || null
     })
   }));
 

@@ -9,6 +9,12 @@ import { Pause } from 'lucide-react';
 import ImageViewer from './ImageViewer';
 import { cn } from '@/lib/utils';
 
+// Define a grid position type to match the editor
+interface GridPosition {
+  row: number;
+  column: number;
+}
+
 interface LessonSlideViewProps {
   slide: LessonSlide;
   isStudentView?: boolean;
@@ -76,6 +82,46 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
       default:
         return <p>Unknown block type</p>;
     }
+  };
+  
+  // Get block position from layout
+  const getBlockPosition = (blockId: string): GridPosition => {
+    if (slide.layout?.blockPositions?.[blockId]) {
+      return slide.layout.blockPositions[blockId];
+    }
+    return { row: 0, column: 0 };
+  };
+  
+  // Group blocks by grid position
+  const getBlocksByPosition = () => {
+    const result: {
+      [rowCol: string]: LessonBlock[];
+    } = {};
+    
+    // Create a grid with all possible positions based on the layout
+    const rowCount = slide.layout?.gridRows || 1;
+    const colCount = slide.layout?.gridColumns || 1;
+    
+    for (let row = 0; row < rowCount; row++) {
+      for (let col = 0; col < colCount; col++) {
+        const key = `${row}-${col}`;
+        result[key] = [];
+      }
+    }
+    
+    // Assign blocks to their positions
+    slide.blocks.forEach(block => {
+      const position = getBlockPosition(block.id);
+      const key = `${position.row}-${position.column}`;
+      
+      if (!result[key]) {
+        result[key] = [];
+      }
+      
+      result[key].push(block);
+    });
+    
+    return result;
   };
   
   const renderQuestionBlock = (block: QuestionBlock) => {
@@ -245,13 +291,23 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     
     return <p>Unknown question type</p>;
   };
-
-  // Get block dimensions/position
+  
+  // Get block dimensions
   const getBlockDimensions = (blockId: string) => {
     if (slide.layout?.blockSizes?.[blockId]) {
       return slide.layout.blockSizes[blockId];
     }
     return { width: '100%', height: 'auto' };
+  };
+
+  // Check if we should use grid layout
+  const useGridLayout = slide.layout?.gridRows && slide.layout?.gridColumns && slide.layout.gridRows > 1 || slide.layout?.gridColumns > 1;
+  const blocksByPosition = useGridLayout ? getBlocksByPosition() : null;
+  
+  // Grid size
+  const gridSize = {
+    rows: slide.layout?.gridRows || 1,
+    columns: slide.layout?.gridColumns || 1
   };
 
   return (
@@ -267,26 +323,67 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
         </div>
       )}
 
-      <div className="space-y-0">
-        {slide.blocks.map((block) => {
-          const { width, height } = getBlockDimensions(block.id);
-          return (
-            <div 
-              key={block.id} 
-              className="relative mb-4"
-              style={{ 
-                width: width || '100%', 
-                height: height || 'auto',
-                margin: '0 auto 1rem auto'
-              }}
-            >
-              <div className="h-full">
-                {renderBlock(block)}
+      {useGridLayout ? (
+        // Render using grid layout
+        <div 
+          className="grid gap-4" 
+          style={{ 
+            gridTemplateRows: `repeat(${gridSize.rows}, minmax(0, auto))`,
+            gridTemplateColumns: `repeat(${gridSize.columns}, minmax(0, 1fr))`
+          }}
+        >
+          {/* Render all grid cells */}
+          {Object.keys(blocksByPosition!).map(position => {
+            const [row, col] = position.split('-').map(Number);
+            const blocksInPosition = blocksByPosition![position] || [];
+            
+            if (blocksInPosition.length === 0) return null;
+            
+            return (
+              <div 
+                key={position}
+                className="p-2"
+                style={{
+                  gridRow: row + 1, // 1-based in CSS grid
+                  gridColumn: col + 1 // 1-based in CSS grid
+                }}
+              >
+                {blocksInPosition.map((block) => (
+                  <div 
+                    key={block.id} 
+                    className="relative mb-4 p-4 border rounded-md"
+                  >
+                    {/* Block content */}
+                    {renderBlock(block)}
+                  </div>
+                ))}
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        // Use the original linear layout
+        <div className="space-y-0">
+          {slide.blocks.map((block) => {
+            const { width, height } = getBlockDimensions(block.id);
+            return (
+              <div 
+                key={block.id} 
+                className="relative mb-4"
+                style={{ 
+                  width: width || '100%', 
+                  height: height || 'auto',
+                  margin: '0 auto 1rem auto'
+                }}
+              >
+                <div className="h-full">
+                  {renderBlock(block)}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

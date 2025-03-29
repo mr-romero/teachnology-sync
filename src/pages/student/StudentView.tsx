@@ -406,35 +406,30 @@ const StudentView: React.FC = () => {
     const isPacedMode = allowedSlides.length > 0;
     
     return (
-      <div className="container max-w-4xl mx-auto py-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h1 className="text-xl font-semibold">{lesson.title}</h1>
-              <div className="flex items-center space-x-2">
-                {isSynced && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <LockIcon className="h-4 w-4 mr-1" />
-                    <span>Teacher controlled</span>
-                  </div>
-                )}
-                <div className="text-sm text-muted-foreground">
-                  Slide {currentSlideIndex + 1} of {lesson.slides.length}
+      <div className="min-h-[calc(100vh-2rem)] flex flex-col">
+        <div className="bg-background shadow-sm border-b p-4">
+          <div className="container mx-auto flex justify-between items-center">
+            <h1 className="text-xl font-semibold">{lesson.title}</h1>
+            <div className="flex items-center space-x-4">
+              {isSynced && (
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <LockIcon className="h-4 w-4 mr-1" />
+                  <span>Teacher controlled</span>
                 </div>
+              )}
+              <div className="text-sm font-medium bg-muted/20 px-3 py-1 rounded-md">
+                Slide {currentSlideIndex + 1} of {lesson.slides.length}
               </div>
-            </div>
-            
-            {/* Add session code display */}
-            <div className="mb-4 bg-muted/20 rounded-md p-2 flex justify-between items-center">
               <div className="text-sm">
-                <span className="font-medium">Session Code:</span> 
-                <span className="ml-2 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Session ID: {sessionId.substring(0, 8)}...
+                <span className="font-medium">Code: </span> 
+                <span className="ml-1 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
               </div>
             </div>
-            
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-auto p-4">
+          <div className="container mx-auto">
             {/* Add paced slides info if enabled */}
             {isPacedMode && !isSynced && (
               <div className="mb-4 bg-blue-50 border border-blue-200 rounded-md p-2 text-blue-700 text-sm">
@@ -448,63 +443,67 @@ const StudentView: React.FC = () => {
               </div>
             )}
             
-            <div className="mb-6">
+            <div className="mb-4">
               <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
             </div>
             
-            <LessonSlideView 
-              slide={currentSlide} 
-              isStudentView={true}
-              studentId={user?.id}
-              onAnswerSubmit={handleSubmitAnswer}
-              answeredBlocks={answeredBlocks}
-              isPaused={isPaused}
-            />
-            
-            <div className="flex justify-between mt-6">
-              <Button 
-                onClick={handlePreviousSlide} 
-                disabled={
-                  currentSlideIndex === 0 || 
-                  isSynced || 
-                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0)
-                }
-                className="flex items-center"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Previous
-              </Button>
-              
-              {/* If in paced mode, show current position in sequence */}
-              {isPacedMode && !isSynced && (
-                <div className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md flex items-center">
-                  {allowedSlides.indexOf(currentSlideIndex) !== -1 ? 
-                    `${allowedSlides.indexOf(currentSlideIndex) + 1} of ${allowedSlides.length} selected slides` :
-                    "Outside of selected slides"}
-                </div>
-              )}
-              
-              <Button 
-                onClick={handleNextSlide} 
-                disabled={
-                  currentSlideIndex === lesson.slides.length - 1 || 
-                  isSynced || 
-                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1)
-                }
-                className="flex items-center"
-              >
-                Next
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+            <div className="bg-white rounded-lg border p-6">
+              <LessonSlideView 
+                slide={currentSlide} 
+                isStudentView={true}
+                studentId={user?.id}
+                onAnswerSubmit={handleSubmitAnswer}
+                answeredBlocks={answeredBlocks}
+                isPaused={isPaused}
+              />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+        
+        <div className="bg-background border-t p-4">
+          <div className="container mx-auto flex justify-between items-center">
+            <Button 
+              onClick={handlePreviousSlide} 
+              disabled={
+                currentSlideIndex === 0 || 
+                isSynced || 
+                (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0)
+              }
+              className="flex items-center"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Previous
+            </Button>
+            
+            {/* If in paced mode, show current position in sequence */}
+            {isPacedMode && !isSynced && (
+              <div className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md flex items-center">
+                {allowedSlides.indexOf(currentSlideIndex) !== -1 ? 
+                  `${allowedSlides.indexOf(currentSlideIndex) + 1} of ${allowedSlides.length} selected slides` :
+                  "Outside of selected slides"}
+              </div>
+            )}
+            
+            <Button 
+              onClick={handleNextSlide} 
+              disabled={
+                currentSlideIndex === lesson.slides.length - 1 || 
+                isSynced || 
+                (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1)
+              }
+              className="flex items-center"
+            >
+              Next
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </div>
     );
   };
   
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className={isJoined ? "h-screen overflow-hidden" : "container mx-auto px-4 py-8"}>
       {!isJoined ? renderJoinForm() : renderLessonView()}
     </div>
   );

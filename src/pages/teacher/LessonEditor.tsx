@@ -8,7 +8,6 @@ import { useAuth } from '@/context/AuthContext';
 import { Plus, Save, ArrowLeft, Trash } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import LessonBlockEditor from '@/components/lesson/LessonBlockEditor';
-import DraggableSlideItem from '@/components/lesson/DraggableSlideItem';
 import SlideCarousel from '@/components/lesson/SlideCarousel';
 import BlockBasedSlideEditor from '@/components/lesson/BlockBasedSlideEditor';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,7 +26,6 @@ const LessonEditor: React.FC = () => {
   const [activeSlide, setActiveSlide] = useState<string>('');
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
-  const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
   // Initialize lesson data
   useEffect(() => {
@@ -267,37 +265,6 @@ const LessonEditor: React.FC = () => {
     }
   };
 
-  const handleSlideReorder = (fromIndex: number, toIndex: number) => {
-    if (lesson && fromIndex !== toIndex) {
-      const reorderedSlides = [...lesson.slides];
-      const [movedSlide] = reorderedSlides.splice(fromIndex, 1);
-      reorderedSlides.splice(toIndex, 0, movedSlide);
-      
-      setLesson({
-        ...lesson,
-        slides: reorderedSlides,
-        updatedAt: new Date().toISOString()
-      });
-      
-      toast.success("Slides reordered");
-    }
-  };
-
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedSlideIndex(index);
-  };
-
-  const handleDragEnter = (index: number) => {
-    if (draggedSlideIndex !== null && draggedSlideIndex !== index) {
-      handleSlideReorder(draggedSlideIndex, index);
-      setDraggedSlideIndex(index);
-    }
-  };
-
-  const handleDragEnd = () => {
-    setDraggedSlideIndex(null);
-  };
-
   const handleSlideLayoutChange = (slideId: string, layout: SlideLayout) => {
     if (lesson) {
       const updatedSlides = lesson.slides.map(slide => {
@@ -449,51 +416,38 @@ const LessonEditor: React.FC = () => {
           slides={lesson.slides}
           currentSlideIndex={lesson.slides.findIndex(slide => slide.id === activeSlide)}
           onSlideClick={(index) => handleSlideChange(lesson.slides[index].id)}
+          onDeleteSlide={handleDeleteSlide}
+          allowDeletion={lesson.slides.length > 1}
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-card rounded-lg p-4 shadow-sm">
-            <h3 className="font-medium mb-3">Slides</h3>
-            <div className="space-y-2 mb-4">
-              {lesson.slides.map((slide, index) => (
-                <DraggableSlideItem
-                  key={slide.id}
-                  slide={slide}
-                  index={index}
-                  isActive={activeSlide === slide.id}
-                  onSlideClick={handleSlideChange}
-                  onDeleteSlide={handleDeleteSlide}
-                  onDragStart={handleDragStart}
-                  onDragEnter={handleDragEnter}
-                  onDragEnd={handleDragEnd}
-                  isDragging={draggedSlideIndex === index}
-                  allowDeletion={lesson.slides.length > 1}
-                />
-              ))}
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-medium">Content Controls</h3>
+              <Button variant="outline" size="sm" onClick={handleAddSlide}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Slide
+              </Button>
             </div>
-            <Button variant="outline" size="sm" className="w-full" onClick={handleAddSlide}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Slide
-            </Button>
-          </div>
-
-          <div className="bg-card rounded-lg p-4 shadow-sm">
-            <h3 className="font-medium mb-3">Add Content</h3>
-            <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" size="sm" onClick={() => handleAddBlock('text')}>
-                Text
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleAddBlock('image')}>
-                Image
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleAddBlock('question')}>
-                Question
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => handleAddBlock('graph')}>
-                Graph
-              </Button>
+            
+            <div className="bg-card rounded-lg p-4 shadow-sm">
+              <h3 className="font-medium mb-3">Add Content</h3>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={() => handleAddBlock('text')}>
+                  Text
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleAddBlock('image')}>
+                  Image
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleAddBlock('question')}>
+                  Question
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handleAddBlock('graph')}>
+                  Graph
+                </Button>
+              </div>
             </div>
           </div>
           
@@ -527,7 +481,7 @@ const LessonEditor: React.FC = () => {
                   />
                 </div>
                 
-                {/* Replace the old layout manager with the new block-based editor */}
+                {/* Block-based editor */}
                 <BlockBasedSlideEditor
                   slide={currentSlide}
                   onUpdateSlide={handleSlideUpdate}

@@ -10,21 +10,26 @@ import { LessonSlide } from '@/types/lesson';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check, Trash } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface SlideCarouselProps {
   slides: LessonSlide[];
   currentSlideIndex: number;
   onSlideClick: (index: number) => void;
-  // Add new props for paced slides
+  // Add new props for paced slides and slide deletion
   allowedSlides?: number[];
+  onDeleteSlide?: (slideId: string) => void;
+  allowDeletion?: boolean;
 }
 
 const SlideCarousel: React.FC<SlideCarouselProps> = ({
   slides,
   currentSlideIndex,
   onSlideClick,
-  allowedSlides = []
+  allowedSlides = [],
+  onDeleteSlide,
+  allowDeletion = true
 }) => {
   // Function to generate a mini visual preview of a slide that resembles the actual student view
   const renderMiniSlidePreview = (slide: LessonSlide, index: number) => {
@@ -124,6 +129,21 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
               )}></div>
             </div>
           </div>
+
+          {/* Delete button overlay - hidden by default, shown on hover */}
+          {onDeleteSlide && allowDeletion && slides.length > 1 && (
+            <div 
+              className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteSlide(slide.id);
+              }}
+            >
+              <Button variant="ghost" size="icon" className="h-6 w-6 bg-white/80 hover:bg-red-50 text-red-500 rounded-full">
+                <Trash className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -177,7 +197,10 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
       >
         <CarouselContent className="-ml-4">
           {slides.map((slide, index) => (
-            <CarouselItem key={slide.id} className="pl-4 basis-[110px] md:basis-[130px] min-w-[110px] md:min-w-[130px] h-[100px] md:h-[110px]">
+            <CarouselItem 
+              key={slide.id} 
+              className="pl-4 basis-[110px] md:basis-[130px] min-w-[110px] md:min-w-[130px] h-[100px] md:h-[110px] group"
+            >
               {renderMiniSlidePreview(slide, index)}
             </CarouselItem>
           ))}
