@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +36,7 @@ const StudentView: React.FC = () => {
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [answeredBlocks, setAnsweredBlocks] = useState<string[]>([]);
+  const [hasActiveSession, setHasActiveSession] = useState<boolean>(false);
   
   const { 
     data: sessionData,
@@ -85,20 +87,35 @@ const StudentView: React.FC = () => {
         
         if (data && data.length > 0 && data[0].presentation_sessions) {
           const sessionInfo = data[0].presentation_sessions;
-          setSessionId(sessionInfo.id);
-          setJoinCode(sessionInfo.join_code);
-          setPresentationId(sessionInfo.presentation_id);
-          setCurrentSlideIndex(data[0].current_slide);
-          
-          const lessonData = await getLessonById(sessionInfo.presentation_id);
-          if (lessonData) {
-            setLesson(lessonData);
-            setIsJoined(true);
-            toast.success('Reconnected to active session');
-          }
+          setHasActiveSession(true);
+          toast.info(
+            `You have an active session with code: ${sessionInfo.join_code}. 
+             Click "Continue" to rejoin or "Start New" to join a different session.`,
+            {
+              duration: 10000,
+              action: {
+                label: "Continue",
+                onClick: () => rejoinSession(sessionInfo, data[0])
+              }
+            }
+          );
         }
       } catch (error) {
         console.error('Error in checkActiveSession:', error);
+      }
+    };
+    
+    const rejoinSession = async (sessionInfo: any, participantData: any) => {
+      setSessionId(sessionInfo.id);
+      setJoinCode(sessionInfo.join_code);
+      setPresentationId(sessionInfo.presentation_id);
+      setCurrentSlideIndex(participantData.current_slide);
+      
+      const lessonData = await getLessonById(sessionInfo.presentation_id);
+      if (lessonData) {
+        setLesson(lessonData);
+        setIsJoined(true);
+        toast.success('Reconnected to active session');
       }
     };
     
@@ -169,6 +186,15 @@ const StudentView: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleStartNew = () => {
+    setHasActiveSession(false);
+    setIsJoined(false);
+    setJoinCode('');
+    setSessionId('');
+    setPresentationId('');
+    setLesson(null);
   };
   
   const handlePreviousSlide = async () => {
@@ -245,6 +271,16 @@ const StudentView: React.FC = () => {
             >
               {loading ? 'Joining...' : 'Join Lesson'}
             </Button>
+            
+            {hasActiveSession && (
+              <Button 
+                variant="outline" 
+                onClick={handleStartNew}
+                className="w-full mt-2"
+              >
+                Join Different Session
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

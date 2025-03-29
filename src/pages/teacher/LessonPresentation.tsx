@@ -11,7 +11,8 @@ import {
   Users, 
   Lock, 
   Unlock, 
-  Copy
+  Copy,
+  UserCircle
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson, LessonSlide, StudentProgress } from '@/types/lesson';
@@ -28,6 +29,10 @@ import {
 } from '@/services/lessonService';
 import { useRealTimeSync, useRealTimeCollection } from '@/hooks/useRealTimeSync';
 import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface PresentationSession {
   id: string;
@@ -70,6 +75,7 @@ const LessonPresentation: React.FC = () => {
   const [studentProgress, setStudentProgress] = useState<StudentProgress[]>([]);
   const [anonymousMode, setAnonymousMode] = useState(false);
   const [hasExistingSession, setHasExistingSession] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('slides');
   
   const { 
     data: sessionData,
@@ -375,37 +381,125 @@ const LessonPresentation: React.FC = () => {
       {!studentView ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <Card className="mb-4">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
-                  <div className="text-sm text-muted-foreground">
-                    Slide {currentSlideIndex + 1} of {lesson.slides.length}
-                  </div>
-                </div>
-                
-                <LessonSlideView slide={currentSlide} />
-                
-                <div className="flex justify-between mt-6">
-                  <Button 
-                    onClick={handlePreviousSlide} 
-                    disabled={currentSlideIndex === 0}
-                    className="flex items-center"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Previous
-                  </Button>
-                  <Button 
-                    onClick={handleNextSlide} 
-                    disabled={currentSlideIndex === lesson.slides.length - 1}
-                    className="flex items-center"
-                  >
-                    Next
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="slides">Slides</TabsTrigger>
+                <TabsTrigger value="students">
+                  Students
+                  {activeStudents > 0 && (
+                    <Badge variant="secondary" className="ml-2">{activeStudents}</Badge>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="slides">
+                <Card className="mb-4">
+                  <CardContent className="p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
+                      <div className="text-sm text-muted-foreground">
+                        Slide {currentSlideIndex + 1} of {lesson.slides.length}
+                      </div>
+                    </div>
+                    
+                    <LessonSlideView slide={currentSlide} />
+                    
+                    <div className="flex justify-between mt-6">
+                      <Button 
+                        onClick={handlePreviousSlide} 
+                        disabled={currentSlideIndex === 0}
+                        className="flex items-center"
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Previous
+                      </Button>
+                      <Button 
+                        onClick={handleNextSlide} 
+                        disabled={currentSlideIndex === lesson.slides.length - 1}
+                        className="flex items-center"
+                      >
+                        Next
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              <TabsContent value="students">
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-semibold mb-4">Student Participants</h2>
+                    
+                    {participants && participants.length > 0 ? (
+                      <ScrollArea className="h-[400px]">
+                        <div className="space-y-4">
+                          {participants.map((participant) => {
+                            const studentProgress = studentProgress.find(
+                              p => p.studentId === participant.user_id
+                            );
+                            const answeredCount = studentProgress?.completedBlocks.length || 0;
+                            
+                            return (
+                              <div key={participant.id} className="border rounded-md p-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center">
+                                    <UserCircle className="h-8 w-8 mr-3 text-primary" />
+                                    <div>
+                                      <h3 className="font-medium">
+                                        {anonymousMode 
+                                          ? `Student ${participant.user_id.substring(0, 5)}` 
+                                          : `Student ${participant.user_id.substring(0, 8)}`}
+                                      </h3>
+                                      <p className="text-sm text-muted-foreground">
+                                        Joined: {new Date(participant.joined_at).toLocaleTimeString()}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <Badge variant={
+                                      parseInt(participant.current_slide.toString()) === currentSlideIndex 
+                                        ? "default" 
+                                        : "secondary"
+                                    }>
+                                      Slide {parseInt(participant.current_slide.toString()) + 1}
+                                    </Badge>
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Answers: {answeredCount}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {studentProgress?.responses && studentProgress.responses.length > 0 && (
+                                  <>
+                                    <Separator className="my-3" />
+                                    <div>
+                                      <h4 className="text-sm font-medium mb-2">Responses:</h4>
+                                      <div className="space-y-2">
+                                        {studentProgress.responses.map((response, idx) => (
+                                          <div key={idx} className="text-sm bg-muted p-2 rounded">
+                                            <p className="font-medium">Q: Block {response.blockId.substring(0, 6)}</p>
+                                            <p>A: {response.response}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </ScrollArea>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        No students have joined this session yet
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
           
           <div className="lg:col-span-1">

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -39,7 +38,7 @@ export function useRealTimeSync<T>(
         
         // Only set data if it exists
         if (result) {
-          setData(result as T);
+          setData(result as unknown as T);
         } else {
           console.warn(`No data found for ${table} with ${column} = ${value}`);
           setData(null);
@@ -70,7 +69,7 @@ export function useRealTimeSync<T>(
           if (payload.eventType === 'DELETE') {
             setData(null);
           } else {
-            // Fix the deep type instantiation by avoiding nested generic types
+            // Fix the deep type instantiation by using double type assertion
             setData(payload.new as unknown as T);
           }
         }

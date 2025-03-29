@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,16 +8,33 @@ import {
   Play,
   Calendar,
   Users,
-  ChevronRight
+  ChevronRight,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson } from '@/types/lesson';
 import { getLessonsForUser } from '@/services/lessonService';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { endPresentationSession } from '@/services/lessonService';
+import { toast } from '@/components/ui/sonner';
+
+interface ActiveSession {
+  id: string;
+  join_code: string;
+  presentation_id: string;
+  presentation_title: string;
+  started_at: string;
+  active_students: number;
+}
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -37,6 +53,83 @@ const Dashboard: React.FC = () => {
 
     fetchLessons();
   }, [user]);
+
+  useEffect(() => {
+    const fetchActiveSessions = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('presentation_sessions')
+          .select(`
+            id, 
+            join_code, 
+            started_at, 
+            presentation_id,
+            presentations(title)
+          `)
+          .is('ended_at', null)
+          .order('started_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        if (data) {
+          const sessionsWithStudentCount = await Promise.all(
+            data.map(async (session) => {
+              const { count, error: countError } = await supabase
+                .from('session_participants')
+                .select('*', { count: 'exact', head: true })
+                .eq('session_id', session.id);
+                
+              return {
+                id: session.id,
+                join_code: session.join_code,
+                presentation_id: session.presentation_id,
+                presentation_title: session.presentations?.title || 'Untitled',
+                started_at: session.started_at,
+                active_students: count || 0
+              };
+            })
+          );
+          
+          setActiveSessions(sessionsWithStudentCount);
+        }
+      } catch (error) {
+        console.error('Error fetching active sessions:', error);
+      }
+    };
+
+    fetchActiveSessions();
+    
+    const channel = supabase
+      .channel('dashboard-sessions-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'presentation_sessions'
+        },
+        () => {
+          fetchActiveSessions();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  const handleEndSession = async (sessionId: string) => {
+    const success = await endPresentationSession(sessionId);
+    if (success) {
+      toast.success('Session ended successfully');
+      setActiveSessions(prev => prev.filter(session => session.id !== sessionId));
+    } else {
+      toast.error('Failed to end session');
+    }
+  };
 
   if (!user) {
     return (
@@ -74,16 +167,21 @@ const Dashboard: React.FC = () => {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-xl">Upcoming</CardTitle>
-            <CardDescription>Scheduled presentations</CardDescription>
+            <CardTitle className="text-xl">Active Sessions</CardTitle>
+            <CardDescription>Ongoing presentation sessions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-bold">{activeSessions.length}</div>
           </CardContent>
           <CardFooter>
-            <Button variant="outline" className="w-full" disabled>
-              <Calendar className="mr-2 h-4 w-4" />
-              Schedule a Presentation
+            <Button 
+              variant={activeSessions.length > 0 ? "default" : "outline"} 
+              className="w-full"
+              disabled={activeSessions.length === 0}
+              onClick={() => setIsSessionModalOpen(true)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              View Active Sessions
             </Button>
           </CardFooter>
         </Card>
@@ -94,7 +192,9 @@ const Dashboard: React.FC = () => {
             <CardDescription>Student engagement stats</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-bold">
+              {activeSessions.reduce((sum, session) => sum + session.active_students, 0)}
+            </div>
           </CardContent>
           <CardFooter>
             <Button variant="outline" className="w-full" disabled>
@@ -104,6 +204,64 @@ const Dashboard: React.FC = () => {
           </CardFooter>
         </Card>
       </div>
+
+      <Dialog open={isSessionModalOpen} onOpenChange={setIsSessionModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Active Presentation Sessions</DialogTitle>
+            <DialogDescription>
+              View and manage your ongoing presentation sessions
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto">
+            {activeSessions.length === 0 ? (
+              <p className="text-center text-muted-foreground py-4">No active sessions</p>
+            ) : (
+              activeSessions.map(session => (
+                <Card key={session.id} className="overflow-hidden">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold">{session.presentation_title}</h3>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <Badge variant="outline" className="text-sm">
+                            Code: {session.join_code}
+                          </Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {session.active_students} {session.active_students === 1 ? 'student' : 'students'}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Started: {new Date(session.started_at).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          asChild
+                        >
+                          <Link to={`/teacher/${session.presentation_id}`}>
+                            <Play className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button 
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleEndSession(session.id)}
+                        >
+                          End
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-4">Your Lessons</h2>
