@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -244,6 +243,16 @@ const LessonPresentation: React.FC = () => {
   useEffect(() => {
     if (!participants || !answers || participantsLoading || answersLoading) return;
     
+    // Don't update studentProgressData if participants array is empty but we already have data
+    // This prevents flickering between "no students" and showing students
+    if (participants.length === 0 && studentProgressData.length > 0) {
+      console.log("Ignoring empty participants update to prevent flickering");
+      return;
+    }
+    
+    console.log("Processing participants:", participants);
+    console.log("Processing answers:", answers);
+    
     const progressData: StudentProgress[] = participants.map(participant => {
       const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
       
@@ -267,7 +276,7 @@ const LessonPresentation: React.FC = () => {
     });
     
     setStudentProgressData(progressData);
-  }, [participants, answers, participantsLoading, answersLoading, lessonId]);
+  }, [participants, answers, participantsLoading, answersLoading, lessonId, studentProgressData.length]);
   
   const handlePreviousSlide = async () => {
     if (currentSlideIndex > 0 && sessionId) {
