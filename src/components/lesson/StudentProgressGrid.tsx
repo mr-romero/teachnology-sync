@@ -17,13 +17,15 @@ interface StudentProgressGridProps {
   slides: LessonSlide[];
   anonymousMode: boolean;
   sortBy?: string;
+  isLoading?: boolean;
 }
 
 const StudentProgressGrid: React.FC<StudentProgressGridProps> = ({
   studentProgress,
   slides,
   anonymousMode,
-  sortBy = "lastName"
+  sortBy = "lastName",
+  isLoading = false
 }) => {
   // Function to determine the status icon for a particular student and slide
   const getStatusIcon = (student: StudentProgress, slideId: string) => {
@@ -80,14 +82,40 @@ const StudentProgressGrid: React.FC<StudentProgressGridProps> = ({
     return 0;
   });
 
+  if (isLoading) {
+    return (
+      <div className="relative border rounded-lg">
+        <Table className="w-full table-fixed">
+          <TableHeader className="sticky top-0 bg-background z-10">
+            <TableRow>
+              <TableHead className="sticky left-0 bg-background z-20 w-[140px]">Student</TableHead>
+              {slides.map((_, index) => (
+                <TableHead key={index} className="text-center w-[40px]">
+                  {index + 1}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell colSpan={slides.length + 1} className="text-center h-32 text-muted-foreground">
+                Loading student data...
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative overflow-auto border rounded-lg max-h-[500px]">
+    <div className="relative overflow-auto border rounded-lg">
       <Table className="w-full table-fixed">
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
             <TableHead className="sticky left-0 bg-background z-20 w-[140px]">Student</TableHead>
-            {slides.map((slide, index) => (
-              <TableHead key={slide.id} className="text-center w-[40px]">
+            {slides.map((_, index) => (
+              <TableHead key={index} className="text-center w-[40px]">
                 {index + 1}
               </TableHead>
             ))}

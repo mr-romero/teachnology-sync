@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -65,7 +66,6 @@ const LessonPresentation: React.FC = () => {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [studentView, setStudentView] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [joinCode, setJoinCode] = useState<string>('');
   const [studentProgressData, setStudentProgressData] = useState<StudentProgress[]>([]);
@@ -75,6 +75,7 @@ const LessonPresentation: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<string>('lastName');
+  const [activeTab, setActiveTab] = useState('progress');
   
   const { 
     data: sessionData,
@@ -366,10 +367,6 @@ const LessonPresentation: React.FC = () => {
     toast.success(isPaused ? "Session resumed" : "Session paused");
   };
   
-  const toggleStudentView = () => {
-    setStudentView(!studentView);
-  };
-  
   const endSession = async () => {
     if (!sessionId) return;
     
@@ -415,246 +412,207 @@ const LessonPresentation: React.FC = () => {
         
         <div className="flex items-center space-x-2">
           <Button 
-            variant={studentView ? "default" : "outline"} 
+            variant={activeTab === "student" ? "default" : "outline"} 
             size="sm" 
-            onClick={toggleStudentView}
+            onClick={() => setActiveTab("student")}
             className="h-8 text-xs"
           >
             <Eye className="mr-1 h-4 w-4" />
-            {studentView ? "Teacher View" : "Student View"}
+            Student View
           </Button>
         </div>
       </div>
       
-      {!studentView ? (
-        <div className="space-y-4">
-          <Card className="border shadow-sm">
-            <CardContent className="p-3">
-              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                <div className="w-full md:w-auto">
-                  <LessonControls 
-                    joinCode={joinCode}
-                    activeStudents={activeStudents}
-                    anonymousMode={anonymousMode}
-                    syncEnabled={syncEnabled}
-                    studentPacingEnabled={studentPacingEnabled}
-                    isPaused={isPaused}
-                    onToggleAnonymous={toggleAnonymousMode}
-                    onToggleSync={toggleSyncMode}
-                    onTogglePacing={toggleStudentPacing}
-                    onTogglePause={togglePause}
-                    onEndSession={endSession}
-                    onSortChange={setSortBy}
-                  />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="mb-4 w-full justify-start">
+          <TabsTrigger value="progress" className="text-xs">Teacher Dashboard</TabsTrigger>
+          <TabsTrigger value="student" className="text-xs">Student View</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="progress">
+          <div className="space-y-4">
+            <Card className="border shadow-sm">
+              <CardContent className="p-3">
+                <div className="flex flex-row gap-4 items-center">
+                  <div className="flex-shrink-0">
+                    <LessonControls 
+                      joinCode={joinCode}
+                      activeStudents={activeStudents}
+                      anonymousMode={anonymousMode}
+                      syncEnabled={syncEnabled}
+                      studentPacingEnabled={studentPacingEnabled}
+                      isPaused={isPaused}
+                      onToggleAnonymous={toggleAnonymousMode}
+                      onToggleSync={toggleSyncMode}
+                      onTogglePacing={toggleStudentPacing}
+                      onTogglePause={togglePause}
+                      onEndSession={endSession}
+                      onSortChange={setSortBy}
+                    />
+                  </div>
+                  <div className="flex-grow">
+                    <SlideCarousel 
+                      slides={lesson.slides}
+                      currentSlideIndex={currentSlideIndex}
+                      onSlideClick={handleSlideClick}
+                    />
+                  </div>
                 </div>
-                <div className="w-full">
-                  <SlideCarousel 
-                    slides={lesson.slides}
-                    currentSlideIndex={currentSlideIndex}
-                    onSlideClick={handleSlideClick}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <div className="lg:col-span-2">
-              <Card className="h-full">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className="text-sm font-semibold">{currentSlide.title}</h2>
-                    <div className="text-xs text-muted-foreground">
-                      Slide {currentSlideIndex + 1} of {lesson.slides.length}
-                    </div>
-                  </div>
-                  
-                  <div className="border rounded-md p-2 bg-muted/5">
-                    <LessonSlideView slide={currentSlide} />
-                  </div>
-                  
-                  <div className="flex justify-between mt-3">
-                    <Button 
-                      onClick={handlePreviousSlide} 
-                      disabled={currentSlideIndex === 0}
-                      size="sm"
-                      className="text-xs h-7"
-                    >
-                      <ArrowLeft className="mr-1 h-3 w-3" />
-                      Previous
-                    </Button>
-                    <Button 
-                      onClick={handleNextSlide} 
-                      disabled={currentSlideIndex === lesson.slides.length - 1}
-                      size="sm"
-                      className="text-xs h-7"
-                    >
-                      Next
-                      <ArrowRight className="ml-1 h-3 w-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+              </CardContent>
+            </Card>
             
-            <div className="lg:col-span-3">
-              <Card className="h-full">
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h2 className="text-sm font-semibold">Student Progress</h2>
-                    <div className="flex items-center gap-1">
-                      <Button 
-                        variant={viewMode === 'grid' ? "default" : "outline"} 
-                        size="icon"
-                        onClick={() => setViewMode('grid')}
-                        className="h-7 w-7"
-                      >
-                        <LayoutGrid className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button 
-                        variant={viewMode === 'list' ? "default" : "outline"} 
-                        size="icon"
-                        onClick={() => setViewMode('list')}
-                        className="h-7 w-7"
-                      >
-                        <LayoutList className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+            <Card className="w-full border shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-sm font-semibold">Student Progress</h2>
+                  <div className="flex items-center gap-1">
+                    <Button 
+                      variant={viewMode === 'grid' ? "default" : "outline"} 
+                      size="icon"
+                      onClick={() => setViewMode('grid')}
+                      className="h-7 w-7"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button 
+                      variant={viewMode === 'list' ? "default" : "outline"} 
+                      size="icon"
+                      onClick={() => setViewMode('list')}
+                      className="h-7 w-7"
+                    >
+                      <LayoutList className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  
-                  {participantsLoading ? (
-                    <div className="text-center py-4 text-sm">Loading student data...</div>
-                  ) : viewMode === 'grid' ? (
-                    <div className="max-h-[500px]">
-                      <StudentProgressGrid 
-                        studentProgress={studentProgressData}
-                        slides={lesson.slides}
-                        anonymousMode={anonymousMode}
-                        sortBy={sortBy}
-                      />
-                    </div>
-                  ) : (
-                    <div className="max-h-[500px] overflow-auto space-y-3">
-                      {studentProgressData.length === 0 ? (
-                        <div className="text-center py-4 text-sm text-muted-foreground">
-                          No students have joined this session yet
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="text-xs font-medium ml-1">Current Student Responses:</div>
-                          <StudentResponseList
-                            studentProgress={studentProgressData}
-                            currentSlideId={currentSlide.id}
-                            anonymousMode={anonymousMode}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <Tabs defaultValue="slide" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="slide" className="text-xs">Student View</TabsTrigger>
-            <TabsTrigger value="data" className="text-xs">Student Data</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="slide">
-            <div className="flex justify-center">
-              <div className="w-full max-w-2xl">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <h2 className="text-sm font-semibold">{currentSlide.title}</h2>
-                      <div className="text-xs text-muted-foreground">
-                        Slide {currentSlideIndex + 1} of {lesson.slides.length}
+                </div>
+                
+                {viewMode === 'grid' ? (
+                  <div className="max-h-[500px]">
+                    <StudentProgressGrid 
+                      studentProgress={studentProgressData}
+                      slides={lesson.slides}
+                      anonymousMode={anonymousMode}
+                      sortBy={sortBy}
+                      isLoading={participantsLoading || answersLoading}
+                    />
+                  </div>
+                ) : (
+                  <div className="max-h-[500px] overflow-auto space-y-3">
+                    {participantsLoading || answersLoading ? (
+                      <div className="text-center py-4 text-sm text-muted-foreground">
+                        Loading student data...
                       </div>
-                    </div>
-                    
-                    <div className="border rounded-md p-2 bg-muted/5">
-                      <LessonSlideView slide={currentSlide} isStudentView={true} />
-                    </div>
-                    
-                    <div className="flex justify-between mt-3">
-                      <Button 
-                        onClick={handlePreviousSlide} 
-                        disabled={currentSlideIndex === 0 || syncEnabled}
-                        size="sm"
-                        className="text-xs h-7"
-                      >
-                        <ArrowLeft className="mr-1 h-3 w-3" />
-                        Previous
-                      </Button>
-                      <Button 
-                        onClick={handleNextSlide} 
-                        disabled={currentSlideIndex === lesson.slides.length - 1 || syncEnabled}
-                        size="sm"
-                        className="text-xs h-7"
-                      >
-                        Next
-                        <ArrowRight className="ml-1 h-3 w-3" />
-                      </Button>
-                    </div>
-                    
-                    {syncEnabled && (
-                      <div className="text-center mt-3 text-xs text-muted-foreground">
-                        Navigation controlled by teacher
+                    ) : studentProgressData.length === 0 ? (
+                      <div className="text-center py-4 text-sm text-muted-foreground">
+                        No students have joined this session yet
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="text-xs font-medium ml-1">Current Student Responses:</div>
+                        <StudentResponseList
+                          studentProgress={studentProgressData}
+                          currentSlideId={currentSlide.id}
+                          anonymousMode={anonymousMode}
+                        />
                       </div>
                     )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="data">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="text-sm font-medium mb-2">Student List</h3>
-                  {studentProgressData.length === 0 ? (
-                    <div className="text-sm text-center py-4 text-muted-foreground">
-                      No students have joined yet
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {studentProgressData.map((student, index) => (
-                        <div 
-                          key={student.studentId}
-                          className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-xs"
-                        >
-                          <span className="flex items-center">
-                            <UserCircle className="h-4 w-4 mr-2 text-primary" />
-                            {anonymousMode ? `Student ${index + 1}` : student.studentName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            Slide {parseInt(student.currentSlide) + 1}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-4">
-                  <h3 className="text-sm font-medium mb-2">Current Slide Responses</h3>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="student">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-sm font-semibold">{currentSlide.title}</h2>
+                  <div className="text-xs text-muted-foreground">
+                    Slide {currentSlideIndex + 1} of {lesson.slides.length}
+                  </div>
+                </div>
+                
+                <div className="border rounded-md p-2 bg-muted/5">
+                  <LessonSlideView slide={currentSlide} isStudentView={true} />
+                </div>
+                
+                <div className="flex justify-between mt-3">
+                  <Button 
+                    onClick={handlePreviousSlide} 
+                    disabled={currentSlideIndex === 0 || syncEnabled}
+                    size="sm"
+                    className="text-xs h-7"
+                  >
+                    <ArrowLeft className="mr-1 h-3 w-3" />
+                    Previous
+                  </Button>
+                  <Button 
+                    onClick={handleNextSlide} 
+                    disabled={currentSlideIndex === lesson.slides.length - 1 || syncEnabled}
+                    size="sm"
+                    className="text-xs h-7"
+                  >
+                    Next
+                    <ArrowRight className="ml-1 h-3 w-3" />
+                  </Button>
+                </div>
+                
+                {syncEnabled && (
+                  <div className="text-center mt-3 text-xs text-muted-foreground">
+                    Navigation controlled by teacher
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardContent className="p-4">
+                <h3 className="text-sm font-medium mb-2">Student List</h3>
+                {participantsLoading ? (
+                  <div className="text-sm text-center py-4 text-muted-foreground">
+                    Loading student data...
+                  </div>
+                ) : studentProgressData.length === 0 ? (
+                  <div className="text-sm text-center py-4 text-muted-foreground">
+                    No students have joined yet
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[400px] overflow-auto">
+                    {studentProgressData.map((student, index) => (
+                      <div 
+                        key={student.studentId}
+                        className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-xs"
+                      >
+                        <span className="flex items-center">
+                          <UserCircle className="h-4 w-4 mr-2 text-primary" />
+                          {anonymousMode ? `Student ${index + 1}` : student.studentName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          Slide {parseInt(student.currentSlide) + 1}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <h3 className="text-sm font-medium mb-2 mt-4">Current Slide Responses</h3>
+                {participantsLoading || answersLoading ? (
+                  <div className="text-sm text-center py-4 text-muted-foreground">
+                    Loading responses...
+                  </div>
+                ) : (
                   <StudentResponseList
                     studentProgress={studentProgressData}
                     currentSlideId={currentSlide.id}
                     anonymousMode={anonymousMode}
                   />
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      )}
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

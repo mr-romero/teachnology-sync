@@ -85,7 +85,7 @@ export function useRealTimeSync<T extends Record<string, any>>(
           throw fetchError;
         }
         
-        // Fix: Use double assertion to safely convert the returned data
+        // Safe type conversion with explicit cast
         setData(fetchedData as unknown as T);
       } catch (err) {
         console.error(`Error fetching ${tableName}:`, err);
@@ -110,7 +110,7 @@ export function useRealTimeSync<T extends Record<string, any>>(
         if (payload.eventType === 'DELETE') {
           setData(null);
         } else {
-          // Fix: Use double assertion for proper type conversion
+          // Safe type conversion
           setData(payload.new as unknown as T);
         }
       })
@@ -162,7 +162,7 @@ export function useRealTimeCollection<T extends Record<string, any>>(
         throw fetchError;
       }
       
-      // Fix: Use double assertion for proper type conversion
+      // Safe type conversion
       setData(fetchedData as unknown as T[]);
     } catch (err) {
       console.error(`Error fetching ${tableName} collection:`, err);

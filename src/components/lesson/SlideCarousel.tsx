@@ -23,6 +23,35 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   currentSlideIndex,
   onSlideClick
 }) => {
+  // Function to generate a simple visual preview of a slide
+  const renderMiniSlidePreview = (slide: LessonSlide, index: number) => {
+    // Determine type of content to show a hint of what's on the slide
+    const hasQuestion = slide.blocks.some(block => block.type === 'question');
+    const hasImage = slide.blocks.some(block => block.type === 'image');
+    const hasGraph = slide.blocks.some(block => block.type === 'graph');
+    
+    return (
+      <Card className={cn(
+        "rounded-md border hover:border-primary transition-all duration-200 overflow-hidden",
+        index === currentSlideIndex ? "border-primary-600 border-2 bg-primary/5" : ""
+      )}>
+        <CardContent className="p-1 flex flex-col items-center justify-center h-10">
+          <Badge 
+            variant={index === currentSlideIndex ? "default" : "outline"} 
+            className="h-5 w-5 p-0 flex items-center justify-center text-[10px] mb-1"
+          >
+            {index + 1}
+          </Badge>
+          <div className="flex gap-0.5 mt-0.5">
+            {hasQuestion && <div className="h-1 w-1 rounded-full bg-amber-500"></div>}
+            {hasImage && <div className="h-1 w-1 rounded-full bg-blue-500"></div>}
+            {hasGraph && <div className="h-1 w-1 rounded-full bg-green-500"></div>}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <Carousel
       opts={{
@@ -33,24 +62,12 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
     >
       <CarouselContent className="-ml-1">
         {slides.map((slide, index) => (
-          <CarouselItem key={slide.id} className="basis-1/10 pl-1 md:basis-1/12 min-w-[40px]">
+          <CarouselItem key={slide.id} className="basis-1/12 pl-1 md:basis-1/15 min-w-[40px]">
             <div 
               className="cursor-pointer" 
               onClick={() => onSlideClick(index)}
             >
-              <Card className={cn(
-                "rounded-md border hover:border-primary transition-all duration-200",
-                index === currentSlideIndex ? "border-primary-600 border-2 bg-primary/5" : ""
-              )}>
-                <CardContent className="p-1 flex items-center justify-center h-8">
-                  <Badge 
-                    variant={index === currentSlideIndex ? "default" : "outline"} 
-                    className="h-5 w-5 p-0 flex items-center justify-center text-[10px]"
-                  >
-                    {index + 1}
-                  </Badge>
-                </CardContent>
-              </Card>
+              {renderMiniSlidePreview(slide, index)}
             </div>
           </CarouselItem>
         ))}
