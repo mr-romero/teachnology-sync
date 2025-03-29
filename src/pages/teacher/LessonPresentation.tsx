@@ -431,6 +431,7 @@ const LessonPresentation: React.FC = () => {
     const newSyncState = !sessionData.is_synced;
     
     try {
+      // Update the sync state in the database
       const { error } = await supabase
         .from('presentation_sessions')
         .update({ is_synced: newSyncState })
@@ -442,6 +443,12 @@ const LessonPresentation: React.FC = () => {
         return;
       }
       
+      // Force update local state
+      if (sessionData) {
+        sessionData.is_synced = newSyncState;
+      }
+      
+      // If enabling sync, force-sync all students to the current slide
       if (newSyncState && participants && participants.length > 0) {
         for (const participant of participants) {
           console.log(`Syncing student ${participant.user_id} to slide ${currentSlideIndex}`);

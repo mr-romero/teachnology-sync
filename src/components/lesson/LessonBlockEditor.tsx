@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +21,8 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import ImageUploader from './ImageUploader';
+import { deleteImage } from '@/services/imageService';
 
 interface LessonBlockEditorProps {
   block: LessonBlock;
@@ -62,35 +63,55 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
     </div>
   );
   
-  const renderImageBlockEditor = (imageBlock: ImageBlock) => (
-    <div className="space-y-4">
-      <div>
-        <Label>Image URL</Label>
-        <Input
-          value={imageBlock.url}
-          onChange={(e) => onUpdate({ ...imageBlock, url: e.target.value })}
-          placeholder="Enter image URL"
-          className="mt-1"
+  const renderImageBlockEditor = (imageBlock: ImageBlock) => {
+    const handleImageUploaded = (url: string, path: string) => {
+      // If there's an existing image in storage and we're replacing it, clean up the old one
+      if (imageBlock.storagePath && path && imageBlock.storagePath !== path) {
+        // We don't need to await this, it can happen in the background
+        deleteImage(imageBlock.storagePath).catch(err => 
+          console.error('Error deleting old image:', err)
+        );
+      }
+      
+      onUpdate({ 
+        ...imageBlock, 
+        url, 
+        storagePath: path 
+      });
+    };
+    
+    const handleAltTextChange = (alt: string) => {
+      onUpdate({ ...imageBlock, alt });
+    };
+    
+    return (
+      <div className="space-y-4">
+        <ImageUploader 
+          existingUrl={imageBlock.url}
+          existingAlt={imageBlock.alt}
+          onImageUploaded={handleImageUploaded}
+          onUpdateAlt={handleAltTextChange}
         />
+        
+        {/* Show the URL input if you still want to allow direct URL entry */}
+        <div className="mt-4 border-t pt-4">
+          <Label className="flex items-center gap-2">
+            External URL
+            <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+          </Label>
+          <Input
+            value={imageBlock.url}
+            onChange={(e) => onUpdate({ ...imageBlock, url: e.target.value })}
+            placeholder="Enter image URL"
+            className="mt-1"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            You can use an external image URL instead of uploading an image.
+          </p>
+        </div>
       </div>
-      <div>
-        <Label>Alt Text</Label>
-        <Input
-          value={imageBlock.alt}
-          onChange={(e) => onUpdate({ ...imageBlock, alt: e.target.value })}
-          placeholder="Enter alt text for accessibility"
-          className="mt-1"
-        />
-      </div>
-      <div className="mt-4">
-        <img 
-          src={imageBlock.url} 
-          alt={imageBlock.alt} 
-          className="max-h-60 rounded-md mx-auto border" 
-        />
-      </div>
-    </div>
-  );
+    );
+  };
   
   const renderQuestionBlockEditor = (questionBlock: QuestionBlock) => {
     const updateQuestionType = (type: QuestionType) => {

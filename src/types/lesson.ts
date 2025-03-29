@@ -1,4 +1,3 @@
-
 export type QuestionType = 'multiple-choice' | 'free-response' | 'true-false';
 
 export interface BaseBlock {
@@ -15,6 +14,7 @@ export interface ImageBlock extends BaseBlock {
   type: 'image';
   url: string;
   alt: string;
+  storagePath?: string; // Add storagePath for Supabase Storage reference
 }
 
 export interface QuestionBlock extends BaseBlock {
@@ -42,6 +42,15 @@ export interface LessonSlide {
   id: string;
   title: string;
   blocks: LessonBlock[];
+  layout?: SlideLayout; // Optional layout configuration
+}
+
+// New interface for slide layout with columns
+export interface SlideLayout {
+  columnCount: number; // Number of columns (1-4)
+  columnWidths: number[]; // Array of percentages (should sum to 100)
+  blockAssignments: Record<string, number>; // Map of blockId to column index
+  blockSizes?: Record<string, { width: string, height: string }>; // Map of blockId to sizes
 }
 
 export interface Lesson {

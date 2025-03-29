@@ -1,20 +1,23 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Lesson, LessonSlide, LessonBlock } from '@/types/lesson';
+import { Lesson, LessonSlide, LessonBlock, SlideLayout } from '@/types/lesson';
 import { useAuth } from '@/context/AuthContext';
 import { Plus, Save, ArrowLeft, Trash } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import LessonBlockEditor from '@/components/lesson/LessonBlockEditor';
+import DraggableSlideItem from '@/components/lesson/DraggableSlideItem';
+import SlideCarousel from '@/components/lesson/SlideCarousel';
+import BlockBasedSlideEditor from '@/components/lesson/BlockBasedSlideEditor';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   createLesson, 
   getLessonById, 
   saveLesson 
 } from '@/services/lessonService';
+import LessonSlideView from '@/components/lesson/LessonSlideView';
 
 const LessonEditor: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
@@ -24,6 +27,7 @@ const LessonEditor: React.FC = () => {
   const [activeSlide, setActiveSlide] = useState<string>('');
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
+  const [draggedSlideIndex, setDraggedSlideIndex] = useState<number | null>(null);
   
   // Initialize lesson data
   useEffect(() => {
@@ -263,6 +267,143 @@ const LessonEditor: React.FC = () => {
     }
   };
 
+  const handleSlideReorder = (fromIndex: number, toIndex: number) => {
+    if (lesson && fromIndex !== toIndex) {
+      const reorderedSlides = [...lesson.slides];
+      const [movedSlide] = reorderedSlides.splice(fromIndex, 1);
+      reorderedSlides.splice(toIndex, 0, movedSlide);
+      
+      setLesson({
+        ...lesson,
+        slides: reorderedSlides,
+        updatedAt: new Date().toISOString()
+      });
+      
+      toast.success("Slides reordered");
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedSlideIndex(index);
+  };
+
+  const handleDragEnter = (index: number) => {
+    if (draggedSlideIndex !== null && draggedSlideIndex !== index) {
+      handleSlideReorder(draggedSlideIndex, index);
+      setDraggedSlideIndex(index);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSlideIndex(null);
+  };
+
+  const handleSlideLayoutChange = (slideId: string, layout: SlideLayout) => {
+    if (lesson) {
+      const updatedSlides = lesson.slides.map(slide => {
+        if (slide.id === slideId) {
+          return {
+            ...slide,
+            layout
+          };
+        }
+        return slide;
+      });
+      
+      setLesson({
+        ...lesson,
+        slides: updatedSlides,
+        updatedAt: new Date().toISOString()
+      });
+    }
+  };
+
+  // Add block preview renderer function
+  const renderBlockPreview = (block: LessonBlock) => {
+    switch (block.type) {
+      case 'text':
+        return (
+          <div className="prose max-w-none">
+            {block.content}
+          </div>
+        );
+      case 'image':
+        return (
+          <div className="my-2 flex justify-center">
+            <img 
+              src={block.url} 
+              alt={block.alt} 
+              className="max-h-48 rounded-md"
+            />
+          </div>
+        );
+      case 'question':
+        return (
+          <div className="my-2 p-3 bg-primary/5 rounded-md">
+            <p className="font-medium mb-2">{block.question}</p>
+            {block.questionType === 'multiple-choice' && (
+              <ul className="space-y-1 list-disc list-inside">
+                {block.options?.map((option, index) => (
+                  <li 
+                    key={index}
+                    className={option === block.correctAnswer ? "text-green-600 font-medium" : ""}
+                  >
+                    {option}
+                    {option === block.correctAnswer && " (correct)"}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {block.questionType === 'true-false' && (
+              <div className="flex space-x-4">
+                <span className={block.correctAnswer === true ? "text-green-600 font-medium" : ""}>
+                  True {block.correctAnswer === true && "✓"}
+                </span>
+                <span className={block.correctAnswer === false ? "text-green-600 font-medium" : ""}>
+                  False {block.correctAnswer === false && "✓"}
+                </span>
+              </div>
+            )}
+            {block.questionType === 'free-response' && (
+              <div className="border border-dashed border-muted-foreground/30 rounded-md p-2 bg-muted/30">
+                <p className="text-sm text-muted-foreground">Student response area</p>
+                {block.correctAnswer && (
+                  <div className="mt-1">
+                    <p className="text-sm font-medium">Sample answer:</p>
+                    <p className="text-sm">{block.correctAnswer as string}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      case 'graph':
+        return (
+          <div className="my-2 border rounded-md p-3 bg-gray-50 h-32 flex items-center justify-center">
+            <p className="text-muted-foreground text-center text-sm">
+              {block.equation}<br />
+              <span className="text-xs">(Graph visualization)</span>
+            </p>
+          </div>
+        );
+      default:
+        return <p>Unknown block type</p>;
+    }
+  };
+
+  // Handle slide update (from block-based editor)
+  const handleSlideUpdate = (updatedSlide: LessonSlide) => {
+    if (lesson) {
+      setLesson({
+        ...lesson,
+        slides: lesson.slides.map(slide => 
+          slide.id === updatedSlide.id ? updatedSlide : slide
+        ),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -302,34 +443,34 @@ const LessonEditor: React.FC = () => {
         </Button>
       </div>
 
+      {/* Slide carousel */}
+      <div className="mb-8">
+        <SlideCarousel 
+          slides={lesson.slides}
+          currentSlideIndex={lesson.slides.findIndex(slide => slide.id === activeSlide)}
+          onSlideClick={(index) => handleSlideChange(lesson.slides[index].id)}
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-1 space-y-4">
           <div className="bg-card rounded-lg p-4 shadow-sm">
             <h3 className="font-medium mb-3">Slides</h3>
             <div className="space-y-2 mb-4">
               {lesson.slides.map((slide, index) => (
-                <div 
+                <DraggableSlideItem
                   key={slide.id}
-                  className={`flex items-center justify-between p-2 rounded-md cursor-pointer transition-colors ${
-                    activeSlide === slide.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted'
-                  }`}
-                  onClick={() => handleSlideChange(slide.id)}
-                >
-                  <span className="text-sm truncate flex-1">{slide.title}</span>
-                  {lesson.slides.length > 1 && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-60 hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSlide(slide.id);
-                      }}
-                    >
-                      <Trash className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
+                  slide={slide}
+                  index={index}
+                  isActive={activeSlide === slide.id}
+                  onSlideClick={handleSlideChange}
+                  onDeleteSlide={handleDeleteSlide}
+                  onDragStart={handleDragStart}
+                  onDragEnter={handleDragEnter}
+                  onDragEnd={handleDragEnd}
+                  isDragging={draggedSlideIndex === index}
+                  allowDeletion={lesson.slides.length > 1}
+                />
               ))}
             </div>
             <Button variant="outline" size="sm" className="w-full" onClick={handleAddSlide}>
@@ -355,6 +496,23 @@ const LessonEditor: React.FC = () => {
               </Button>
             </div>
           </div>
+          
+          {currentSlide && currentSlide.blocks.length > 0 && (
+            <div className="bg-card rounded-lg p-4 shadow-sm">
+              <h3 className="font-medium mb-3">Edit Content</h3>
+              {currentSlide.blocks.map((block) => (
+                <div key={block.id} className="mb-4 border-b pb-4 last:border-b-0 last:pb-0">
+                  <LessonBlockEditor
+                    block={block}
+                    onUpdate={(updatedBlock) => 
+                      handleUpdateBlock(currentSlide.id, block.id, updatedBlock as LessonBlock)
+                    }
+                    onDelete={() => handleDeleteBlock(currentSlide.id, block.id)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-3">
@@ -369,25 +527,12 @@ const LessonEditor: React.FC = () => {
                   />
                 </div>
                 
-                <div className="space-y-4 mt-6">
-                  {currentSlide.blocks.length === 0 ? (
-                    <div className="text-center py-8 border-2 border-dashed rounded-lg text-muted-foreground">
-                      <p>No content blocks yet</p>
-                      <p className="text-sm">Add content from the panel on the left</p>
-                    </div>
-                  ) : (
-                    currentSlide.blocks.map((block) => (
-                      <LessonBlockEditor
-                        key={block.id}
-                        block={block}
-                        onUpdate={(updatedBlock) => 
-                          handleUpdateBlock(currentSlide.id, block.id, updatedBlock as LessonBlock)
-                        }
-                        onDelete={() => handleDeleteBlock(currentSlide.id, block.id)}
-                      />
-                    ))
-                  )}
-                </div>
+                {/* Replace the old layout manager with the new block-based editor */}
+                <BlockBasedSlideEditor
+                  slide={currentSlide}
+                  onUpdateSlide={handleSlideUpdate}
+                  renderBlockPreview={renderBlockPreview}
+                />
               </CardContent>
             </Card>
           )}

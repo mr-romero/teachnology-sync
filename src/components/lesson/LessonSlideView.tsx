@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Pause } from 'lucide-react';
+import ImageViewer from './ImageViewer';
+import { cn } from '@/lib/utils';
 
 interface LessonSlideViewProps {
   slide: LessonSlide;
@@ -14,7 +16,7 @@ interface LessonSlideViewProps {
   onResponseSubmit?: (blockId: string, response: string | boolean) => void;
   onAnswerSubmit?: (blockId: string, answer: string | number | boolean) => void;
   answeredBlocks?: string[];
-  isPaused?: boolean; // Add isPaused prop
+  isPaused?: boolean;
 }
 
 const LessonSlideView: React.FC<LessonSlideViewProps> = ({ 
@@ -24,7 +26,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   onResponseSubmit,
   onAnswerSubmit,
   answeredBlocks = [],
-  isPaused = false // Default to not paused
+  isPaused = false
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   
@@ -51,7 +53,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
       case 'image':
         return (
           <div className="my-4 flex justify-center">
-            <img 
+            <ImageViewer 
               src={block.url} 
               alt={block.alt} 
               className="max-h-96 rounded-md"
@@ -244,8 +246,16 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     return <p>Unknown question type</p>;
   };
 
+  // Get block dimensions/position
+  const getBlockDimensions = (blockId: string) => {
+    if (slide.layout?.blockSizes?.[blockId]) {
+      return slide.layout.blockSizes[blockId];
+    }
+    return { width: '100%', height: 'auto' };
+  };
+
   return (
-    <div className="space-y-4 relative">
+    <div className="relative">
       {/* Semi-transparent overlay when paused - only show for student view */}
       {isStudentView && isPaused && (
         <div className="absolute inset-0 bg-amber-50/70 backdrop-blur-[0px] z-10 flex items-center justify-center rounded-lg">
@@ -257,11 +267,26 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
         </div>
       )}
 
-      {slide.blocks.map((block) => (
-        <div key={block.id} className="mb-4">
-          {renderBlock(block)}
-        </div>
-      ))}
+      <div className="space-y-0">
+        {slide.blocks.map((block) => {
+          const { width, height } = getBlockDimensions(block.id);
+          return (
+            <div 
+              key={block.id} 
+              className="relative mb-4"
+              style={{ 
+                width: width || '100%', 
+                height: height || 'auto',
+                margin: '0 auto 1rem auto'
+              }}
+            >
+              <div className="h-full">
+                {renderBlock(block)}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
