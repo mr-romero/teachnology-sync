@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,6 +13,7 @@ import Dashboard from "./pages/teacher/Dashboard";
 import LessonEditor from "./pages/teacher/LessonEditor";
 import LessonPresentation from "./pages/teacher/LessonPresentation";
 import StudentView from "./pages/student/StudentView";
+import StudentDashboard from "./pages/student/StudentDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +60,22 @@ const App = () => (
             {/* Student Routes */}
             <Route 
               path="/student" 
+              element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentDashboard />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/student/join" 
+              element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentView />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/student/join/:joinCode" 
               element={
                 <ProtectedRoute requiredRole="student">
                   <StudentView />

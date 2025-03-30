@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -28,17 +29,39 @@ interface PresentationSession {
   paced_slides?: number[]; // Add this to match the teacher's interface
 }
 
+// Interface for active session information
+interface ActiveSessionInfo {
+  sessionId: string;
+  joinCode: string;
+  presentationId: string;
+  currentSlide: number;
+}
+
+interface LocationState {
+  autoJoin?: boolean;
+  sessionId?: string;
+  presentationId?: string;
+}
+
 const StudentView: React.FC = () => {
+  const { joinCode: urlJoinCode } = useParams<{ joinCode?: string }>();
+  const location = useLocation();
+  const locationState = location.state as LocationState || {};
   const { user } = useAuth();
-  const [joinCode, setJoinCode] = useState<string>('');
-  const [sessionId, setSessionId] = useState<string>('');
-  const [presentationId, setPresentationId] = useState<string>('');
+  const navigate = useNavigate();
+  const [joinCode, setJoinCode] = useState<string>(urlJoinCode || '');
+  const [sessionId, setSessionId] = useState<string>(locationState.sessionId || '');
+  const [presentationId, setPresentationId] = useState<string>(locationState.presentationId || '');
   const [lesson, setLesson] = useState<{ title: string; slides: LessonSlide[] } | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
-  const [isJoined, setIsJoined] = useState<boolean>(false);
+  // Set isJoined to true initially if we have valid auto-join data
+  const [isJoined, setIsJoined] = useState<boolean>(
+    !!(locationState.autoJoin && locationState.sessionId && locationState.presentationId)
+  );
   const [loading, setLoading] = useState<boolean>(false);
   const [answeredBlocks, setAnsweredBlocks] = useState<string[]>([]);
   const [hasActiveSession, setHasActiveSession] = useState<boolean>(false);
+  const [activeSessionInfo, setActiveSessionInfo] = useState<ActiveSessionInfo | null>(null);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [allowedSlides, setAllowedSlides] = useState<number[]>([]);
   
@@ -51,6 +74,44 @@ const StudentView: React.FC = () => {
     sessionId,
     null
   );
+  
+  // Handle direct session joining from dashboard
+  useEffect(() => {
+    const directJoin = async () => {
+      if (locationState.autoJoin && locationState.sessionId && locationState.presentationId && user) {
+        // Only load lesson data if we haven't loaded it yet
+        if (!lesson) {
+          setLoading(true);
+          try {
+            const lessonData = await getLessonById(locationState.presentationId);
+            
+            if (!lessonData) {
+              toast.error('Failed to load lesson data');
+              setLoading(false);
+              return;
+            }
+            
+            setLesson(lessonData);
+          } catch (error) {
+            console.error('Error auto-joining session:', error);
+            toast.error('Error joining session automatically');
+          } finally {
+            setLoading(false);
+          }
+        }
+      }
+    };
+    
+    directJoin();
+  }, [locationState, user, lesson]);
+  
+  // Handle URL join code if provided
+  useEffect(() => {
+    if (urlJoinCode && !isJoined && user && !locationState.autoJoin) {
+      setJoinCode(urlJoinCode);
+      handleJoinSession();
+    }
+  }, [urlJoinCode, user, locationState.autoJoin, isJoined]);
   
   useEffect(() => {
     if (sessionData && !sessionLoading) {
@@ -107,6 +168,9 @@ const StudentView: React.FC = () => {
   }, [sessionData, sessionLoading, sessionId, user]);
 
   useEffect(() => {
+    // Only check for active sessions if we don't have a URL join code or auto-join state
+    if (urlJoinCode || locationState.autoJoin) return;
+    
     const checkActiveSession = async () => {
       if (!user) return;
       
@@ -136,40 +200,24 @@ const StudentView: React.FC = () => {
         
         if (data && data.length > 0 && data[0].presentation_sessions) {
           const sessionInfo = data[0].presentation_sessions;
+          
+          // Store active session info for later use
+          setActiveSessionInfo({
+            sessionId: sessionInfo.id,
+            joinCode: sessionInfo.join_code,
+            presentationId: sessionInfo.presentation_id,
+            currentSlide: data[0].current_slide
+          });
+          
           setHasActiveSession(true);
-          toast.info(
-            `You have an active session with code: ${sessionInfo.join_code}. 
-             Click "Continue" to rejoin or "Start New" to join a different session.`,
-            {
-              duration: 10000,
-              action: {
-                label: "Continue",
-                onClick: () => rejoinSession(sessionInfo, data[0])
-              }
-            }
-          );
         }
       } catch (error) {
         console.error('Error in checkActiveSession:', error);
       }
     };
     
-    const rejoinSession = async (sessionInfo: any, participantData: any) => {
-      setSessionId(sessionInfo.id);
-      setJoinCode(sessionInfo.join_code);
-      setPresentationId(sessionInfo.presentation_id);
-      setCurrentSlideIndex(participantData.current_slide);
-      
-      const lessonData = await getLessonById(sessionInfo.presentation_id);
-      if (lessonData) {
-        setLesson(lessonData);
-        setIsJoined(true);
-        toast.success('Reconnected to active session');
-      }
-    };
-    
     checkActiveSession();
-  }, [user]);
+  }, [user, urlJoinCode, locationState.autoJoin]);
   
   useEffect(() => {
     const getAnsweredBlocks = async () => {
@@ -250,7 +298,6 @@ const StudentView: React.FC = () => {
       
       setLesson(lessonData);
       setIsJoined(true);
-      toast.success('Successfully joined the lesson');
     } catch (error) {
       console.error('Error joining session:', error);
       toast.error('An error occurred while joining the session');
@@ -259,13 +306,8 @@ const StudentView: React.FC = () => {
     }
   };
 
-  const handleStartNew = () => {
-    setHasActiveSession(false);
-    setIsJoined(false);
-    setJoinCode('');
-    setSessionId('');
-    setPresentationId('');
-    setLesson(null);
+  const handleReturnToDashboard = () => {
+    navigate('/student');
   };
   
   const handlePreviousSlide = async () => {
@@ -368,7 +410,7 @@ const StudentView: React.FC = () => {
       
       if (success) {
         setAnsweredBlocks(prev => [...prev, blockId]);
-        toast.success('Answer submitted');
+        // Remove toast notification for successful submission
       } else {
         toast.error('Failed to submit answer');
       }
@@ -378,50 +420,122 @@ const StudentView: React.FC = () => {
     }
   };
   
-  const renderJoinForm = () => (
-    <div className="flex flex-col items-center justify-center min-h-[70vh]">
-      <Card className="w-full max-w-md">
-        <CardContent className="pt-6">
-          <h1 className="text-2xl font-bold text-center mb-6">Join a Lesson</h1>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="join-code" className="block text-sm font-medium mb-1">
-                Enter Join Code
-              </label>
-              <Input
-                id="join-code"
-                placeholder="Enter 6-character code"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                className="text-center text-lg uppercase"
-                maxLength={6}
-              />
-            </div>
-            <Button 
-              onClick={handleJoinSession} 
-              className="w-full"
-              disabled={loading}
-            >
-              {loading ? 'Joining...' : 'Join Lesson'}
-            </Button>
-            
-            {hasActiveSession && (
+  const renderJoinForm = () => {
+    // If there's an active session but user chose to start a new one,
+    // show both options: continue the active session or join a new one
+    if (hasActiveSession && !isJoined && activeSessionInfo) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[70vh]">
+          <Card className="w-full max-w-md mb-4">
+            <CardContent className="pt-6">
+              <h1 className="text-2xl font-bold text-center mb-4">Active Session</h1>
+              <div className="bg-muted p-4 rounded-md mb-4">
+                <p className="text-center mb-2">You have an active session with code:</p>
+                <p className="text-center font-mono text-xl font-bold">{activeSessionInfo.joinCode}</p>
+              </div>
               <Button 
-                variant="outline" 
-                onClick={handleStartNew}
-                className="w-full mt-2"
+                onClick={() => {
+                  // Set join code and trigger join action
+                  setJoinCode(activeSessionInfo.joinCode);
+                  handleJoinSession();
+                }} 
+                className="w-full"
               >
-                Join Different Session
+                Continue Session
               </Button>
-            )}
+            </CardContent>
+          </Card>
+          
+          <Card className="w-full max-w-md">
+            <CardContent className="pt-6">
+              <h1 className="text-2xl font-bold text-center mb-4">Join New Session</h1>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="join-code" className="block text-sm font-medium mb-1">
+                    Enter Join Code
+                  </label>
+                  <Input
+                    id="join-code"
+                    placeholder="Enter 6-character code"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                    className="text-center text-lg uppercase"
+                    maxLength={6}
+                  />
+                </div>
+                <Button 
+                  onClick={handleJoinSession} 
+                  className="w-full"
+                  disabled={loading}
+                  variant="outline"
+                >
+                  {loading ? 'Joining...' : 'Join Different Session'}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <div className="mt-4">
+            <Button 
+              variant="ghost" 
+              onClick={handleReturnToDashboard}
+            >
+              Return to Dashboard
+            </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+        </div>
+      );
+    }
+    
+    // Standard join form
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh]">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <h1 className="text-2xl font-bold text-center mb-6">Join a Lesson</h1>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="join-code" className="block text-sm font-medium mb-1">
+                  Enter Join Code
+                </label>
+                <Input
+                  id="join-code"
+                  placeholder="Enter 6-character code"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  className="text-center text-lg uppercase"
+                  maxLength={6}
+                />
+              </div>
+              <Button 
+                onClick={handleJoinSession} 
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? 'Joining...' : 'Join Lesson'}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <div className="mt-4">
+          <Button 
+            variant="ghost" 
+            onClick={handleReturnToDashboard}
+          >
+            Return to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
+  };
   
   const renderLessonView = () => {
-    if (!lesson) return null;
+    if (!lesson) return (
+      <div className="flex justify-center items-center h-screen">
+        <p className="text-lg">Loading session...</p>
+      </div>
+    );
     
     const currentSlide = lesson.slides[currentSlideIndex];
     const isSynced = sessionData?.is_synced ?? false;
@@ -446,6 +560,13 @@ const StudentView: React.FC = () => {
                 <span className="font-medium">Code: </span> 
                 <span className="ml-1 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
               </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleReturnToDashboard}
+              >
+                Dashboard
+              </Button>
             </div>
           </div>
         </div>
