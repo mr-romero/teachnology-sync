@@ -9,15 +9,15 @@ import {
   Calendar,
   Users,
   ChevronRight,
-  Eye
+  Eye,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson } from '@/types/lesson';
-import { getLessonsForUser } from '@/services/lessonService';
+import { getLessonsForUser, deleteLesson, endPresentationSession } from '@/services/lessonService';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { endPresentationSession } from '@/services/lessonService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
 
 interface ActiveSession {
@@ -35,6 +35,9 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
+  const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -143,6 +146,35 @@ const Dashboard: React.FC = () => {
     } else {
       toast.error('Failed to end session');
     }
+  };
+
+  const handleDeleteLesson = async () => {
+    if (!lessonToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      const success = await deleteLesson(lessonToDelete.id);
+      
+      if (success) {
+        toast.success(`Lesson "${lessonToDelete.title}" deleted successfully`);
+        // Update lessons list
+        setLessons(prev => prev.filter(lesson => lesson.id !== lessonToDelete.id));
+      } else {
+        toast.error('Failed to delete lesson');
+      }
+    } catch (error) {
+      console.error('Error deleting lesson:', error);
+      toast.error('An error occurred while deleting the lesson');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteModalOpen(false);
+      setLessonToDelete(null);
+    }
+  };
+
+  const confirmDeleteLesson = (lesson: Lesson) => {
+    setLessonToDelete(lesson);
+    setIsDeleteModalOpen(true);
   };
 
   if (!user) {
@@ -296,21 +328,34 @@ const Dashboard: React.FC = () => {
                     {lesson.slides[0]?.blocks.find(block => block.type === 'text')?.content || 'No description available'}
                   </p>
                 </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button variant="outline" asChild>
-                    <Link to={`/editor/${lesson.id}`}>
-                      <ClipboardEdit className="mr-2 h-4 w-4" />
-                      Edit
-                    </Link>
-                  </Button>
-                  <div className="flex space-x-2">
-                    <Button asChild>
+                <CardFooter className="flex flex-col space-y-3">
+                  {/* First row of buttons */}
+                  <div className="flex justify-between w-full">
+                    <Button variant="outline" asChild className="flex-1 mr-2">
+                      <Link to={`/editor/${lesson.id}`}>
+                        <ClipboardEdit className="mr-2 h-4 w-4" />
+                        Edit
+                      </Link>
+                    </Button>
+                    <Button asChild className="flex-1">
                       <Link to={`/teacher/${lesson.id}`}>
                         <Play className="mr-2 h-4 w-4" />
                         Present
                       </Link>
                     </Button>
-                    <Button variant="outline" asChild>
+                  </div>
+                  
+                  {/* Second row of buttons */}
+                  <div className="flex justify-between w-full">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1 mr-2 border-destructive text-destructive hover:bg-destructive/10"
+                      onClick={() => confirmDeleteLesson(lesson)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </Button>
+                    <Button variant="outline" asChild className="flex-1">
                       <Link to={`/teacher/${lesson.id}?forceNew=true`}>
                         <Plus className="mr-2 h-4 w-4" />
                         New Session
@@ -334,6 +379,35 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Lesson</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{lessonToDelete?.title}"? 
+              This action cannot be undone and all presentation data will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteLesson}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete Lesson'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="mt-12">
         <h2 className="text-2xl font-bold mb-4">Recent Activity</h2>

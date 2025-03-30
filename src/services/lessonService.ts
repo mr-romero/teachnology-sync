@@ -438,14 +438,90 @@ export const getSessionAnswers = async (sessionId: string): Promise<any[]> => {
   return data || [];
 };
 
-// End a presentation session
-export const endPresentationSession = async (sessionId: string): Promise<boolean> => {
-  const { error } = await supabase
-    .from('presentation_sessions')
-    .update({ ended_at: new Date().toISOString() })
-    .eq('id', sessionId);
+// Delete a lesson
+export const deleteLesson = async (lessonId: string): Promise<boolean> => {
+  try {
+    // First, check for active sessions for this lesson
+    const { data: activeSessions } = await supabase
+      .from('presentation_sessions')
+      .select('id')
+      .eq('presentation_id', lessonId)
+      .is('ended_at', null);
+      
+    // End any active sessions
+    if (activeSessions && activeSessions.length > 0) {
+      for (const session of activeSessions) {
+        await endPresentationSession(session.id);
+      }
+    }
     
-  return !error;
+    // Delete all related slides
+    const { error: slidesError } = await supabase
+      .from('slides')
+      .delete()
+      .eq('presentation_id', lessonId);
+      
+    if (slidesError) {
+      console.error('Error deleting slides:', slidesError);
+      return false;
+    }
+    
+    // Delete the presentation itself
+    const { error: presentationError } = await supabase
+      .from('presentations')
+      .delete()
+      .eq('id', lessonId);
+      
+    if (presentationError) {
+      console.error('Error deleting presentation:', presentationError);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error in deleteLesson:', error);
+    return false;
+  }
+};
+
+// End a presentation session and clean up related data
+export const endPresentationSession = async (sessionId: string): Promise<boolean> => {
+  try {
+    // Mark the session as ended
+    const { error: sessionError } = await supabase
+      .from('presentation_sessions')
+      .update({ ended_at: new Date().toISOString() })
+      .eq('id', sessionId);
+      
+    if (sessionError) {
+      console.error('Error ending session:', sessionError);
+      return false;
+    }
+    
+    // This ensures old session data doesn't accumulate in the database
+    // Note: We don't delete answers as they might be useful for analytics later
+    
+    // Clean up session participants after a delay to allow for data consistency
+    setTimeout(async () => {
+      try {
+        const { error: participantsError } = await supabase
+          .from('session_participants')
+          .delete()
+          .eq('session_id', sessionId);
+          
+        if (participantsError) {
+          console.error('Error cleaning up session participants:', participantsError);
+        }
+      } catch (cleanupError) {
+        console.error('Error during session cleanup:', cleanupError);
+      }
+    }, 5000); // 5 second delay to ensure all clients have processed the session end
+    
+    return true;
+  } catch (error) {
+    console.error('Error in endPresentationSession:', error);
+    return false;
+  }
 };
 
 // Find existing active session for a lesson
