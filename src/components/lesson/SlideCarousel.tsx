@@ -10,7 +10,7 @@ import { LessonSlide } from '@/types/lesson';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check, Trash } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check, Trash, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SlideCarouselProps {
@@ -21,6 +21,7 @@ interface SlideCarouselProps {
   allowedSlides?: number[];
   onDeleteSlide?: (slideId: string) => void;
   allowDeletion?: boolean;
+  onAddSlide?: () => void;  // New prop for adding slides
 }
 
 const SlideCarousel: React.FC<SlideCarouselProps> = ({
@@ -29,7 +30,8 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   onSlideClick,
   allowedSlides = [],
   onDeleteSlide,
-  allowDeletion = true
+  allowDeletion = true,
+  onAddSlide
 }) => {
   // Function to generate a mini visual preview of a slide that resembles the actual student view
   const renderMiniSlidePreview = (slide: LessonSlide, index: number) => {
@@ -188,32 +190,49 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
         </div>
       )}
       
-      <Carousel
-        opts={{
-          align: 'start',
-          loop: false,
-        }}
-        className="w-full"
-      >
-        <CarouselContent className="-ml-4">
-          {slides.map((slide, index) => (
-            <CarouselItem 
-              key={slide.id} 
-              className="pl-4 basis-[110px] md:basis-[130px] min-w-[110px] md:min-w-[130px] h-[100px] md:h-[110px] group"
-            >
-              {renderMiniSlidePreview(slide, index)}
-            </CarouselItem>
-          ))}
-        </CarouselContent>
-        <CarouselPrevious 
-          className="-left-6 h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
-          icon={<ChevronLeft className="h-5 w-5" />}
-        />
-        <CarouselNext 
-          className="-right-6 h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
-          icon={<ChevronRight className="h-5 w-5" />}
-        />
-      </Carousel>
+      <div className="relative">
+        <Carousel
+          opts={{
+            align: 'start',
+            loop: false,
+          }}
+          className="w-full"
+        >
+          <CarouselContent className="-ml-4">
+            {slides.map((slide, index) => (
+              <CarouselItem 
+                key={slide.id} 
+                className="pl-4 basis-[110px] md:basis-[130px] min-w-[110px] md:min-w-[130px] h-[100px] md:h-[110px] group"
+              >
+                {renderMiniSlidePreview(slide, index)}
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          <CarouselPrevious 
+            className="-left-6 h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
+            icon={<ChevronLeft className="h-5 w-5" />}
+          />
+          <div className="absolute -right-6 flex items-center gap-2">
+            <CarouselNext 
+              className="h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
+              icon={<ChevronRight className="h-5 w-5" />}
+            />
+            {onAddSlide && (
+              <Button
+                size="icon"
+                variant="outline"
+                className="h-10 w-10 rounded-full bg-white shadow-md hover:bg-primary/10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddSlide();
+                }}
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
+            )}
+          </div>
+        </Carousel>
+      </div>
       
       {/* Current slide indicator */}
       <div className="flex justify-center mt-4 text-xs text-muted-foreground">

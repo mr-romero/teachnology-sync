@@ -418,6 +418,7 @@ const LessonEditor: React.FC = () => {
           onSlideClick={(index) => handleSlideChange(lesson.slides[index].id)}
           onDeleteSlide={handleDeleteSlide}
           allowDeletion={lesson.slides.length > 1}
+          onAddSlide={handleAddSlide}
         />
       </div>
 
@@ -426,22 +427,26 @@ const LessonEditor: React.FC = () => {
           <div className="bg-card rounded-lg p-4 shadow-sm">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-medium">Content Controls</h3>
-              <Button variant="outline" size="sm" onClick={handleAddSlide}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Slide
-              </Button>
             </div>
             
             <div className="bg-card rounded-lg p-4 shadow-sm">
               <h3 className="font-medium mb-3">Content Blocks</h3>
-              <div className="grid grid-cols-1 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div 
-                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
                   onClick={() => handleAddBlock('text')}
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', 'text');
                     e.dataTransfer.effectAllowed = 'copy';
+                    // Create ghost effect
+                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                    ghost.style.position = 'absolute';
+                    ghost.style.top = '-1000px';
+                    ghost.style.opacity = '0.5';
+                    document.body.appendChild(ghost);
+                    e.dataTransfer.setDragImage(ghost, 0, 0);
+                    setTimeout(() => document.body.removeChild(ghost), 0);
                   }}
                 >
                   <div className="h-8 w-8 flex items-center justify-center rounded-md bg-blue-100 text-blue-600 mb-2">
@@ -455,12 +460,20 @@ const LessonEditor: React.FC = () => {
                 </div>
                 
                 <div 
-                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
                   onClick={() => handleAddBlock('image')}
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', 'image');
                     e.dataTransfer.effectAllowed = 'copy';
+                    // Create ghost effect
+                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                    ghost.style.position = 'absolute';
+                    ghost.style.top = '-1000px';
+                    ghost.style.opacity = '0.5';
+                    document.body.appendChild(ghost);
+                    e.dataTransfer.setDragImage(ghost, 0, 0);
+                    setTimeout(() => document.body.removeChild(ghost), 0);
                   }}
                 >
                   <div className="h-8 w-8 flex items-center justify-center rounded-md bg-violet-100 text-violet-600 mb-2">
@@ -474,12 +487,20 @@ const LessonEditor: React.FC = () => {
                 </div>
                 
                 <div 
-                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
                   onClick={() => handleAddBlock('question')}
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', 'question');
                     e.dataTransfer.effectAllowed = 'copy';
+                    // Create ghost effect
+                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                    ghost.style.position = 'absolute';
+                    ghost.style.top = '-1000px';
+                    ghost.style.opacity = '0.5';
+                    document.body.appendChild(ghost);
+                    e.dataTransfer.setDragImage(ghost, 0, 0);
+                    setTimeout(() => document.body.removeChild(ghost), 0);
                   }}
                 >
                   <div className="h-8 w-8 flex items-center justify-center rounded-md bg-amber-100 text-amber-600 mb-2">
@@ -493,12 +514,20 @@ const LessonEditor: React.FC = () => {
                 </div>
                 
                 <div 
-                  className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-pointer transition-colors"
+                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
                   onClick={() => handleAddBlock('graph')}
                   draggable
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', 'graph');
                     e.dataTransfer.effectAllowed = 'copy';
+                    // Create ghost effect
+                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                    ghost.style.position = 'absolute';
+                    ghost.style.top = '-1000px';
+                    ghost.style.opacity = '0.5';
+                    document.body.appendChild(ghost);
+                    e.dataTransfer.setDragImage(ghost, 0, 0);
+                    setTimeout(() => document.body.removeChild(ghost), 0);
                   }}
                 >
                   <div className="h-8 w-8 flex items-center justify-center rounded-md bg-green-100 text-green-600 mb-2">
