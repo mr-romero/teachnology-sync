@@ -29,8 +29,7 @@ import {
 import { 
   Popover, 
   PopoverContent, 
-  PopoverTrigger,
-  PopoverClose
+  PopoverTrigger
 } from '@/components/ui/popover';
 import {
   Dialog,
@@ -44,6 +43,13 @@ import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LessonBlockEditor from './LessonBlockEditor';
+
+// Add at the top of the file, after other imports
+declare global {
+  interface Window {
+    showBlockSettings?: (blockId: string) => void;
+  }
+}
 
 // Main component
 interface BlockBasedSlideEditorProps {
@@ -389,7 +395,10 @@ const DraggableBlock = ({
   span,
   maxColumns,
   maxRows,
-  onUpdateSpan
+  onUpdateSpan,
+  isDirectEditing,
+  onDoubleClick,
+  onDirectEditComplete
 }: { 
   block: LessonBlock; 
   isSelected: boolean;
@@ -402,6 +411,9 @@ const DraggableBlock = ({
   maxColumns: number;
   maxRows: number;
   onUpdateSpan: (blockId: string, span: GridSpan) => void;
+  isDirectEditing: boolean;
+  onDoubleClick: (block: LessonBlock) => void;
+  onDirectEditComplete: (blockId: string, value: string) => void;
 }) => {
   return (
     <div 
@@ -420,6 +432,10 @@ const DraggableBlock = ({
         e.stopPropagation();
         onSelect();
       }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onDoubleClick(block);
+      }}
     >
       {/* Span indicator badge - show for blocks that span multiple columns */}
       {span?.columnSpan && span.columnSpan > 1 && (
@@ -437,7 +453,9 @@ const DraggableBlock = ({
       </div>
       
       {/* Preview content */}
-      {renderPreview(block)}
+      <div className="pointer-events-none">
+        {renderPreview(block)}
+      </div>
       
       {/* Controls */}
       <div className={cn(
@@ -536,6 +554,7 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
 }) => {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [directEditingBlock, setDirectEditingBlock] = useState<string | null>(null);
   
   // Get grid size from slide layout or default to 1x1
   const gridSize = {
@@ -871,8 +890,8 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
         newBlock = {
           id: blockId,
           type: 'image',
-          url: 'https://placehold.co/600x400?text=Image+Placeholder',
-          alt: 'Description of image'
+          url: '',
+          alt: ''
         };
         break;
       case 'question':
@@ -989,6 +1008,28 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
     onUpdateSlide(updatedSlide);
   };
 
+  const handleDoubleClick = (block: LessonBlock) => {
+    setSelectedBlockId(block.id);
+    setCurrentEditingBlock(block);
+    setBlockSettingsDialogOpen(true);
+  };
+
+  const handleDirectEditComplete = (blockId: string, newValue: string) => {
+    const updatedSlide = { ...slide };
+    updatedSlide.blocks = updatedSlide.blocks.map(block => {
+      if (block.id === blockId) {
+        if (block.type === 'text') {
+          return { ...block, content: newValue };
+        } else if (block.type === 'question') {
+          return { ...block, question: newValue };
+        }
+      }
+      return block;
+    });
+    onUpdateSlide(updatedSlide);
+    setDirectEditingBlock(null);
+  };
+
   return (
     <div className="w-full">
       <div className="mb-4 flex justify-between items-center">
@@ -1080,12 +1121,11 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
               
               // If this cell contains a block that spans multiple columns,
               // we need to pass that span information to the DroppableCell
-              let cellSpan = { columnSpan: 1, rowSpan: 1 };
-              
-              if (blocksInPosition.length > 0) {
-                const block = blocksInPosition[0]; // Get the first block in this position
-                cellSpan = getBlockSpan(block.id);
-              }
+              const blockSpan = blocksInPosition[0] ? getBlockSpan(blocksInPosition[0].id) : { columnSpan: 1, rowSpan: 1 };
+              let cellSpan = { 
+                columnSpan: blockSpan.columnSpan || 1, 
+                rowSpan: blockSpan.rowSpan || 1 
+              };
               
               return (
                 <DroppableCell 
@@ -1138,6 +1178,9 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
                             maxColumns={maxColumns}
                             maxRows={maxRows}
                             onUpdateSpan={handleUpdateBlockSpan}
+                            isDirectEditing={directEditingBlock === block.id}
+                            onDoubleClick={handleDoubleClick}
+                            onDirectEditComplete={handleDirectEditComplete}
                           />
                         </div>
                       );

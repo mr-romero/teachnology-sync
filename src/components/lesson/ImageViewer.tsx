@@ -16,6 +16,10 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt, className }) => {
     setIsOpen(false);
   };
 
+  if (!src) {
+    return null; // Return nothing if no image URL
+  }
+
   return (
     <>
       <div className="relative group">

@@ -113,14 +113,17 @@ const LessonEditor: React.FC = () => {
         blocks: []
       };
       
+      // Clear the stored state first
+      localStorage.removeItem('currentEditorState');
+      
       setLesson({
         ...lesson,
         slides: [...lesson.slides, newSlide],
         updatedAt: new Date().toISOString()
       });
       
+      // Set this as the active slide
       setActiveSlide(newSlide.id);
-      toast.success("New slide added");
     }
   };
 
@@ -156,8 +159,8 @@ const LessonEditor: React.FC = () => {
           newBlock = {
             id: `block-${Date.now()}`,
             type: 'image',
-            url: 'https://placehold.co/600x400?text=Image+Placeholder',
-            alt: 'Description of image'
+            url: '',
+            alt: ''
           };
           break;
         case 'question':
@@ -390,6 +393,21 @@ const LessonEditor: React.FC = () => {
       });
     }
   };
+
+  // Add this useEffect after the other useEffects
+  useEffect(() => {
+    if (!lesson || !lessonId) return;
+    
+    const saveTimer = setTimeout(async () => {
+      try {
+        await saveLesson(lesson);
+      } catch (error) {
+        console.error('Error in autosave:', error);
+      }
+    }, 2000); // Autosave 2 seconds after last change
+    
+    return () => clearTimeout(saveTimer);
+  }, [lesson, lessonId]);
 
   if (loading) {
     return (

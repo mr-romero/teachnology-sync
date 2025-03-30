@@ -225,6 +225,8 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddSlide();
+                  // The slide will be added at the end, so navigate to the last slide
+                  onSlideClick(slides.length);
                 }}
               >
                 <Plus className="h-5 w-5" />
