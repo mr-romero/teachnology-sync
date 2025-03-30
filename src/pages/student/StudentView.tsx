@@ -197,6 +197,28 @@ const StudentView: React.FC = () => {
     
     getAnsweredBlocks();
   }, [sessionId, user]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    
+    // Get stored slide index from localStorage when session is established
+    const storedData = localStorage.getItem(`student_session_${sessionId}`);
+    if (storedData) {
+      const { currentSlideIndex: storedIndex } = JSON.parse(storedData);
+      if (lesson && storedIndex >= 0 && storedIndex < lesson.slides.length) {
+        setCurrentSlideIndex(storedIndex);
+      }
+    }
+  }, [sessionId, lesson]);
+
+  useEffect(() => {
+    if (sessionId && currentSlideIndex >= 0) {
+      localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
+        currentSlideIndex,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }, [sessionId, currentSlideIndex]);
   
   const handleJoinSession = async () => {
     if (!joinCode.trim() || !user) {

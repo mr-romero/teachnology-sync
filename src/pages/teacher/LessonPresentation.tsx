@@ -325,6 +325,30 @@ const LessonPresentation: React.FC = () => {
     }
   }, [sessionId, lessonId, joinCode, currentSlideIndex]);
 
+  // Add this effect at the top of the file, after the state declarations
+  useEffect(() => {
+    if (!lesson || !sessionId) return;
+    
+    // Get stored slide index from localStorage
+    const storedData = localStorage.getItem(`presentation_${sessionId}`);
+    if (storedData) {
+      const { currentSlideIndex: storedIndex } = JSON.parse(storedData);
+      if (storedIndex >= 0 && storedIndex < lesson.slides.length) {
+        setCurrentSlideIndex(storedIndex);
+      }
+    }
+  }, [lesson, sessionId]);
+
+  // Add this effect to save the current state
+  useEffect(() => {
+    if (sessionId && currentSlideIndex >= 0) {
+      localStorage.setItem(`presentation_${sessionId}`, JSON.stringify({
+        currentSlideIndex,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }, [sessionId, currentSlideIndex]);
+
   const handlePreviousSlide = async () => {
     if (currentSlideIndex > 0 && sessionId) {
       let newIndex = currentSlideIndex - 1;

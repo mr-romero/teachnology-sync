@@ -405,6 +405,11 @@ const DraggableBlock = ({
 }) => {
   return (
     <div 
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', block.id);
+        e.stopPropagation();
+      }}
       className={cn(
         "relative mb-4 p-4 border rounded-md group transition-all cursor-move",
         isSelected ? "ring-2 ring-primary" : "",
@@ -502,10 +507,21 @@ const DroppableCell = ({
         isEmpty ? "bg-muted/5 border-muted" : "border-transparent"
       )}
       style={{
-        gridRow: position.row + 1, // 1-based in CSS grid
+        gridRow: position.row + 1,
         gridColumn: span.columnSpan && span.columnSpan > 1
-          ? `${position.column + 1} / span ${span.columnSpan}` // Apply span
-          : `${position.column + 1}` // No span
+          ? `${position.column + 1} / span ${span.columnSpan}`
+          : `${position.column + 1}`
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const blockId = e.dataTransfer.getData('text/plain');
+        if (blockId) {
+          onDrop(blockId, position);
+        }
       }}
     >
       {children}
@@ -890,11 +906,11 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
     const updatedSlide = { ...slide };
     updatedSlide.blocks = [...updatedSlide.blocks, newBlock];
     
-    // Make sure layout exists
+    // Make sure layout exists with 1x1 grid initially
     if (!updatedSlide.layout) {
       updatedSlide.layout = {
-        gridRows: Math.max(2, position.row + 1),
-        gridColumns: Math.max(2, position.column + 1),
+        gridRows: 1,
+        gridColumns: 1,
         blockPositions: {},
       };
     }
@@ -904,8 +920,11 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
       updatedSlide.layout.blockPositions = {};
     }
     
-    // Position the new block
-    updatedSlide.layout.blockPositions[blockId] = position;
+    // Position the block in the 1x1 grid
+    updatedSlide.layout.blockPositions[blockId] = {
+      row: 0,
+      column: 0
+    };
     
     onUpdateSlide(updatedSlide);
     

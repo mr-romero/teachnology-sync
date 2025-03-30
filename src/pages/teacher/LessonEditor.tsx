@@ -71,6 +71,26 @@ const LessonEditor: React.FC = () => {
     initLesson();
   }, [lessonId, user, navigate]);
 
+  useEffect(() => {
+    // Get active slide from localStorage when component mounts
+    const storedData = localStorage.getItem('currentEditorState');
+    if (storedData) {
+      const { lessonId: storedLessonId, activeSlide: storedActiveSlide } = JSON.parse(storedData);
+      if (storedLessonId === lessonId && lesson?.slides.find(s => s.id === storedActiveSlide)) {
+        setActiveSlide(storedActiveSlide);
+      }
+    }
+  }, [lessonId, lesson]);
+
+  useEffect(() => {
+    if (lessonId && activeSlide) {
+      localStorage.setItem('currentEditorState', JSON.stringify({
+        lessonId,
+        activeSlide
+      }));
+    }
+  }, [lessonId, activeSlide]);
+
   const handleLessonTitleChange = (title: string) => {
     if (lesson) {
       setLesson({
