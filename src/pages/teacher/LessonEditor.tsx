@@ -5,11 +5,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Lesson, LessonSlide, LessonBlock, SlideLayout } from '@/types/lesson';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Save, ArrowLeft, Trash } from 'lucide-react';
+import { Plus, Save, ArrowLeft, Trash, Play, Eye, Presentation } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import LessonBlockEditor from '@/components/lesson/LessonBlockEditor';
 import SlideCarousel from '@/components/lesson/SlideCarousel';
 import BlockBasedSlideEditor from '@/components/lesson/BlockBasedSlideEditor';
+import PresentationDialog from '@/components/lesson/PresentationDialog';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   createLesson, 
@@ -26,6 +27,7 @@ const LessonEditor: React.FC = () => {
   const [activeSlide, setActiveSlide] = useState<string>('');
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPresentationDialogOpen, setIsPresentationDialogOpen] = useState(false);
   
   // Initialize lesson data
   useEffect(() => {
@@ -409,6 +411,32 @@ const LessonEditor: React.FC = () => {
     return () => clearTimeout(saveTimer);
   }, [lesson, lessonId]);
 
+  // Handle opening the presentation dialog
+  const handleOpenPresentationDialog = () => {
+    setIsPresentationDialogOpen(true);
+  };
+
+  // Handle creating a new presentation session
+  const handleCreateNewSession = () => {
+    if (lessonId) {
+      navigate(`/teacher/presentation/${lessonId}?forceNew=true`);
+    }
+  };
+
+  // Handle joining an existing presentation session
+  const handleJoinExistingSession = (sessionId: string) => {
+    if (lessonId) {
+      navigate(`/teacher/presentation/${lessonId}?sessionId=${sessionId}`);
+    }
+  };
+
+  // Add a handler to preview as student
+  const handlePreviewAsStudent = () => {
+    if (lessonId) {
+      navigate(`/student/view/${lessonId}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -428,26 +456,54 @@ const LessonEditor: React.FC = () => {
   const currentSlide = lesson.slides.find(slide => slide.id === activeSlide);
 
   return (
-    <div className="container py-4">
-      <div className="flex items-center justify-between mb-6">
+    <div className="container py-6">
+      <div className="flex justify-between items-center mb-4">
         <div className="flex items-center">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="h-5 w-5" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/dashboard')}
+            className="mr-2"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Dashboard
           </Button>
-          <div className="ml-4">
-            <Input
-              value={lesson.title}
-              onChange={(e) => handleLessonTitleChange(e.target.value)}
-              className="text-2xl font-bold bg-transparent border-0 border-b border-dashed focus-visible:ring-0 px-0 h-auto py-1"
-            />
-          </div>
+          <h1 className="text-2xl font-bold">Lesson Editor</h1>
         </div>
-        <Button onClick={handleSaveLesson} disabled={loading}>
-          <Save className="mr-2 h-4 w-4" />
-          Save Lesson
-        </Button>
+        
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePreviewAsStudent}
+            className="flex items-center"
+          >
+            <Eye className="h-4 w-4 mr-1" />
+            Student View
+          </Button>
+          
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={handleOpenPresentationDialog}
+            className="flex items-center"
+          >
+            <Play className="h-4 w-4 mr-1" />
+            Present Lesson
+          </Button>
+          
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={handleSaveLesson}
+            className="ml-4"
+          >
+            <Save className="h-4 w-4 mr-1" />
+            Save Lesson
+          </Button>
+        </div>
       </div>
-
+      
       {/* Slide carousel */}
       <div className="mb-8">
         <SlideCarousel 
@@ -605,6 +661,17 @@ const LessonEditor: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Add Presentation Dialog */}
+      {lessonId && (
+        <PresentationDialog
+          lessonId={lessonId}
+          isOpen={isPresentationDialogOpen}
+          onClose={() => setIsPresentationDialogOpen(false)}
+          onCreateNewSession={handleCreateNewSession}
+          onJoinExistingSession={handleJoinExistingSession}
+        />
+      )}
     </div>
   );
 };

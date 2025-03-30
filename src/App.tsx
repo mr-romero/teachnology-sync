@@ -48,6 +48,24 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            {/* More specific routes must come before less specific ones */}
+            <Route 
+              path="/teacher/editor/:lessonId" 
+              element={
+                <ProtectedRoute requiredRole="teacher">
+                  <LessonEditor />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/teacher/presentation/:lessonId" 
+              element={
+                <ProtectedRoute requiredRole="teacher">
+                  <LessonPresentation />
+                </ProtectedRoute>
+              } 
+            />
+            {/* Generic teacher route comes last */}
             <Route 
               path="/teacher/:lessonId" 
               element={
@@ -76,6 +94,14 @@ const App = () => (
             />
             <Route 
               path="/student/join/:joinCode" 
+              element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentView />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/student/view/:lessonId" 
               element={
                 <ProtectedRoute requiredRole="student">
                   <StudentView />

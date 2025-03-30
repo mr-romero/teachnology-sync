@@ -11,7 +11,8 @@ import {
   UserCircle,
   LayoutGrid,
   LayoutList,
-  Pause
+  Pause,
+  Edit
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson, LessonSlide, StudentProgress } from '@/types/lesson';
@@ -751,10 +752,19 @@ const LessonPresentation: React.FC = () => {
         
         <div className="flex items-center space-x-2">
           <Button 
-            variant={activeTab === "student" ? "default" : "outline"} 
+            variant="outline" 
             size="sm" 
-            onClick={() => setActiveTab("student")}
-            className="h-8 text-xs"
+            onClick={() => navigate(`/teacher/editor/${lessonId}`)}
+            className="h-8 text-xs flex items-center"
+          >
+            <Edit className="mr-1 h-4 w-4" />
+            Edit Lesson
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate(`/student/view/${lessonId}`)}
+            className="h-8 text-xs flex items-center"
           >
             <Eye className="mr-1 h-4 w-4" />
             Student View
@@ -765,7 +775,7 @@ const LessonPresentation: React.FC = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4 w-full justify-start">
           <TabsTrigger value="progress" className="text-xs">Teacher Dashboard</TabsTrigger>
-          <TabsTrigger value="student" className="text-xs">Student View</TabsTrigger>
+          <TabsTrigger value="student" className="text-xs">Student Preview</TabsTrigger>
         </TabsList>
         
         <TabsContent value="progress">

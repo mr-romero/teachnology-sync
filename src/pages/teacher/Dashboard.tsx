@@ -10,7 +10,8 @@ import {
   Users,
   ChevronRight,
   Eye,
-  Trash2
+  Trash2,
+  PlusCircle
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson } from '@/types/lesson';
@@ -19,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface ActiveSession {
   id: string;
@@ -38,6 +40,7 @@ const Dashboard: React.FC = () => {
   const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedLesson, setSelectedLesson] = useState<string>('');
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -177,6 +180,11 @@ const Dashboard: React.FC = () => {
     setIsDeleteModalOpen(true);
   };
 
+  // New function to handle starting a new session
+  const resetSelectedLesson = () => {
+    setSelectedLesson('');
+  };
+
   if (!user) {
     return (
       <div className="container py-8">
@@ -251,7 +259,13 @@ const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      <Dialog open={isSessionModalOpen} onOpenChange={setIsSessionModalOpen}>
+      <Dialog 
+        open={isSessionModalOpen} 
+        onOpenChange={(open) => {
+          setIsSessionModalOpen(open);
+          if (!open) resetSelectedLesson();
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Active Presentation Sessions</DialogTitle>
@@ -260,7 +274,39 @@ const Dashboard: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           
+          {/* New Section: Start a new session */}
+          <div className="border rounded-md p-4 my-4">
+            <h3 className="font-medium mb-2">Start a New Session</h3>
+            <div className="flex flex-col space-y-3">
+              <Select 
+                value={selectedLesson} 
+                onValueChange={setSelectedLesson}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a lesson" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lessons.map(lesson => (
+                    <SelectItem key={lesson.id} value={lesson.id}>
+                      {lesson.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                disabled={!selectedLesson}
+                asChild
+              >
+                <Link to={`/teacher/${selectedLesson}?forceNew=true`}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Start New Session
+                </Link>
+              </Button>
+            </div>
+          </div>
+          
           <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto">
+            <h3 className="font-semibold">Current Active Sessions</h3>
             {activeSessions.length === 0 ? (
               <p className="text-center text-muted-foreground py-4">No active sessions</p>
             ) : (
