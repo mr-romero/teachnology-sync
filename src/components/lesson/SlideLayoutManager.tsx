@@ -133,6 +133,21 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
 
   // Update block span
   const handleBlockSpanChange = (blockId: string, rowSpan: number, columnSpan: number) => {
+    // Get the current position of the block
+    const position = getBlockPosition(blockId);
+    
+    console.log(`Attempting span change for block ${blockId} to ${rowSpan}x${columnSpan} at position (${position.row}, ${position.column})`);
+    
+    // Perform a strict overlap check
+    const willOverlap = checkIfSpanWillOverlap(blockId, position.row, position.column, rowSpan, columnSpan);
+    
+    if (willOverlap) {
+      // Don't allow the span change if it would overlap
+      console.log('⚠️ Cannot expand block span - would overlap with another block or exceed grid boundaries');
+      return false;
+    }
+    
+    // Update the block's span
     const newSpans = {
       ...layout.blockSpans,
       [blockId]: { rowSpan, columnSpan }
@@ -143,8 +158,65 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
       blockSpans: newSpans
     };
     
+    console.log('✅ Updating block span:', { blockId, rowSpan, columnSpan });
     setLayout(newLayout);
     onLayoutChange(slide.id, newLayout);
+    return true;
+  };
+
+  // Check if a span would overlap with any existing blocks
+  const checkIfSpanWillOverlap = (blockId: string, row: number, column: number, rowSpan: number, columnSpan: number) => {
+    // Calculate the proposed block's boundaries
+    const thisLeft = column;
+    const thisRight = column + columnSpan - 1;
+    const thisTop = row;
+    const thisBottom = row + rowSpan - 1;
+    
+    console.log(`Block ${blockId} would occupy area: top=${thisTop}, right=${thisRight}, bottom=${thisBottom}, left=${thisLeft}`);
+    
+    // Check against grid boundaries first
+    if (thisRight >= layout.gridColumns! || thisBottom >= layout.gridRows!) {
+      console.log('Block would exceed grid boundaries');
+      return true;
+    }
+    
+    // Check each positioned block
+    const overlappingBlocks = Object.entries(layout.blockPositions || {}).filter(([otherBlockId, otherPos]) => {
+      // Skip the current block
+      if (otherBlockId === blockId) return false;
+      
+      const otherSpan = layout.blockSpans?.[otherBlockId] || { rowSpan: 1, columnSpan: 1 };
+      
+      // Calculate the other block's boundaries
+      const otherLeft = otherPos.column;
+      const otherRight = otherPos.column + (otherSpan.columnSpan || 1) - 1;
+      const otherTop = otherPos.row;
+      const otherBottom = otherPos.row + (otherSpan.rowSpan || 1) - 1;
+      
+      console.log(`Checking against block ${otherBlockId} at (${otherPos.row}, ${otherPos.column}) with span ${otherSpan.rowSpan || 1}x${otherSpan.columnSpan || 1}`);
+      console.log(`Other block occupies area: top=${otherTop}, right=${otherRight}, bottom=${otherBottom}, left=${otherLeft}`);
+      
+      // Check for rectangle overlap - This is the corrected implementation that properly detects overlapping rectangles
+      const overlaps = (
+        thisLeft <= otherRight &&
+        thisRight >= otherLeft &&
+        thisTop <= otherBottom &&
+        thisBottom >= otherTop
+      );
+      
+      if (overlaps) {
+        console.log(`OVERLAP DETECTED with block ${otherBlockId}`);
+        console.log(`This block: (${thisTop},${thisLeft}) to (${thisBottom},${thisRight})`);
+        console.log(`Other block: (${otherTop},${otherLeft}) to (${otherBottom},${otherRight})`);
+      }
+      
+      return overlaps;
+    });
+    
+    const hasOverlap = overlappingBlocks.length > 0;
+    console.log(`Overlap check result: ${hasOverlap ? 'HAS OVERLAP with ' + overlappingBlocks.map(b => b[0]).join(', ') : 'No overlap'}`);
+    
+    return hasOverlap;
   };
 
   // Get block assigned to a specific grid cell
@@ -199,15 +271,20 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
 
   // Get the span of a block
   const getBlockSpan = (blockId: string) => {
+    // Get the block span or default to 1x1 if not found
     return layout.blockSpans?.[blockId] || { rowSpan: 1, columnSpan: 1 };
   };
 
   // Check if a cell is covered by a block's span
   const isCellCoveredBySpan = (row: number, column: number) => {
+    // Find any blocks that span over this cell
     return Object.entries(layout.blockPositions || {}).some(([blockId, pos]) => {
+      // Skip if this is the origin cell of the block
       if (pos.row === row && pos.column === column) return false;
       
       const span = getBlockSpan(blockId);
+      
+      // Check if this cell is within the span of the block
       return (
         pos.row <= row && 
         pos.row + (span.rowSpan || 1) > row &&
@@ -220,13 +297,13 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
   // Create grid cells
   const renderGridCells = () => {
     const cells = [];
+    
+    // First, render base cells for the entire grid
     for (let row = 0; row < layout.gridRows!; row++) {
       for (let col = 0; col < layout.gridColumns!; col++) {
-        // Skip rendering cells that are covered by another block's span
-        if (isCellCoveredBySpan(row, col)) continue;
-        
         const block = getCellBlock(row, col);
         const isOccupied = !!block;
+        const isCovered = isCellCoveredBySpan(row, col);
         
         cells.push(
           <div
@@ -236,7 +313,8 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
               dragOverCell?.row === row && dragOverCell?.column === col
                 ? "bg-primary/10 border-primary"
                 : "border-muted",
-              isOccupied ? "bg-muted/40" : ""
+              isOccupied ? "bg-muted/40" : "",
+              isCovered ? "bg-muted/20 border-muted/50" : ""
             )}
             onDragOver={(e) => handleDragOver(e, row, col)}
             onDragLeave={() => setDragOverCell(null)}
@@ -244,13 +322,21 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
             style={{
               gridRow: `${row + 1} / span 1`,
               gridColumn: `${col + 1} / span 1`,
+              opacity: isCovered ? 0.5 : 1,
+              pointerEvents: isCovered ? "none" : "auto"
             }}
           >
             <div className="text-xs font-medium text-center mb-2 text-muted-foreground">
               {row + 1},{col + 1}
             </div>
             
-            {block && (
+            {isCovered && (
+              <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground bg-muted/30 rounded-md">
+                Covered by another block
+              </div>
+            )}
+            
+            {block && !isCovered && (
               <div
                 draggable
                 onDragStart={(e) => handleDragStart(e, block.id)}
@@ -283,10 +369,8 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
                       const span = getBlockSpan(block.id);
                       const pos = getBlockPosition(block.id);
                       
-                      // Ensure we don't expand beyond grid boundaries
-                      if (pos.column + span.columnSpan < layout.gridColumns!) {
-                        handleBlockSpanChange(block.id, span.rowSpan, span.columnSpan + 1);
-                      }
+                      // Check for potential overlap before expanding
+                      handleBlockSpanChange(block.id, span.rowSpan, span.columnSpan + 1);
                     }}
                     disabled={
                       getBlockPosition(block.id).column + getBlockSpan(block.id).columnSpan >= layout.gridColumns!
@@ -301,12 +385,9 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
                     className="h-6 text-xs px-2"
                     onClick={() => {
                       const span = getBlockSpan(block.id);
-                      const pos = getBlockPosition(block.id);
                       
-                      // Ensure we don't expand beyond grid boundaries
-                      if (pos.row + span.rowSpan < layout.gridRows!) {
-                        handleBlockSpanChange(block.id, span.rowSpan + 1, span.columnSpan);
-                      }
+                      // Check for potential overlap before expanding
+                      handleBlockSpanChange(block.id, span.rowSpan + 1, span.columnSpan);
                     }}
                     disabled={
                       getBlockPosition(block.id).row + getBlockSpan(block.id).rowSpan >= layout.gridRows!
@@ -348,7 +429,7 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
               </div>
             )}
             
-            {!isOccupied && !isCellCoveredBySpan(row, col) && (
+            {!isOccupied && !isCovered && (
               <div className="text-xs text-center text-muted-foreground p-2">
                 Drag blocks here
               </div>
@@ -357,6 +438,40 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
         );
       }
     }
+    
+    // Then, render the blocks with correct spans as visual overlays
+    slide.blocks.forEach(block => {
+      const position = getBlockPosition(block.id);
+      const span = getBlockSpan(block.id);
+      
+      // Only render if the block has a span greater than 1 in any dimension
+      if ((span.rowSpan > 1 || span.columnSpan > 1) && position) {
+        cells.push(
+          <div
+            key={`span-${block.id}`}
+            className={cn(
+              "p-2 rounded-md border border-primary/30 bg-primary/5",
+              draggedBlockId === block.id ? "opacity-50" : "",
+              "pointer-events-none z-10"
+            )}
+            style={{
+              gridRowStart: position.row + 1,
+              gridRowEnd: position.row + 1 + span.rowSpan,
+              gridColumnStart: position.column + 1,
+              gridColumnEnd: position.column + 1 + span.columnSpan,
+              position: "relative"
+            }}
+          >
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-xs font-medium bg-white/80 px-2 py-1 rounded shadow-sm border">
+                {block.type} Block ({span.rowSpan}×{span.columnSpan})
+              </div>
+            </div>
+          </div>
+        );
+      }
+    });
+    
     return cells;
   };
 

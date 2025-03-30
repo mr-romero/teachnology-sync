@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Lesson, LessonSlide, LessonBlock, SlideLayout } from '@/types/lesson';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Save, ArrowLeft, Trash, Play, Eye, Presentation } from 'lucide-react';
+import { Plus, Save, ArrowLeft, Trash, Play, Eye, Presentation, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import LessonBlockEditor from '@/components/lesson/LessonBlockEditor';
 import SlideCarousel from '@/components/lesson/SlideCarousel';
@@ -28,6 +28,7 @@ const LessonEditor: React.FC = () => {
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPresentationDialogOpen, setIsPresentationDialogOpen] = useState(false);
+  const [isBlocksCollapsed, setIsBlocksCollapsed] = useState(false);
   
   // Initialize lesson data
   useEffect(() => {
@@ -72,6 +73,19 @@ const LessonEditor: React.FC = () => {
     
     initLesson();
   }, [lessonId, user, navigate]);
+
+  // Check if user had previously collapsed the blocks panel
+  useEffect(() => {
+    const storedCollapsedState = localStorage.getItem('blocksCollapsed');
+    if (storedCollapsedState) {
+      setIsBlocksCollapsed(storedCollapsedState === 'true');
+    }
+  }, []);
+
+  // Save collapsed state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('blocksCollapsed', isBlocksCollapsed.toString());
+  }, [isBlocksCollapsed]);
 
   useEffect(() => {
     // Get active slide from localStorage when component mounts
@@ -437,6 +451,11 @@ const LessonEditor: React.FC = () => {
     }
   };
 
+  // Toggle blocks panel collapsed state
+  const toggleBlocksPanel = () => {
+    setIsBlocksCollapsed(!isBlocksCollapsed);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -516,129 +535,138 @@ const LessonEditor: React.FC = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-1 space-y-4">
-          <div className="bg-card rounded-lg p-4 shadow-sm">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-medium">Content Controls</h3>
-            </div>
-            
-            <div className="bg-card rounded-lg p-4 shadow-sm">
-              <h3 className="font-medium mb-3">Content Blocks</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <div 
-                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
-                  onClick={() => handleAddBlock('text')}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', 'text');
-                    e.dataTransfer.effectAllowed = 'copy';
-                    // Create ghost effect
-                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
-                    ghost.style.position = 'absolute';
-                    ghost.style.top = '-1000px';
-                    ghost.style.opacity = '0.5';
-                    document.body.appendChild(ghost);
-                    e.dataTransfer.setDragImage(ghost, 0, 0);
-                    setTimeout(() => document.body.removeChild(ghost), 0);
-                  }}
-                >
-                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-blue-100 text-blue-600 mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 6.1H3"/>
-                      <path d="M21 12.1H3"/>
-                      <path d="M15.1 18H3"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium">Text</span>
+      <div className="flex gap-4">
+        {/* Collapsible Content Blocks panel */}
+        <div 
+          className={`transition-all duration-300 relative ${isBlocksCollapsed ? 'w-0 opacity-0 -ml-4' : 'w-64 opacity-100'}`}
+          style={{ overflow: isBlocksCollapsed ? 'hidden' : 'visible' }}
+        >
+          <div className="bg-card rounded-lg p-4 shadow-sm h-full">
+            <h3 className="font-medium mb-3">Content Blocks</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div 
+                className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
+                onClick={() => handleAddBlock('text')}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', 'text');
+                  e.dataTransfer.effectAllowed = 'copy';
+                  // Create ghost effect
+                  const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                  ghost.style.position = 'absolute';
+                  ghost.style.top = '-1000px';
+                  ghost.style.opacity = '0.5';
+                  document.body.appendChild(ghost);
+                  e.dataTransfer.setDragImage(ghost, 0, 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
+                }}
+              >
+                <div className="h-8 w-8 flex items-center justify-center rounded-md bg-blue-100 text-blue-600 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 6.1H3"/>
+                    <path d="M21 12.1H3"/>
+                    <path d="M15.1 18H3"/>
+                  </svg>
                 </div>
-                
-                <div 
-                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
-                  onClick={() => handleAddBlock('image')}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', 'image');
-                    e.dataTransfer.effectAllowed = 'copy';
-                    // Create ghost effect
-                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
-                    ghost.style.position = 'absolute';
-                    ghost.style.top = '-1000px';
-                    ghost.style.opacity = '0.5';
-                    document.body.appendChild(ghost);
-                    e.dataTransfer.setDragImage(ghost, 0, 0);
-                    setTimeout(() => document.body.removeChild(ghost), 0);
-                  }}
-                >
-                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-violet-100 text-violet-600 mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-                      <circle cx="9" cy="9" r="2"/>
-                      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium">Image</span>
-                </div>
-                
-                <div 
-                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
-                  onClick={() => handleAddBlock('question')}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', 'question');
-                    e.dataTransfer.effectAllowed = 'copy';
-                    // Create ghost effect
-                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
-                    ghost.style.position = 'absolute';
-                    ghost.style.top = '-1000px';
-                    ghost.style.opacity = '0.5';
-                    document.body.appendChild(ghost);
-                    e.dataTransfer.setDragImage(ghost, 0, 0);
-                    setTimeout(() => document.body.removeChild(ghost), 0);
-                  }}
-                >
-                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-amber-100 text-amber-600 mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10"/>
-                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
-                      <path d="M12 17h.01"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium">Question</span>
-                </div>
-                
-                <div 
-                  className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
-                  onClick={() => handleAddBlock('graph')}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/plain', 'graph');
-                    e.dataTransfer.effectAllowed = 'copy';
-                    // Create ghost effect
-                    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
-                    ghost.style.position = 'absolute';
-                    ghost.style.top = '-1000px';
-                    ghost.style.opacity = '0.5';
-                    document.body.appendChild(ghost);
-                    e.dataTransfer.setDragImage(ghost, 0, 0);
-                    setTimeout(() => document.body.removeChild(ghost), 0);
-                  }}
-                >
-                  <div className="h-8 w-8 flex items-center justify-center rounded-md bg-green-100 text-green-600 mb-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 3v18h18"/>
-                      <path d="m19 9-5 5-4-4-3 3"/>
-                    </svg>
-                  </div>
-                  <span className="text-sm font-medium">Graph</span>
-                </div>
+                <span className="text-sm font-medium">Text</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-3 text-center">Drag and drop blocks directly into the editor</p>
+              
+              <div 
+                className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
+                onClick={() => handleAddBlock('image')}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', 'image');
+                  e.dataTransfer.effectAllowed = 'copy';
+                  // Create ghost effect
+                  const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                  ghost.style.position = 'absolute';
+                  ghost.style.top = '-1000px';
+                  ghost.style.opacity = '0.5';
+                  document.body.appendChild(ghost);
+                  e.dataTransfer.setDragImage(ghost, 0, 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
+                }}
+              >
+                <div className="h-8 w-8 flex items-center justify-center rounded-md bg-violet-100 text-violet-600 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                    <circle cx="9" cy="9" r="2"/>
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                  </svg>
+                </div>
+                <span className="text-sm font-medium">Image</span>
+              </div>
+              
+              <div 
+                className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
+                onClick={() => handleAddBlock('question')}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', 'question');
+                  e.dataTransfer.effectAllowed = 'copy';
+                  // Create ghost effect
+                  const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                  ghost.style.position = 'absolute';
+                  ghost.style.top = '-1000px';
+                  ghost.style.opacity = '0.5';
+                  document.body.appendChild(ghost);
+                  e.dataTransfer.setDragImage(ghost, 0, 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
+                }}
+              >
+                <div className="h-8 w-8 flex items-center justify-center rounded-md bg-amber-100 text-amber-600 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                    <path d="M12 17h.01"/>
+                  </svg>
+                </div>
+                <span className="text-sm font-medium">Question</span>
+              </div>
+              
+              <div 
+                className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
+                onClick={() => handleAddBlock('graph')}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', 'graph');
+                  e.dataTransfer.effectAllowed = 'copy';
+                  // Create ghost effect
+                  const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                  ghost.style.position = 'absolute';
+                  ghost.style.top = '-1000px';
+                  ghost.style.opacity = '0.5';
+                  document.body.appendChild(ghost);
+                  e.dataTransfer.setDragImage(ghost, 0, 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
+                }}
+              >
+                <div className="h-8 w-8 flex items-center justify-center rounded-md bg-green-100 text-green-600 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v18h18"/>
+                    <path d="m19 9-5 5-4-4-3 3"/>
+                  </svg>
+                </div>
+                <span className="text-sm font-medium">Graph</span>
+              </div>
             </div>
+            <p className="text-xs text-muted-foreground mt-3 text-center">Drag and drop blocks directly into the editor</p>
           </div>
         </div>
+        
+        {/* Toggle button for content blocks panel */}
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={toggleBlocksPanel}
+          className="h-8 w-8 self-start"
+        >
+          {isBlocksCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </Button>
 
-        <div className="lg:col-span-3">
+        {/* Main editor area - make it take remaining space */}
+        <div className="flex-1">
           {currentSlide && (
             <Card>
               <CardContent className="p-6">
