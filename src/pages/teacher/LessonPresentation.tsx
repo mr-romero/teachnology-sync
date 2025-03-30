@@ -286,7 +286,20 @@ const LessonPresentation: React.FC = () => {
     console.log("Processing participants:", participants);
     console.log("Processing answers:", answers);
     
-    const progressData: StudentProgress[] = participants.map(participant => {
+    // Deduplicate participants by user_id
+    // This ensures each student appears only once in the teacher's dashboard
+    const uniqueUserIds = new Set<string>();
+    const uniqueParticipants = participants.filter(participant => {
+      if (uniqueUserIds.has(participant.user_id)) {
+        return false;
+      }
+      uniqueUserIds.add(participant.user_id);
+      return true;
+    });
+    
+    console.log("Deduplicated participants:", uniqueParticipants.length);
+    
+    const progressData: StudentProgress[] = uniqueParticipants.map(participant => {
       const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
       
       return {
