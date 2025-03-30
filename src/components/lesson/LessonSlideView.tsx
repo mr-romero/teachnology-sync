@@ -36,6 +36,25 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   
+  // Helper functions for handling block dimensions
+  const getBlockDimensions = (blockId: string) => {
+    // Default values
+    return {
+      width: undefined,
+      height: undefined
+    };
+  };
+  
+  // Determine if we should use grid layout
+  const useGridLayout = slide.layout?.gridRows && slide.layout?.gridColumns && 
+    (slide.layout.gridRows > 1 || slide.layout.gridColumns > 1);
+  
+  // For grid layout, get grid dimensions
+  const gridSize = {
+    rows: slide.layout?.gridRows || 2, // Default to 2 rows if not specified
+    columns: slide.layout?.gridColumns || 2 // Default to 2 columns if not specified
+  };
+
   const handleResponseChange = (blockId: string, value: string | boolean) => {
     setResponses(prev => ({ ...prev, [blockId]: value }));
   };
@@ -84,55 +103,82 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     }
   };
   
-  // Get block position from layout
+  // Get block position from layout (enhanced for better default handling)
   const getBlockPosition = (blockId: string): GridPosition => {
+    // If we have grid positions for this block, use them
     if (slide.layout?.blockPositions?.[blockId]) {
       return slide.layout.blockPositions[blockId];
     }
+    
+    // If we have column-based layout (legacy), convert to grid position
+    if (slide.layout?.blockAssignments?.[blockId] !== undefined) {
+      const colIndex = slide.layout.blockAssignments[blockId];
+      
+      // Calculate row based on blocks already in this column
+      // Get all blocks that are in the same column and have already been positioned
+      const blocksInSameColumn = Object.entries(slide.layout?.blockPositions || {})
+        .filter(([id, pos]) => id !== blockId && pos.column === colIndex)
+        .map(([id, pos]) => ({
+          id,
+          position: pos,
+          span: getBlockSpan(id)
+        }));
+      
+      // Find the first available row that doesn't overlap with any existing block
+      let row = 0;
+      let foundPosition = false;
+      
+      while (!foundPosition) {
+        const overlapping = blocksInSameColumn.some(b => {
+          const endRow = b.position.row + (b.span.rowSpan || 1);
+          return row >= b.position.row && row < endRow;
+        });
+        
+        if (!overlapping) {
+          foundPosition = true;
+        } else {
+          row++;
+        }
+      }
+      
+      return { column: colIndex, row };
+    }
+    
+    // Default position - first column, first available row
     return { row: 0, column: 0 };
   };
   
   // Get block span from layout
   const getBlockSpan = (blockId: string): GridSpan => {
+    // If we have grid spans for this block, use them
     if (slide.layout?.blockSpans?.[blockId]) {
       return slide.layout.blockSpans[blockId];
     }
+    
+    // Default span - one cell
     return { columnSpan: 1, rowSpan: 1 };
   };
   
-  // Group blocks by grid position
-  const getBlocksByPosition = () => {
-    const result: {
-      [rowCol: string]: LessonBlock[];
-    } = {};
-    
-    // Create a grid with all possible positions based on the layout
-    const rowCount = slide.layout?.gridRows || 1;
-    const colCount = slide.layout?.gridColumns || 1;
-    
-    for (let row = 0; row < rowCount; row++) {
-      for (let col = 0; col < colCount; col++) {
-        const key = `${row}-${col}`;
-        result[key] = [];
-      }
-    }
-    
-    // Assign blocks to their positions
-    slide.blocks.forEach(block => {
-      const position = getBlockPosition(block.id);
-      const key = `${position.row}-${position.column}`;
+  // Check if a cell is covered by another block's span
+  const isCellCoveredBySpan = (row: number, column: number, excludeBlockId?: string) => {
+    return Object.entries(slide.layout?.blockPositions || {}).some(([blockId, pos]) => {
+      if (excludeBlockId && blockId === excludeBlockId) return false;
       
-      if (!result[key]) {
-        result[key] = [];
-      }
+      const blockSpan = getBlockSpan(blockId);
       
-      result[key].push(block);
+      // Check if this cell is within the span of another block
+      return (
+        pos.row <= row && 
+        pos.row + (blockSpan.rowSpan || 1) > row &&
+        pos.column <= column && 
+        pos.column + (blockSpan.columnSpan || 1) > column
+      );
     });
-    
-    return result;
   };
   
+  // Rendering for question blocks
   const renderQuestionBlock = (block: QuestionBlock) => {
+    // ... existing code for rendering questions remains unchanged
     const studentCanRespond = isStudentView && studentId;
     const isAnswered = answeredBlocks.includes(block.id);
     
@@ -300,42 +346,135 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     return <p>Unknown question type</p>;
   };
   
-  // Get block dimensions
-  const getBlockDimensions = (blockId: string) => {
-    if (slide.layout?.blockSizes?.[blockId]) {
-      return slide.layout.blockSizes[blockId];
+  // Determine if we should use grid layout
+  const determineLayoutType = () => {
+    // If we have grid dimensions specified, use grid layout
+    if (slide.layout?.gridRows && slide.layout?.gridColumns) {
+      return 'grid';
     }
-    return { width: '100%', height: 'auto' };
+    
+    // If we have column-based layout, use columns
+    if (slide.layout?.columnCount && slide.layout?.columnWidths) {
+      return 'columns';
+    }
+    
+    // Default to simple linear layout
+    return 'linear';
   };
-
-  // Check if a cell is covered by another block's span
-  const isCellCoveredBySpan = (row: number, column: number) => {
-    return Object.entries(slide.layout?.blockPositions || {}).some(([blockId, pos]) => {
-      if (pos.row !== row || pos.column !== column) {
-        const blockSpan = getBlockSpan(blockId);
-        if (!blockSpan.columnSpan || blockSpan.columnSpan <= 1) return false;
-        
-        // Check if this span covers our position
-        return (
-          pos.row === row && // Same row
-          pos.column < column && // Column starts before current col
-          pos.column + (blockSpan.columnSpan || 1) > column // Span extends past current col
-        );
+  
+  const layoutType = determineLayoutType();
+  
+  // For column layout, get column widths
+  const columnWidths = slide.layout?.columnWidths || [100];
+  
+  // Group blocks by grid cell for grid-based layout
+  const getBlocksForGrid = () => {
+    // Initialize a 2D array to represent the grid and track occupied cells
+    const gridCells: Array<Array<boolean>> = Array(gridSize.rows)
+      .fill(null)
+      .map(() => Array(gridSize.columns).fill(false));
+    
+    // Sort blocks to ensure consistent layout (by position and id)
+    const sortedBlocks = [...slide.blocks].sort((a, b) => {
+      const posA = getBlockPosition(a.id);
+      const posB = getBlockPosition(b.id);
+      
+      // Sort by row first, then by column
+      if (posA.row !== posB.row) {
+        return posA.row - posB.row;
       }
-      return false;
+      if (posA.column !== posB.column) {
+        return posA.column - posB.column;
+      }
+      // If positions are identical, sort by ID for consistency
+      return a.id.localeCompare(b.id);
+    });
+    
+    // Map blocks to their grid positions with spans
+    return sortedBlocks.map(block => {
+      let position = getBlockPosition(block.id);
+      const span = getBlockSpan(block.id);
+      
+      // Ensure position is within grid bounds
+      position = {
+        row: Math.min(position.row, gridSize.rows - 1),
+        column: Math.min(position.column, gridSize.columns - 1)
+      };
+      
+      // Check if position is already occupied by another block's span
+      if (isCellCoveredBySpan(position.row, position.column, block.id)) {
+        // Find the next available position
+        let foundPosition = false;
+        const originalRow = position.row;
+        const originalCol = position.column;
+        
+        // Try to find a new position within the same row first
+        for (let c = originalCol; c < gridSize.columns && !foundPosition; c++) {
+          if (!isCellCoveredBySpan(originalRow, c, block.id)) {
+            position = { row: originalRow, column: c };
+            foundPosition = true;
+          }
+        }
+        
+        // If still occupied, try next rows
+        if (!foundPosition) {
+          for (let r = originalRow + 1; r < gridSize.rows && !foundPosition; r++) {
+            for (let c = 0; c < gridSize.columns && !foundPosition; c++) {
+              if (!isCellCoveredBySpan(r, c, block.id)) {
+                position = { row: r, column: c };
+                foundPosition = true;
+              }
+            }
+          }
+        }
+        
+        // If we still couldn't find a free cell, use the original position
+        // (this should be handled better in a production version)
+        if (!foundPosition) {
+          position = { row: originalRow, column: originalCol };
+        }
+      }
+      
+      // Adjust span to not exceed grid boundaries
+      const adjustedSpan = {
+        rowSpan: Math.min(span.rowSpan || 1, gridSize.rows - position.row),
+        columnSpan: Math.min(span.columnSpan || 1, gridSize.columns - position.column)
+      };
+      
+      // Mark cells as occupied
+      for (let r = position.row; r < position.row + adjustedSpan.rowSpan; r++) {
+        for (let c = position.column; c < position.column + adjustedSpan.columnSpan; c++) {
+          if (r < gridSize.rows && c < gridSize.columns) {
+            gridCells[r][c] = true;
+          }
+        }
+      }
+      
+      return {
+        block,
+        position,
+        span: adjustedSpan
+      };
     });
   };
-
-  // Check if we should use grid layout
-  const useGridLayout = slide.layout?.gridRows && slide.layout?.gridColumns && (slide.layout.gridRows > 1 || slide.layout.gridColumns > 1);
-  const blocksByPosition = useGridLayout ? getBlocksByPosition() : null;
   
-  // Grid size
-  const gridSize = {
-    rows: slide.layout?.gridRows || 1,
-    columns: slide.layout?.gridColumns || 1
+  // Group blocks by column for column-based layout
+  const getBlocksByColumn = () => {
+    const result: LessonBlock[][] = Array(slide.layout?.columnCount || 1).fill(null).map(() => []);
+    
+    slide.blocks.forEach(block => {
+      const colIndex = slide.layout?.blockAssignments?.[block.id] || 0;
+      if (colIndex < result.length) {
+        result[colIndex].push(block);
+      } else {
+        // If column doesn't exist, put in first column
+        result[0].push(block);
+      }
+    });
+    
+    return result;
   };
-
+  
   return (
     <div className="relative">
       {/* Semi-transparent overlay when paused - only show for student view */}
@@ -348,7 +487,6 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
           </div>
         </div>
       )}
-
       {useGridLayout ? (
         // Render using grid layout
         <div 
@@ -358,46 +496,38 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
             gridTemplateColumns: `repeat(${gridSize.columns}, minmax(0, 1fr))`
           }}
         >
-          {/* Render all grid cells with blocks */}
-          {Object.keys(blocksByPosition!).map(position => {
-            const [row, col] = position.split('-').map(Number);
-            const blocksInPosition = blocksByPosition![position] || [];
+          {slide.blocks.map((block) => {
+            const position = getBlockPosition(block.id);
+            const blockSpan = getBlockSpan(block.id);
             
-            // Skip rendering a cell if there's another cell that spans into this position
-            if (isCellCoveredBySpan(row, col)) return null;
+            // Skip blocks without valid position data
+            if (position.row === undefined || position.column === undefined) return null;
             
-            if (blocksInPosition.length === 0) return null;
-            
-            return blocksInPosition.map((block) => {
-              const blockSpan = getBlockSpan(block.id);
-              
-              return (
-                <div 
-                  key={block.id} 
-                  className="relative mb-4 p-4 border rounded-md"
-                  style={{
-                    gridRow: row + 1, // 1-based in CSS grid
-                    gridColumn: `${col + 1} / span ${blockSpan.columnSpan || 1}`, // Explicit span syntax
-                    gridRowStart: row + 1,
-                    gridRowEnd: row + 1 + (blockSpan.rowSpan || 1)
-                  }}
-                >
-                  {/* Block content */}
-                  {renderBlock(block)}
-                </div>
-              );
-            });
+            return (
+              <div 
+                key={block.id} 
+                className="bg-card p-4 border rounded-md shadow-sm"
+                style={{
+                  gridRowStart: position.row + 1,
+                  gridRowEnd: position.row + 1 + (blockSpan.rowSpan || 1),
+                  gridColumnStart: position.column + 1,
+                  gridColumnEnd: position.column + 1 + (blockSpan.columnSpan || 1)
+                }}
+              >
+                {renderBlock(block)}
+              </div>
+            );
           })}
         </div>
       ) : (
         // Use the original linear layout
-        <div className="space-y-0">
+        <div className="space-y-4">
           {slide.blocks.map((block) => {
             const { width, height } = getBlockDimensions(block.id);
             return (
               <div 
                 key={block.id} 
-                className="relative mb-4"
+                className="relative"
                 style={{ 
                   width: width || '100%', 
                   height: height || 'auto',

@@ -542,7 +542,8 @@ const StudentView: React.FC = () => {
     const isPacedMode = allowedSlides.length > 0;
     
     return (
-      <div className="min-h-[calc(100vh-2rem)] flex flex-col">
+      <div className="flex flex-col h-screen">
+        {/* Header bar - fixed height */}
         <div className="bg-background shadow-sm border-b p-4">
           <div className="container mx-auto flex justify-between items-center">
             <h1 className="text-xl font-semibold">{lesson.title}</h1>
@@ -571,8 +572,9 @@ const StudentView: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex-1 overflow-auto p-4">
-          <div className="container mx-auto">
+        {/* Main content area - scrollable */}
+        <div className="flex-1 overflow-auto">
+          <div className="container mx-auto p-4">
             {/* Add paced slides info if enabled */}
             {isPacedMode && !isSynced && (
               <div className="mb-4 bg-blue-50 border border-blue-200 rounded-md p-2 text-blue-700 text-sm">
@@ -603,6 +605,7 @@ const StudentView: React.FC = () => {
           </div>
         </div>
         
+        {/* Footer bar - fixed height */}
         <div className="bg-background border-t p-4">
           <div className="container mx-auto flex justify-between items-center">
             <Button 
