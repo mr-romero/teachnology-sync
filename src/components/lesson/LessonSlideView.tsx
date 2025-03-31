@@ -26,6 +26,7 @@ interface LessonSlideViewProps {
   onAnswerSubmit?: (blockId: string, answer: string | number | boolean) => void;
   answeredBlocks?: string[];
   isPaused?: boolean;
+  showCalculator?: boolean; // Add this prop
 }
 
 const LessonSlideView: React.FC<LessonSlideViewProps> = ({ 
@@ -35,18 +36,16 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   onResponseSubmit,
   onAnswerSubmit,
   answeredBlocks = [],
-  isPaused = false
+  isPaused = false,
+  showCalculator = false // Add default value
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   
-  // Check if any graph block has calculator enabled
+  const studentCanRespond = isStudentView && !answeredBlocks.length;
+  
+  // Check global calculator setting instead of graph block setting
   const shouldShowCalculator = () => {
-    if (!isStudentView) return false;
-    
-    return slide.blocks.some(block => 
-      block.type === 'graph' && 
-      (block as GraphBlock).settings.showCalculator !== false
-    );
+    return isStudentView && showCalculator;
   };
   
   // Helper functions for handling block dimensions
@@ -502,12 +501,10 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   };
   
   return (
-    <div className="relative min-h-[300px]">
-      {/* Calculator Button - positioned at bottom right with clear visibility */}
-      {shouldShowCalculator() && isStudentView && (
-        <div className="absolute bottom-4 right-4 z-[100]">
-          <CalculatorButton disabled={isPaused} />
-        </div>
+    <div className="relative">
+      {/* Calculator Button - shown only for student view when enabled */}
+      {shouldShowCalculator() && (
+        <CalculatorButton disabled={isPaused} />
       )}
       
       {/* Semi-transparent overlay when paused - only show for student view */}

@@ -55,8 +55,8 @@ export interface Equation {
   color: string;
   label?: string;
   showLabel?: boolean;
-  pointStyle?: string;
-  lineStyle?: string;
+  pointStyle?: 'POINT' | 'OPEN' | 'CROSS';  // Add explicit style options
+  lineStyle?: 'SOLID' | 'DASHED' | 'DOTTED';  // Add explicit style options
   points?: Point[];
   visible?: boolean;
 }
@@ -143,6 +143,9 @@ export interface Lesson {
   createdAt: string;
   updatedAt: string;
   slides: LessonSlide[];
+  settings?: {
+    showCalculator?: boolean;  // Global setting for calculator availability
+  };
 }
 
 export interface StudentResponse {

@@ -600,6 +600,7 @@ const StudentView: React.FC = () => {
                 onAnswerSubmit={handleSubmitAnswer}
                 answeredBlocks={answeredBlocks}
                 isPaused={isPaused}
+                showCalculator={lesson.settings?.showCalculator ?? false}  // Add this line
               />
             </div>
           </div>

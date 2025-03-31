@@ -6,7 +6,9 @@ import { v4 as uuidv4 } from 'uuid';
 declare global {
   interface Window {
     Desmos?: {
-      GraphingCalculator: new (element: HTMLElement, options?: any) => any;
+      GraphingCalculator: {
+        new (element: HTMLElement, options?: any): any;
+      };
     };
   }
 }
@@ -197,7 +199,7 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
       };
       
       // Create the calculator
-      calculatorRef.current = window.Desmos.GraphingCalculator(
+      calculatorRef.current = new window.Desmos.GraphingCalculator(
         containerRef.current, 
         calculatorOptions
       );
@@ -257,8 +259,8 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
             latex: eq.latex,
             color: eq.color,
             label: eq.showLabel ? eq.label : '',
-            lineStyle: eq.lineStyle?.toLowerCase(),
-            pointStyle: eq.pointStyle?.toLowerCase(),
+            lineStyle: eq.lineStyle?.toLowerCase() || 'SOLID',  // Add default 'SOLID' style
+            pointStyle: eq.pointStyle?.toLowerCase() || 'POINT',  // Add default 'POINT' style
           });
         }
       });
@@ -284,7 +286,12 @@ const GraphRenderer: React.FC<GraphRendererProps> = ({
       overflow: 'hidden',
       minHeight: '200px',
     }}>
-      {/* We're removing the calculator button from here since it's now handled by LessonSlideView */}
+      {/* Calculator button - ensure high z-index */}
+      {settings.showCalculator && !isEditable && (
+        <div className="absolute bottom-4 right-4 z-50">
+          <CalculatorButton disabled={false} />
+        </div>
+      )}
       
       {!isDesmosLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-80 z-10">

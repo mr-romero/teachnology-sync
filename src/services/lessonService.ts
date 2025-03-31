@@ -58,6 +58,9 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
     createdBy: userId,
     createdAt: now,
     updatedAt: now,
+    settings: {
+      showCalculator: true  // Set calculator enabled by default
+    },
     slides: [{
       id: uuidv4(),
       title: 'Slide 1',
@@ -172,6 +175,7 @@ export const getLessonById = async (lessonId: string): Promise<Lesson | null> =>
     createdBy: presentation.user_id,
     createdAt: presentation.created_at,
     updatedAt: presentation.updated_at,
+    settings: presentation.settings || { showCalculator: true },  // Include settings with default
     slides: lessonSlides
   };
 };
@@ -189,7 +193,8 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
     .from('presentations')
     .update({ 
       title: dbData.presentation.title,
-      updated_at: now
+      updated_at: now,
+      settings: lesson.settings || { showCalculator: true }  // Include settings in update
     })
     .eq('id', lesson.id);
     

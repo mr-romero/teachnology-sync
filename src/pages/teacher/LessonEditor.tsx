@@ -19,6 +19,8 @@ import {
   saveLesson 
 } from '@/services/lessonService';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 const LessonEditor: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
@@ -200,7 +202,7 @@ const LessonEditor: React.FC = () => {
                 id: uuidv4(),
                 latex: 'y = x^2',
                 color: '#c74440',
-                isVisible: true
+                visible: true  // Changed from isVisible to visible
               }
             ],
             settings: {
@@ -211,14 +213,14 @@ const LessonEditor: React.FC = () => {
               showGrid: true,
               showAxes: true,
               polarMode: false,
-              squareAxes: false,
               allowPanning: true,
               allowZooming: true,
               showXAxis: true,
               showYAxis: true,
               xAxisLabel: '',
               yAxisLabel: '',
-              backgroundColor: '#ffffff'
+              backgroundColor: '#ffffff',
+              showCalculator: true  // Set to true by default
             }
           };
           break;
@@ -508,6 +510,19 @@ const LessonEditor: React.FC = () => {
     setIsBlocksCollapsed(!isBlocksCollapsed);
   };
 
+  const handleToggleCalculator = () => {
+    if (lesson) {
+      setLesson({
+        ...lesson,
+        settings: {
+          ...lesson.settings,
+          showCalculator: !(lesson.settings?.showCalculator ?? false)
+        },
+        updatedAt: new Date().toISOString()
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -543,6 +558,15 @@ const LessonEditor: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mr-4">
+            <Label htmlFor="showCalculator" className="text-sm">Show Calculator</Label>
+            <Switch 
+              id="showCalculator" 
+              checked={lesson?.settings?.showCalculator ?? false}
+              onCheckedChange={handleToggleCalculator}
+            />
+          </div>
+          
           <Button 
             variant="outline" 
             size="sm" 

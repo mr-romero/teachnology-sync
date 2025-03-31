@@ -850,6 +850,7 @@ const LessonPresentation: React.FC = () => {
                     slide={currentSlide} 
                     isStudentView={true} 
                     isPaused={isPaused} 
+                    showCalculator={lesson.settings?.showCalculator ?? false}  // Add this line
                   />
                 </div>
                 
