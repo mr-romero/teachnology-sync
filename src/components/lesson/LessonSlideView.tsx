@@ -5,12 +5,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Pause } from 'lucide-react';
+import { Pause, BookOpen } from 'lucide-react';
 import ImageViewer from './ImageViewer';
 import AIChat from './AIChat';
 import GraphRenderer from './GraphRenderer';
 import CalculatorButton from './CalculatorButton';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Define a grid position type to match the editor
 interface GridPosition {
@@ -22,6 +24,8 @@ interface LessonSlideViewProps {
   slide: LessonSlide;
   isStudentView?: boolean;
   studentId?: string;
+  studentName?: string;
+  studentClass?: string;
   onResponseSubmit?: (blockId: string, response: string | boolean) => void;
   onAnswerSubmit?: (blockId: string, answer: string | number | boolean) => void;
   answeredBlocks?: string[];
@@ -33,6 +37,8 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   slide, 
   isStudentView = false,
   studentId,
+  studentName,
+  studentClass,
   onResponseSubmit,
   onAnswerSubmit,
   answeredBlocks = [],
@@ -527,8 +533,43 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     return result;
   };
   
+  // Render student info badge if provided
+  const renderStudentInfo = () => {
+    if (studentName && isStudentView) {
+      return (
+        <div className="absolute top-2 right-2 z-10">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 bg-white border-primary">
+                  <span className="font-medium">{studentName}</span>
+                  {studentClass && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-muted-foreground flex items-center">
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        {studentClass}
+                      </span>
+                    </>
+                  )}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>You are signed in as a student</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      );
+    }
+    return null;
+  };
+  
   return (
     <div className="relative">
+      {/* Student info badge */}
+      {renderStudentInfo()}
+      
       {/* Calculator Button - shown only for student view when enabled */}
       {shouldShowCalculator() && (
         <CalculatorButton disabled={isPaused} />

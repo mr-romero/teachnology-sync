@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Table, 
@@ -9,8 +8,10 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { StudentProgress, LessonSlide } from '@/types/lesson';
-import { CheckCircle2, XCircle, Circle, HelpCircle, MoreVertical } from 'lucide-react';
+import { CheckCircle2, XCircle, Circle, HelpCircle, MoreVertical, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface StudentProgressGridProps {
   studentProgress: StudentProgress[];
@@ -77,6 +78,11 @@ const StudentProgressGrid: React.FC<StudentProgressGridProps> = ({
       const bLastName = b.studentName.includes(" ") ? 
         b.studentName.split(" ")[1] : b.studentName;
       return aLastName.localeCompare(bLastName);
+    } else if (sortBy === "class") {
+      // Sort by class if available
+      const aClass = a.studentClass || '';
+      const bClass = b.studentClass || '';
+      return aClass.localeCompare(bClass);
     }
     // Default is joinTime, but we don't have that info, so return as is
     return 0;
@@ -88,7 +94,7 @@ const StudentProgressGrid: React.FC<StudentProgressGridProps> = ({
         <Table className="w-full table-fixed">
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow>
-              <TableHead className="sticky left-0 bg-background z-20 w-[140px]">Student</TableHead>
+              <TableHead className="sticky left-0 bg-background z-20 w-[160px]">Student</TableHead>
               {slides.map((_, index) => (
                 <TableHead key={index} className="text-center w-[40px]">
                   {index + 1}
@@ -113,7 +119,7 @@ const StudentProgressGrid: React.FC<StudentProgressGridProps> = ({
       <Table className="w-full table-fixed">
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
-            <TableHead className="sticky left-0 bg-background z-20 w-[140px]">Student</TableHead>
+            <TableHead className="sticky left-0 bg-background z-20 w-[160px]">Student</TableHead>
             {slides.map((_, index) => (
               <TableHead key={index} className="text-center w-[40px]">
                 {index + 1}
@@ -132,11 +138,32 @@ const StudentProgressGrid: React.FC<StudentProgressGridProps> = ({
             sortedStudents.map((student, studentIndex) => (
               <TableRow key={student.studentId} className="hover:bg-muted/50">
                 <TableCell className="sticky left-0 bg-background font-medium flex items-center py-2">
-                  <span className="truncate text-xs">
-                    {anonymousMode 
-                      ? `Student ${studentIndex + 1}` 
-                      : student.studentName}
-                  </span>
+                  {anonymousMode ? (
+                    <span className="truncate text-xs">
+                      Student {studentIndex + 1}
+                    </span>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <span className="truncate text-xs">
+                        {student.studentName}
+                      </span>
+                      {student.studentClass && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
+                                <BookOpen className="h-2 w-2 mr-0.5" />
+                                {student.studentClass}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Class: {student.studentClass}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                  )}
                   <MoreVertical className="h-3 w-3 ml-1 text-muted-foreground" />
                 </TableCell>
                 {slides.map((slide) => (

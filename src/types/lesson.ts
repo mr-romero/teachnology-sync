@@ -151,6 +151,7 @@ export interface Lesson {
 export interface StudentResponse {
   studentId: string;
   studentName: string;
+  studentClass?: string; // Add student class information
   lessonId: string;
   slideId: string;
   blockId: string;
@@ -162,6 +163,7 @@ export interface StudentResponse {
 export interface StudentProgress {
   studentId: string;
   studentName: string;
+  studentClass?: string; // Add student class information
   lessonId: string;
   currentSlide: string;
   completedBlocks: string[];

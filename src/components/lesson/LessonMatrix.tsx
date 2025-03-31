@@ -24,7 +24,8 @@ import {
   Glasses,
   LayoutGrid,
   Check,
-  X
+  X,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StudentProgress, LessonSlide } from '@/types/lesson';
@@ -36,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface LessonMatrixProps {
   studentProgress: StudentProgress[];
@@ -144,6 +146,16 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
       const bLastName = b.studentName.includes(" ") ? 
         b.studentName.split(" ")[1] : b.studentName;
       return aLastName.localeCompare(bLastName);
+    } else if (sortBy === "class") {
+      // Sort by class if available
+      const aClass = a.studentClass || '';
+      const bClass = b.studentClass || '';
+      
+      // First sort by class, then by name within each class
+      if (aClass === bClass) {
+        return a.studentName.localeCompare(b.studentName);
+      }
+      return aClass.localeCompare(bClass);
     }
     // Default is joinTime, but we don't have that info, so return as is
     return 0;
@@ -469,6 +481,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                     <SelectContent>
                       <SelectItem value="lastName">Last Name</SelectItem>
                       <SelectItem value="firstName">First Name</SelectItem>
+                      <SelectItem value="class">Class</SelectItem>
                       <SelectItem value="joinTime">Join Time</SelectItem>
                     </SelectContent>
                   </Select>
@@ -518,56 +531,98 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                   </td>
                 </tr>
               ) : (
-                sortedStudents.map((student, studentIndex) => (
-                  <tr key={student.studentId} className="hover:bg-muted/50 border-b last:border-b-0">
-                    <td className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r">
-                      <div className="flex items-center justify-between">
-                        <span className="truncate text-xs font-medium">
-                          {anonymousMode 
-                            ? `Student ${studentIndex + 1}` 
-                            : student.studentName}
-                        </span>
-                        <Badge 
-                          variant="outline" 
-                          className="text-[10px] h-5 px-1 bg-background ml-1"
-                        >
-                          {parseInt(student.currentSlide) + 1}
-                        </Badge>
-                      </div>
-                    </td>
-                    
-                    {slides.map((slide, slideIndex) => {
-                      // Determine cell styling based on selection state and current position
-                      const isPacedCell = !isSelectingSlides && studentPacingEnabled && pacedSlides.includes(slideIndex);
-                      const isSelectedCell = isSelectingSlides && selectedSlides.includes(slideIndex);
-                      const isStudentCurrentSlide = parseInt(student.currentSlide) === slideIndex;
+                sortedStudents.map((student, studentIndex) => {
+                  // Get previous student's class for comparison when grouping by class
+                  const prevStudent = studentIndex > 0 ? sortedStudents[studentIndex - 1] : null;
+                  const isNewClassGroup = sortBy === "class" && 
+                    student.studentClass && 
+                    (!prevStudent || prevStudent.studentClass !== student.studentClass);
+                  
+                  return (
+                    <React.Fragment key={student.studentId}>
+                      {/* Add class separator when sorting by class and encountering a new class */}
+                      {isNewClassGroup && (
+                        <tr className="bg-muted/30">
+                          <td colSpan={slides.length + 1} className="py-1 px-2 text-xs font-medium">
+                            <div className="flex items-center gap-1">
+                              <BookOpen className="h-3.5 w-3.5 text-primary" />
+                              <span>Class: {student.studentClass}</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                       
-                      return (
-                        <td 
-                          key={`${student.studentId}-${slide.id}`} 
-                          className={cn(
-                            "text-center p-2", 
-                            isSelectedCell
-                              ? "bg-green-50"
-                              : isPacedCell
-                                ? "bg-blue-50"
-                                : isStudentCurrentSlide
-                                  ? "bg-primary/5"
-                                  : slideIndex === currentSlideIndex 
-                                    ? "bg-primary/5"
-                                    : "",
-                            // Add a prominent border when this is the student's current slide
-                            isStudentCurrentSlide
-                              ? "border-2 border-primary ring-1 ring-primary/30"
-                              : ""
-                          )}
-                        >
-                          {getStatusIcon(student, slide.id)}
+                      <tr className="hover:bg-muted/50 border-b last:border-b-0">
+                        <td className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              <span className="truncate text-xs font-medium">
+                                {anonymousMode 
+                                  ? `Student ${studentIndex + 1}` 
+                                  : student.studentName}
+                              </span>
+                              
+                              {/* Show class as a badge unless we're already sorting by class */}
+                              {!anonymousMode && student.studentClass && sortBy !== "class" && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
+                                        <BookOpen className="h-2 w-2 mr-0.5" />
+                                        {student.studentClass}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">Class: {student.studentClass}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                            
+                            <Badge 
+                              variant="outline" 
+                              className="text-[10px] h-5 px-1 bg-background ml-1"
+                            >
+                              {parseInt(student.currentSlide) + 1}
+                            </Badge>
+                          </div>
                         </td>
-                      );
-                    })}
-                  </tr>
-                ))
+                        
+                        {slides.map((slide, slideIndex) => {
+                          // Determine cell styling based on selection state and current position
+                          const isPacedCell = !isSelectingSlides && studentPacingEnabled && pacedSlides.includes(slideIndex);
+                          const isSelectedCell = isSelectingSlides && selectedSlides.includes(slideIndex);
+                          const isStudentCurrentSlide = parseInt(student.currentSlide) === slideIndex;
+                          
+                          return (
+                            <td 
+                              key={`${student.studentId}-${slide.id}`} 
+                              className={cn(
+                                "text-center p-2", 
+                                isSelectedCell
+                                  ? "bg-green-50"
+                                  : isPacedCell
+                                    ? "bg-blue-50"
+                                    : isStudentCurrentSlide
+                                      ? "bg-primary/5"
+                                      : slideIndex === currentSlideIndex 
+                                        ? "bg-primary/5"
+                                        : "",
+                                // Add a prominent border when this is the student's current slide
+                                isStudentCurrentSlide
+                                  ? "border-2 border-primary ring-1 ring-primary/30"
+                                  : ""
+                              )}
+                            >
+                              {getStatusIcon(student, slide.id)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </React.Fragment>
+                  );
+                })
               )}
             </tbody>
           </table>

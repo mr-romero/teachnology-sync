@@ -52,7 +52,7 @@ const StudentView: React.FC = () => {
   const [joinCode, setJoinCode] = useState<string>(urlJoinCode || '');
   const [sessionId, setSessionId] = useState<string>(locationState.sessionId || '');
   const [presentationId, setPresentationId] = useState<string>(locationState.presentationId || '');
-  const [lesson, setLesson] = useState<{ title: string; slides: LessonSlide[] } | null>(null);
+  const [lesson, setLesson] = useState<{ title: string; slides: LessonSlide[]; settings?: any } | null>(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
   // Set isJoined to true initially if we have valid auto-join data
   const [isJoined, setIsJoined] = useState<boolean>(
@@ -166,7 +166,7 @@ const StudentView: React.FC = () => {
       }
     }
   }, [sessionData, sessionLoading, sessionId, user]);
-
+  
   useEffect(() => {
     // Only check for active sessions if we don't have a URL join code or auto-join state
     if (urlJoinCode || locationState.autoJoin) return;
@@ -597,10 +597,12 @@ const StudentView: React.FC = () => {
                 slide={currentSlide} 
                 isStudentView={true}
                 studentId={user?.id}
+                studentName={user?.name}
+                studentClass={user?.class}
                 onAnswerSubmit={handleSubmitAnswer}
                 answeredBlocks={answeredBlocks}
                 isPaused={isPaused}
-                showCalculator={lesson.settings?.showCalculator ?? false}  // Add this line
+                showCalculator={lesson.settings?.showCalculator ?? false}
               />
             </div>
           </div>

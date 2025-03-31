@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "@/components/ui/sonner";
@@ -11,6 +10,8 @@ type UserWithRole = {
   email: string;
   role: 'teacher' | 'student';
   name: string;
+  class?: string; // Add class field
+  avatar_url?: string; // Add avatar URL for Google profile image
 };
 
 interface AuthContextType {
@@ -18,7 +19,9 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => void;
   logout: () => void;
-  register: (email: string, password: string, role: 'teacher' | 'student', name: string) => void;
+  register: (email: string, password: string, role: 'teacher' | 'student', name: string, className?: string) => void;
+  loginWithGoogle: (role: 'teacher' | 'student', className?: string) => void; // Add Google login method
+  updateUserProfile: (updates: Partial<UserWithRole>) => Promise<boolean>; // Add method to update user profile
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,14 +44,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userData = session.user.user_metadata;
             const role = userData?.role as 'teacher' | 'student' || 
                        (session.user.email?.includes('teacher') ? 'teacher' : 'student');
-            const name = userData?.name || 
+            const name = userData?.name || userData?.full_name || 
                         (role === 'teacher' ? 'Teacher User' : 'Student User');
             
             const userWithRole: UserWithRole = {
               id: session.user.id,
               email: session.user.email || '',
               role: role,
-              name: name
+              name: name,
+              class: userData?.class,
+              avatar_url: userData?.avatar_url || userData?.picture
             };
             setUser(userWithRole);
           } catch (error) {
@@ -74,14 +79,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const userData = session.user.user_metadata;
             const role = userData?.role as 'teacher' | 'student' || 
                        (session.user.email?.includes('teacher') ? 'teacher' : 'student');
-            const name = userData?.name || 
+            const name = userData?.name || userData?.full_name || 
                         (role === 'teacher' ? 'Teacher User' : 'Student User');
             
             const userWithRole: UserWithRole = {
               id: session.user.id,
               email: session.user.email || '',
               role: role,
-              name: name
+              name: name,
+              class: userData?.class,
+              avatar_url: userData?.avatar_url || userData?.picture
             };
             setUser(userWithRole);
           } catch (error) {
@@ -133,7 +140,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (email: string, password: string, role: 'teacher' | 'student', name: string) => {
+  // Add Google login method
+  const loginWithGoogle = async (role: 'teacher' | 'student', className?: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          redirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            role: role,
+            class: className || null
+          }
+        }
+      });
+      
+      if (error) {
+        toast.error(error.message);
+      }
+      
+      // No need to navigate here as the OAuth flow will redirect automatically
+    } catch (error: any) {
+      toast.error(error.message || "An error occurred during Google login");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const register = async (email: string, password: string, role: 'teacher' | 'student', name: string, className?: string) => {
     setIsLoading(true);
     
     try {
@@ -144,7 +182,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             role,
-            name
+            name,
+            class: className || null
           }
         }
       });
@@ -165,6 +204,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error(error.message || "An error occurred during registration");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const updateUserProfile = async (updates: Partial<UserWithRole>): Promise<boolean> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: updates
+      });
+      
+      if (error) {
+        toast.error(error.message);
+        return false;
+      }
+      
+      // Update local user state with the new values
+      if (user) {
+        setUser({ ...user, ...updates });
+      }
+      
+      toast.success("Profile updated successfully");
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || "An error occurred updating your profile");
+      return false;
     }
   };
 
@@ -189,7 +252,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, register }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isLoading, 
+      login, 
+      logout, 
+      register, 
+      loginWithGoogle, 
+      updateUserProfile 
+    }}>
       {children}
     </AuthContext.Provider>
   );

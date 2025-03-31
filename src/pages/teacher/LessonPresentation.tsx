@@ -300,29 +300,59 @@ const LessonPresentation: React.FC = () => {
     
     console.log("Deduplicated participants:", uniqueParticipants.length);
     
-    const progressData: StudentProgress[] = uniqueParticipants.map(participant => {
-      const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
-      
-      return {
-        studentId: participant.user_id,
-        studentName: `Student ${participant.user_id.substring(0, 5)}`,
-        lessonId: lessonId || '',
-        currentSlide: participant.current_slide.toString(),
-        completedBlocks: studentAnswers.map(answer => answer.content_id),
-        responses: studentAnswers.map(answer => ({
-          studentId: answer.user_id,
-          studentName: `Student ${answer.user_id.substring(0, 5)}`,
-          lessonId: lessonId || '',
-          slideId: answer.slide_id,
-          blockId: answer.content_id,
-          response: answer.answer,
-          isCorrect: answer.is_correct,
-          timestamp: answer.submitted_at
-        }))
-      };
-    });
+    // Fetch student metadata for each participant
+    const fetchStudentMetadata = async () => {
+      try {
+        // Get user metadata for each participant to extract names and classes
+        const { data: usersData, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, full_name, class')
+          .in('id', uniqueParticipants.map(p => p.user_id));
+        
+        if (usersError) {
+          console.error("Error fetching user metadata:", usersError);
+          return null;
+        }
+        
+        return usersData || [];
+      } catch (error) {
+        console.error("Exception fetching user metadata:", error);
+        return null;
+      }
+    };
     
-    setStudentProgressData(progressData);
+    fetchStudentMetadata().then(usersData => {
+      const progressData: StudentProgress[] = uniqueParticipants.map(participant => {
+        const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
+        
+        // Find user metadata or use default
+        const userData = usersData?.find(u => u.id === participant.user_id);
+        const studentName = userData?.full_name || `Student ${participant.user_id.substring(0, 5)}`;
+        const studentClass = userData?.class;
+        
+        return {
+          studentId: participant.user_id,
+          studentName: studentName,
+          studentClass: studentClass,
+          lessonId: lessonId || '',
+          currentSlide: participant.current_slide.toString(),
+          completedBlocks: studentAnswers.map(answer => answer.content_id),
+          responses: studentAnswers.map(answer => ({
+            studentId: answer.user_id,
+            studentName: studentName,
+            studentClass: studentClass,
+            lessonId: lessonId || '',
+            slideId: answer.slide_id,
+            blockId: answer.content_id,
+            response: answer.answer,
+            isCorrect: answer.is_correct,
+            timestamp: answer.submitted_at
+          }))
+        };
+      });
+      
+      setStudentProgressData(progressData);
+    });
   }, [participants, answers, participantsLoading, answersLoading, lessonId, studentProgressData.length]);
   
   // Add session to localStorage when it's established

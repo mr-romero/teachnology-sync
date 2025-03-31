@@ -13,6 +13,7 @@ import LessonEditor from "./pages/teacher/LessonEditor";
 import LessonPresentation from "./pages/teacher/LessonPresentation";
 import StudentView from "./pages/student/StudentView";
 import StudentDashboard from "./pages/student/StudentDashboard";
+import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             
             {/* Teacher Routes */}
             <Route 
