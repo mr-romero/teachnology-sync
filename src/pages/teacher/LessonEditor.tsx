@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Lesson, LessonSlide, LessonBlock, SlideLayout } from '@/types/lesson';
+import { Lesson, LessonSlide, LessonBlock, SlideLayout, AIChatBlock } from '@/types/lesson';
 import { useAuth } from '@/context/AuthContext';
 import { Plus, Save, ArrowLeft, Trash, Play, Eye, Presentation, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
@@ -11,6 +11,7 @@ import LessonBlockEditor from '@/components/lesson/LessonBlockEditor';
 import SlideCarousel from '@/components/lesson/SlideCarousel';
 import BlockBasedSlideEditor from '@/components/lesson/BlockBasedSlideEditor';
 import PresentationDialog from '@/components/lesson/PresentationDialog';
+import GraphRenderer from '@/components/lesson/GraphRenderer';
 import { v4 as uuidv4 } from 'uuid';
 import { 
   createLesson, 
@@ -194,11 +195,30 @@ const LessonEditor: React.FC = () => {
             id: `block-${Date.now()}`,
             type: 'graph',
             equation: 'y = x^2',
+            equations: [
+              {
+                id: uuidv4(),
+                latex: 'y = x^2',
+                color: '#c74440',
+                isVisible: true
+              }
+            ],
             settings: {
               xMin: -10,
               xMax: 10,
               yMin: -10,
-              yMax: 10
+              yMax: 10,
+              showGrid: true,
+              showAxes: true,
+              polarMode: false,
+              squareAxes: false,
+              allowPanning: true,
+              allowZooming: true,
+              showXAxis: true,
+              showYAxis: true,
+              xAxisLabel: '',
+              yAxisLabel: '',
+              backgroundColor: '#ffffff'
             }
           };
           break;
@@ -396,11 +416,8 @@ const LessonEditor: React.FC = () => {
         );
       case 'graph':
         return (
-          <div className="my-2 border rounded-md p-3 bg-gray-50 h-32 flex items-center justify-center">
-            <p className="text-muted-foreground text-center text-sm">
-              {block.equation}<br />
-              <span className="text-xs">(Graph visualization)</span>
-            </p>
+          <div className="my-2 border rounded-md p-1 bg-gray-50 h-32 overflow-hidden">
+            <GraphRenderer block={block} isEditable={false} />
           </div>
         );
       case 'ai-chat':

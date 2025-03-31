@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LessonSlide, LessonBlock, QuestionBlock, GridSpan } from '@/types/lesson';
+import { LessonSlide, LessonBlock, QuestionBlock, GridSpan, GraphBlock } from '@/types/lesson';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Pause } from 'lucide-react';
 import ImageViewer from './ImageViewer';
 import AIChat from './AIChat';
 import GraphRenderer from './GraphRenderer';
+import CalculatorButton from './CalculatorButton';
 import { cn } from '@/lib/utils';
 
 // Define a grid position type to match the editor
@@ -37,6 +38,16 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   isPaused = false
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
+  
+  // Check if any graph block has calculator enabled
+  const shouldShowCalculator = () => {
+    if (!isStudentView) return false;
+    
+    return slide.blocks.some(block => 
+      block.type === 'graph' && 
+      (block as GraphBlock).settings.showCalculator !== false
+    );
+  };
   
   // Helper functions for handling block dimensions
   const getBlockDimensions = (blockId: string) => {
@@ -491,7 +502,14 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   };
   
   return (
-    <div className="relative">
+    <div className="relative min-h-[300px]">
+      {/* Calculator Button - positioned at bottom right with clear visibility */}
+      {shouldShowCalculator() && isStudentView && (
+        <div className="absolute bottom-4 right-4 z-[100]">
+          <CalculatorButton disabled={isPaused} />
+        </div>
+      )}
+      
       {/* Semi-transparent overlay when paused - only show for student view */}
       {isStudentView && isPaused && (
         <div className="absolute inset-0 bg-amber-50/70 backdrop-blur-[0px] z-10 flex items-center justify-center rounded-lg">

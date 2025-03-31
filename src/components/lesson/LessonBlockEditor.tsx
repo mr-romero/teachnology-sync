@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Trash, MoveVertical, Check, X } from 'lucide-react';
+import { Trash, MoveVertical, Check, X, Cog } from 'lucide-react';
 import { 
   LessonBlock, 
   TextBlock, 
@@ -24,8 +24,13 @@ import {
 import { Label } from '@/components/ui/label';
 import ImageUploader from './ImageUploader';
 import AIChatBlockEditor from './AIChatBlockEditor';
-import GraphRenderer from './GraphRenderer';
 import { deleteImage } from '@/services/imageService';
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { debounce } from 'lodash';
+import { v4 as uuidv4 } from 'uuid';
+import EquationList from './EquationList';
+import GraphRenderer from './GraphRenderer';
 
 interface LessonBlockEditorProps {
   block: LessonBlock;
@@ -310,86 +315,344 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
     );
   };
   
-  const renderGraphBlockEditor = (graphBlock: GraphBlock) => (
-    <div className="space-y-4">
-      <div>
-        <Label>Equation</Label>
-        <Input
-          value={graphBlock.equation}
-          onChange={(e) => onUpdate({ ...graphBlock, equation: e.target.value })}
-          placeholder="e.g., y = x^2 + 2x - 3"
-          className="mt-1 font-mono"
-        />
-      </div>
+  const renderGraphBlockEditor = (graphBlock: GraphBlock) => {
+    // Set default values for new settings if they're not already defined
+    const [localGraphBlock, setLocalGraphBlock] = useState(() => {
+      // Create a deep copy to avoid mutating props directly
+      const block = JSON.parse(JSON.stringify(graphBlock));
       
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>X Min</Label>
-          <Input
-            type="number"
-            value={graphBlock.settings.xMin}
-            onChange={(e) => onUpdate({ 
-              ...graphBlock, 
-              settings: { 
-                ...graphBlock.settings, 
-                xMin: Number(e.target.value) 
-              } 
-            })}
-            className="mt-1"
-          />
-        </div>
-        <div>
-          <Label>X Max</Label>
-          <Input
-            type="number"
-            value={graphBlock.settings.xMax}
-            onChange={(e) => onUpdate({ 
-              ...graphBlock, 
-              settings: { 
-                ...graphBlock.settings, 
-                xMax: Number(e.target.value) 
-              } 
-            })}
-            className="mt-1"
-          />
-        </div>
-        <div>
-          <Label>Y Min</Label>
-          <Input
-            type="number"
-            value={graphBlock.settings.yMin}
-            onChange={(e) => onUpdate({ 
-              ...graphBlock, 
-              settings: { 
-                ...graphBlock.settings, 
-                yMin: Number(e.target.value) 
-              } 
-            })}
-            className="mt-1"
-          />
-        </div>
-        <div>
-          <Label>Y Max</Label>
-          <Input
-            type="number"
-            value={graphBlock.settings.yMax}
-            onChange={(e) => onUpdate({ 
-              ...graphBlock, 
-              settings: { 
-                ...graphBlock.settings, 
-                yMax: Number(e.target.value) 
-              } 
-            })}
-            className="mt-1"
-          />
-        </div>
-      </div>
+      // Set defaults for missing properties
+      if (block.settings.showGrid === undefined) block.settings.showGrid = true;
+      if (block.settings.showAxes === undefined) block.settings.showAxes = true;
+      if (block.settings.polarMode === undefined) block.settings.polarMode = false;
+      if (block.settings.allowPanning === undefined) block.settings.allowPanning = true;
+      if (block.settings.allowZooming === undefined) block.settings.allowZooming = true;
+      if (block.settings.showXAxis === undefined) block.settings.showXAxis = true;
+      if (block.settings.showYAxis === undefined) block.settings.showYAxis = true;
+      if (block.settings.showCalculator === undefined) block.settings.showCalculator = true;
+    
+      // Initialize equations array if it doesn't exist (for backward compatibility)
+      if (!block.equations) {
+        block.equations = [];
+        
+        // If there's a legacy equation, convert it to the new format
+        if (block.equation) {
+          block.equations.push({
+            id: uuidv4(),
+            latex: block.equation,
+            isVisible: true,
+            color: '#c74440' // Default color
+          });
+        }
+      }
       
-      <div className="mt-4 border rounded-md p-1 bg-gray-50 h-60">
-        <GraphRenderer block={graphBlock} isEditable={true} />
+      return block;
+    });
+  
+    // Debounced update function to reduce update frequency
+    const debouncedUpdate = useCallback(
+      debounce((updatedBlock: GraphBlock) => {
+        onUpdate(updatedBlock);
+      }, 500),
+      [onUpdate]
+    );
+  
+    // Update local state immediately but debounce the parent update
+    const updateBlock = useCallback((updates: Partial<GraphBlock>) => {
+      setLocalGraphBlock(prev => {
+        const updated = { ...prev, ...updates };
+        debouncedUpdate(updated);
+        return updated;
+      });
+    }, [debouncedUpdate]);
+    
+    // Setting updater that only updates a specific setting property
+    const updateSetting = useCallback((key: string, value: any) => {
+      setLocalGraphBlock(prev => {
+        const updated = { 
+          ...prev, 
+          settings: { ...prev.settings, [key]: value } 
+        };
+        debouncedUpdate(updated);
+        return updated;
+      });
+    }, [debouncedUpdate]);
+  
+    // Handle equations change with debouncing
+    const handleEquationsChange = useCallback((newEquations: Array<{
+      id: string;
+      latex: string;
+      color?: string;
+      label?: string;
+      isVisible?: boolean;
+    }>) => {
+      setLocalGraphBlock(prev => {
+        const updated = {
+          ...prev,
+          equations: newEquations,
+          // Update legacy equation field for backward compatibility
+          equation: newEquations.length > 0 ? newEquations[0].latex : ''
+        };
+        debouncedUpdate(updated);
+        return updated;
+      });
+    }, [debouncedUpdate]);
+  
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+    // Use local state for the editor and renderer to prevent flickering
+    return (
+      <div className="space-y-4">
+        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="flex items-center gap-2 mb-2">
+              <Cog className="h-4 w-4" />
+              <span>Graph Settings</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Graph Settings</DialogTitle>
+            </DialogHeader>
+            
+            <Tabs defaultValue="bounds" className="w-full mt-4">
+              <TabsList className="grid grid-cols-4 w-full">
+                <TabsTrigger value="bounds">Bounds</TabsTrigger>
+                <TabsTrigger value="grid">Grid</TabsTrigger>
+                <TabsTrigger value="interaction">Interaction</TabsTrigger>
+                <TabsTrigger value="appearance">Appearance</TabsTrigger>
+              </TabsList>
+              
+              {/* Bounds Tab */}
+              <TabsContent value="bounds" className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>X Min</Label>
+                    <Input
+                      type="number"
+                      value={localGraphBlock.settings.xMin}
+                      onChange={(e) => updateSetting('xMin', Number(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>X Max</Label>
+                    <Input
+                      type="number"
+                      value={localGraphBlock.settings.xMax}
+                      onChange={(e) => updateSetting('xMax', Number(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Y Min</Label>
+                    <Input
+                      type="number"
+                      value={localGraphBlock.settings.yMin}
+                      onChange={(e) => updateSetting('yMin', Number(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label>Y Max</Label>
+                    <Input
+                      type="number"
+                      value={localGraphBlock.settings.yMax}
+                      onChange={(e) => updateSetting('yMax', Number(e.target.value))}
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+              
+              {/* Grid Tab */}
+              <TabsContent value="grid" className="space-y-4 py-4">
+                <div className="grid gap-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                      <Label htmlFor="showGrid">Show Grid</Label>
+                      <Switch 
+                        id="showGrid" 
+                        checked={localGraphBlock.settings.showGrid} 
+                        onCheckedChange={(checked) => updateSetting('showGrid', checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                      <Label htmlFor="showAxes">Show Axes Numbers</Label>
+                      <Switch 
+                        id="showAxes" 
+                        checked={localGraphBlock.settings.showAxes} 
+                        onCheckedChange={(checked) => updateSetting('showAxes', checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                      <Label htmlFor="showXAxis">Show X Axis</Label>
+                      <Switch 
+                        id="showXAxis" 
+                        checked={localGraphBlock.settings.showXAxis} 
+                        onCheckedChange={(checked) => updateSetting('showXAxis', checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                      <Label htmlFor="showYAxis">Show Y Axis</Label>
+                      <Switch 
+                        id="showYAxis" 
+                        checked={localGraphBlock.settings.showYAxis} 
+                        onCheckedChange={(checked) => updateSetting('showYAxis', checked)}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                      <Label htmlFor="polarMode">Polar Mode</Label>
+                      <Switch 
+                        id="polarMode" 
+                        checked={localGraphBlock.settings.polarMode} 
+                        onCheckedChange={(checked) => updateSetting('polarMode', checked)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+              
+              {/* Interaction Tab */}
+              <TabsContent value="interaction" className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                    <Label htmlFor="allowPanning">Allow Panning</Label>
+                    <Switch 
+                      id="allowPanning" 
+                      checked={localGraphBlock.settings.allowPanning} 
+                      onCheckedChange={(checked) => updateSetting('allowPanning', checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between space-x-2 border p-3 rounded-md">
+                    <Label htmlFor="allowZooming">Allow Zooming</Label>
+                    <Switch 
+                      id="allowZooming" 
+                      checked={localGraphBlock.settings.allowZooming} 
+                      onCheckedChange={(checked) => updateSetting('allowZooming', checked)}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between space-x-2 border p-3 rounded-md col-span-2">
+                    <div>
+                      <Label htmlFor="showCalculator">Show Calculator Button</Label>
+                      <p className="text-xs text-muted-foreground">Allow students to open a Desmos calculator</p>
+                    </div>
+                    <Switch 
+                      id="showCalculator" 
+                      checked={localGraphBlock.settings.showCalculator !== false} 
+                      onCheckedChange={(checked) => updateSetting('showCalculator', checked)}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+              
+              {/* Appearance Tab */}
+              <TabsContent value="appearance" className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="xAxisLabel">X Axis Label</Label>
+                    <Input
+                      id="xAxisLabel"
+                      value={localGraphBlock.settings.xAxisLabel || ''}
+                      onChange={(e) => updateSetting('xAxisLabel', e.target.value)}
+                      placeholder="e.g., Time (s)"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="yAxisLabel">Y Axis Label</Label>
+                    <Input
+                      id="yAxisLabel"
+                      value={localGraphBlock.settings.yAxisLabel || ''}
+                      onChange={(e) => updateSetting('yAxisLabel', e.target.value)}
+                      placeholder="e.g., Distance (m)"
+                    />
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="backgroundColor">Background Color</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="backgroundColor"
+                        value={localGraphBlock.settings.backgroundColor || '#ffffff'}
+                        onChange={(e) => updateSetting('backgroundColor', e.target.value)}
+                        placeholder="#ffffff"
+                        className="flex-1"
+                      />
+                      <input 
+                        type="color" 
+                        value={localGraphBlock.settings.backgroundColor || '#ffffff'} 
+                        onChange={(e) => updateSetting('backgroundColor', e.target.value)}
+                        className="w-10 h-10 p-1 border rounded"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+  
+            <div className="mt-2 flex justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => setIsSettingsOpen(false)}
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+  
+        {/* Equations editor */}
+        <div>
+          <EquationList 
+            equations={localGraphBlock.equations} 
+            onEquationsChange={handleEquationsChange} 
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label>X Min</Label>
+            <Input
+              type="number"
+              value={localGraphBlock.settings.xMin}
+              onChange={(e) => updateSetting('xMin', Number(e.target.value))}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label>X Max</Label>
+            <Input
+              type="number"
+              value={localGraphBlock.settings.xMax}
+              onChange={(e) => updateSetting('xMax', Number(e.target.value))}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label>Y Min</Label>
+            <Input
+              type="number"
+              value={localGraphBlock.settings.yMin}
+              onChange={(e) => updateSetting('yMin', Number(e.target.value))}
+              className="mt-1"
+            />
+          </div>
+          <div>
+            <Label>Y Max</Label>
+            <Input
+              type="number"
+              value={localGraphBlock.settings.yMax}
+              onChange={(e) => updateSetting('yMax', Number(e.target.value))}
+              className="mt-1"
+            />
+          </div>
+        </div>
+        
+        <div className="mt-4 border rounded-md p-1 bg-gray-50 h-60">
+          <GraphRenderer block={localGraphBlock} isEditable={true} />
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // If we're rendering an AI chat block, return the dedicated editor
   if (block.type === 'ai-chat') {

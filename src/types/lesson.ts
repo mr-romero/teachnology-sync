@@ -27,13 +27,43 @@ export interface QuestionBlock extends BaseBlock {
 
 export interface GraphBlock extends BaseBlock {
   type: 'graph';
-  equation: string;
+  equation?: string;
+  equations?: Equation[];
+  color?: string;
   settings: {
     xMin: number;
     xMax: number;
     yMin: number;
     yMax: number;
+    showGrid?: boolean;
+    showAxes?: boolean;
+    showXAxis?: boolean;
+    showYAxis?: boolean;
+    polarMode?: boolean;
+    allowPanning?: boolean;
+    allowZooming?: boolean;
+    backgroundColor?: string;
+    xAxisLabel?: string;
+    yAxisLabel?: string;
+    showCalculator?: boolean; // Add this to control calculator visibility
   };
+}
+
+export interface Equation {
+  id: string;
+  latex: string;
+  color: string;
+  label?: string;
+  showLabel?: boolean;
+  pointStyle?: string;
+  lineStyle?: string;
+  points?: Point[];
+  visible?: boolean;
+}
+
+export interface Point {
+  x: number;
+  y: number;
 }
 
 export interface AIChatBlock extends BaseBlock {

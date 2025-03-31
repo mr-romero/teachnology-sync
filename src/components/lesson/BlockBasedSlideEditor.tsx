@@ -120,8 +120,8 @@ const SpanControls = ({
         </Tooltip>
       </div>
       
-      {/* We can enable row span controls later if needed */}
-      {/* <div className="flex items-center">
+      {/* Row span controls - now enabled */}
+      <div className="flex items-center">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -162,7 +162,7 @@ const SpanControls = ({
           </TooltipTrigger>
           <TooltipContent>Increase row span</TooltipContent>
         </Tooltip>
-      </div> */}
+      </div>
     </div>
   );
 };
@@ -525,7 +525,9 @@ const DroppableCell = ({
         isEmpty ? "bg-muted/5 border-muted" : "border-transparent"
       )}
       style={{
-        gridRow: position.row + 1,
+        gridRow: span.rowSpan && span.rowSpan > 1
+          ? `${position.row + 1} / span ${span.rowSpan}`
+          : `${position.row + 1}`,
         gridColumn: span.columnSpan && span.columnSpan > 1
           ? `${position.column + 1} / span ${span.columnSpan}`
           : `${position.column + 1}`
