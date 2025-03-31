@@ -202,6 +202,17 @@ const LessonEditor: React.FC = () => {
             }
           };
           break;
+        case 'ai-chat':
+          newBlock = {
+            id: `block-${Date.now()}`,
+            type: 'ai-chat',
+            instructions: 'Ask me questions about this topic.',
+            sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+            apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+            modelName: 'openai/gpt-3.5-turbo',
+            systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding. Be encouraging and supportive.'
+          };
+          break;
         default:
           return;
       }
@@ -390,6 +401,30 @@ const LessonEditor: React.FC = () => {
               {block.equation}<br />
               <span className="text-xs">(Graph visualization)</span>
             </p>
+          </div>
+        );
+      case 'ai-chat':
+        return (
+          <div className="my-2 p-3 bg-purple-50 rounded-md">
+            <p className="font-medium mb-2">AI Chat</p>
+            <div className="text-sm text-muted-foreground mb-2">
+              <span className="bg-purple-100 px-1.5 py-0.5 rounded text-purple-700 text-xs font-medium mr-1">
+                {(block as AIChatBlock).modelName?.split('/').pop() || 'GPT-3.5'}
+              </span>
+              {(block as AIChatBlock).instructions || 'Chat with an AI assistant'}
+            </div>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {(block as AIChatBlock).sentenceStarters?.slice(0, 3).map((starter, i) => (
+                <span key={i} className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                  {starter}
+                </span>
+              ))}
+              {(block as AIChatBlock).sentenceStarters?.length > 3 && (
+                <span className="text-xs text-muted-foreground">
+                  +{(block as AIChatBlock).sentenceStarters.length - 3} more
+                </span>
+              )}
+            </div>
           </div>
         );
       default:
@@ -649,6 +684,34 @@ const LessonEditor: React.FC = () => {
                   </svg>
                 </div>
                 <span className="text-sm font-medium">Graph</span>
+              </div>
+              
+              <div 
+                className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
+                onClick={() => handleAddBlock('ai-chat')}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', 'ai-chat');
+                  e.dataTransfer.effectAllowed = 'copy';
+                  // Create ghost effect
+                  const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                  ghost.style.position = 'absolute';
+                  ghost.style.top = '-1000px';
+                  ghost.style.opacity = '0.5';
+                  document.body.appendChild(ghost);
+                  e.dataTransfer.setDragImage(ghost, 0, 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
+                }}
+              >
+                <div className="h-8 w-8 flex items-center justify-center rounded-md bg-purple-100 text-purple-600 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="10" r="1"/>
+                    <circle cx="8" cy="10" r="1"/>
+                    <circle cx="16" cy="10" r="1"/>
+                  </svg>
+                </div>
+                <span className="text-sm font-medium">AI Chat</span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-3 text-center">Drag and drop blocks directly into the editor</p>

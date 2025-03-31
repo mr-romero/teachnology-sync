@@ -7,6 +7,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Pause } from 'lucide-react';
 import ImageViewer from './ImageViewer';
+import AIChat from './AIChat';
+import GraphRenderer from './GraphRenderer';
 import { cn } from '@/lib/utils';
 
 // Define a grid position type to match the editor
@@ -89,13 +91,21 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
         return renderQuestionBlock(block as QuestionBlock);
       case 'graph':
         return (
-          <div className="my-4 border rounded-md p-4 bg-gray-50 h-60 desmos-container">
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground text-center">
-                {block.equation}<br />
-                <span className="text-sm">(Will use Desmos API in full implementation)</span>
-              </p>
-            </div>
+          <div className="my-4 border rounded-md p-1 bg-gray-50 h-60 desmos-container">
+            <GraphRenderer block={block} isEditable={false} />
+          </div>
+        );
+      case 'ai-chat':
+        return (
+          <div className="my-4">
+            <AIChat 
+              block={block}
+              isStudentView={isStudentView}
+              studentId={studentId}
+              isPaused={isPaused}
+              onAnswerSubmit={onAnswerSubmit}
+              isAnswered={answeredBlocks.includes(block.id)}
+            />
           </div>
         );
       default:
@@ -150,32 +160,35 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   
   // Get block span from layout
   const getBlockSpan = (blockId: string): GridSpan => {
-    // If we have grid spans for this block, use them
     if (slide.layout?.blockSpans?.[blockId]) {
       return slide.layout.blockSpans[blockId];
     }
-    
-    // Default span - one cell
     return { columnSpan: 1, rowSpan: 1 };
   };
   
-  // Check if a cell is covered by another block's span
-  const isCellCoveredBySpan = (row: number, column: number, excludeBlockId?: string) => {
-    return Object.entries(slide.layout?.blockPositions || {}).some(([blockId, pos]) => {
-      if (excludeBlockId && blockId === excludeBlockId) return false;
+  // Function to check if a cell is covered by another block's span
+  const isCellCoveredBySpan = (row: number, column: number, excludeBlockId?: string): boolean => {
+    for (const block of slide.blocks) {
+      // Skip checking the current block
+      if (excludeBlockId && block.id === excludeBlockId) continue;
       
-      const blockSpan = getBlockSpan(blockId);
+      const blockPos = getBlockPosition(block.id);
+      const blockSpan = getBlockSpan(block.id);
       
-      // Check if this cell is within the span of another block
-      return (
-        pos.row <= row && 
-        pos.row + (blockSpan.rowSpan || 1) > row &&
-        pos.column <= column && 
-        pos.column + (blockSpan.columnSpan || 1) > column
-      );
-    });
+      // Check if the specified cell is within this block's span
+      if (
+        row >= blockPos.row && 
+        row < blockPos.row + (blockSpan.rowSpan || 1) &&
+        column >= blockPos.column && 
+        column < blockPos.column + (blockSpan.columnSpan || 1)
+      ) {
+        return true;
+      }
+    }
+    
+    return false;
   };
-  
+
   // Rendering for question blocks
   const renderQuestionBlock = (block: QuestionBlock) => {
     // ... existing code for rendering questions remains unchanged
@@ -319,23 +332,25 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
                 value={responses[block.id] as string || ''}
                 onChange={(e) => handleResponseChange(block.id, e.target.value)}
                 disabled={isPaused || isAnswered}
+                className="min-h-[100px]"
               />
               <Button 
                 size="sm" 
                 onClick={() => handleSubmitResponse(block.id)}
-                disabled={!responses[block.id] || isPaused || isAnswered}
+                disabled={!responses[block.id] || (responses[block.id] as string).trim() === '' || isPaused || isAnswered}
               >
                 {isAnswered ? "Submitted" : "Submit"}
               </Button>
             </div>
           ) : (
-            <div className="border border-dashed border-muted-foreground/30 rounded-md p-3 bg-muted/30">
-              <p className="text-sm text-muted-foreground">Student response area</p>
-              {!isStudentView && block.correctAnswer && (
-                <div className="mt-2">
+            <div>
+              {block.correctAnswer && !isStudentView ? (
+                <div className="border border-dashed p-3 rounded-md">
                   <p className="text-sm font-medium">Sample answer:</p>
-                  <p className="text-sm">{block.correctAnswer as string}</p>
+                  <p>{block.correctAnswer as string}</p>
                 </div>
+              ) : (
+                <p className="text-muted-foreground">Free response question</p>
               )}
             </div>
           )}

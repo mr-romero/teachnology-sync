@@ -10,7 +10,8 @@ import {
   TextBlock, 
   ImageBlock, 
   QuestionBlock, 
-  GraphBlock, 
+  GraphBlock,
+  AIChatBlock,
   QuestionType 
 } from '@/types/lesson';
 import { 
@@ -22,6 +23,8 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import ImageUploader from './ImageUploader';
+import AIChatBlockEditor from './AIChatBlockEditor';
+import GraphRenderer from './GraphRenderer';
 import { deleteImage } from '@/services/imageService';
 
 interface LessonBlockEditorProps {
@@ -47,6 +50,14 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
         return renderQuestionBlockEditor(block as QuestionBlock);
       case 'graph':
         return renderGraphBlockEditor(block as GraphBlock);
+      case 'ai-chat':
+        return (
+          <AIChatBlockEditor 
+            block={block as AIChatBlock} 
+            onUpdate={onUpdate} 
+            onDelete={onDelete}
+          />
+        );
       default:
         return <p>Unknown block type</p>;
     }
@@ -374,14 +385,22 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
         </div>
       </div>
       
-      <div className="mt-4 border rounded-md p-4 bg-gray-50 h-60 flex items-center justify-center">
-        <p className="text-muted-foreground text-center">
-          Graph preview<br />
-          <span className="text-sm">(Will use Desmos API in full implementation)</span>
-        </p>
+      <div className="mt-4 border rounded-md p-1 bg-gray-50 h-60">
+        <GraphRenderer block={graphBlock} isEditable={true} />
       </div>
     </div>
   );
+
+  // If we're rendering an AI chat block, return the dedicated editor
+  if (block.type === 'ai-chat') {
+    return (
+      <AIChatBlockEditor 
+        block={block as AIChatBlock} 
+        onUpdate={onUpdate} 
+        onDelete={onDelete}
+      />
+    );
+  }
 
   return (
     <Card className="border shadow-sm">

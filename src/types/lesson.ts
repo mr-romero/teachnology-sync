@@ -36,7 +36,41 @@ export interface GraphBlock extends BaseBlock {
   };
 }
 
-export type LessonBlock = TextBlock | ImageBlock | QuestionBlock | GraphBlock;
+export interface AIChatBlock extends BaseBlock {
+  type: 'ai-chat';
+  instructions: string;
+  systemPrompt: string;
+  sentenceStarters?: string[];
+  targetConclusion?: string;
+  apiEndpoint?: string;
+  apiKey?: string;
+  modelName?: string;
+  repetitionPrevention?: string;
+  maxTokens?: number;
+}
+
+export type LessonBlock = TextBlock | ImageBlock | QuestionBlock | GraphBlock | AIChatBlock;
+
+// Define a string for formatting guidance that can be appended to prompts
+export const MATH_FORMATTING_GUIDE = `
+When responding with mathematical content:
+1. Use \\( and \\) for inline math expressions instead of dollar signs (which can be misinterpreted as currency)
+2. Use \\[ and \\] for block/display equations
+3. For currency values, use the escaped dollar symbol: \\$ followed by the amount
+4. Use \\boxed{...} for answers that should be highlighted
+5. Use \\text{...} for text within math expressions
+6. For multi-line equations, use aligned environments:
+   \\begin{aligned}
+   equation 1 \\\\
+   equation 2 \\\\
+   \\end{aligned}
+
+Example:
+"The cost of the item is \\$2.50."
+"The solution is \\( x = 5 \\)"
+"\\[ \\frac{dy}{dx} = 2x \\]"
+"The answer is \\boxed{42}."
+`;
 
 // Define a grid position type
 export interface GridPosition {

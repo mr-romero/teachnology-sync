@@ -917,6 +917,17 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
           }
         };
         break;
+      case 'ai-chat':
+        newBlock = {
+          id: blockId,
+          type: 'ai-chat',
+          instructions: 'Ask me questions about this topic.',
+          sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+          apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+          modelName: 'openai/gpt-3.5-turbo',
+          systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding. Be encouraging and supportive.'
+        };
+        break;
       default:
         return;
     }
