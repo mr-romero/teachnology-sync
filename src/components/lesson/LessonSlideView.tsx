@@ -79,7 +79,19 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     }
   };
   
+  // Helper to get span for a block
+  const getSpanForBlock = (blockId: string): GridSpan => {
+    if (slide.layout?.blockSpans?.[blockId]) {
+      return slide.layout.blockSpans[blockId];
+    }
+    return { columnSpan: 1, rowSpan: 1 };
+  };
+  
   const renderBlock = (block: LessonBlock) => {
+    // Get span information for this block
+    const span = getSpanForBlock(block.id);
+    const spansMultipleRows = (span.rowSpan || 1) > 1;
+    
     switch (block.type) {
       case 'text':
         return (
@@ -101,8 +113,23 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
         return renderQuestionBlock(block as QuestionBlock);
       case 'graph':
         return (
-          <div className="my-4 border rounded-md p-1 bg-gray-50 h-60 desmos-container">
-            <GraphRenderer block={block} isEditable={false} />
+          <div 
+            className={cn(
+              "border rounded-md p-1 bg-gray-50 desmos-container",
+              spansMultipleRows ? "h-full min-h-[300px]" : "h-60"
+            )}
+            style={{ 
+              height: spansMultipleRows ? '100%' : '240px',
+              display: 'flex', 
+              flexDirection: 'column'
+            }}
+          >
+            <GraphRenderer 
+              block={block as GraphBlock} 
+              isEditable={false} 
+              height="100%" 
+              className="flex-grow"
+            />
           </div>
         );
       case 'ai-chat':
@@ -522,8 +549,9 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
         <div 
           className="grid gap-4" 
           style={{ 
-            gridTemplateRows: `repeat(${gridSize.rows}, minmax(0, auto))`,
-            gridTemplateColumns: `repeat(${gridSize.columns}, minmax(0, 1fr))`
+            gridTemplateRows: `repeat(${gridSize.rows}, minmax(200px, auto))`,
+            gridTemplateColumns: `repeat(${gridSize.columns}, minmax(0, 1fr))`,
+            minHeight: gridSize.rows * 200 + 'px'
           }}
         >
           {slide.blocks.map((block) => {
@@ -536,15 +564,21 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
             return (
               <div 
                 key={block.id} 
-                className="bg-card p-4 border rounded-md shadow-sm"
+                className={cn(
+                  "bg-card p-4 border rounded-md shadow-sm flex flex-col",
+                  block.type === 'graph' && blockSpan.rowSpan > 1 ? "min-h-[300px]" : ""
+                )}
                 style={{
                   gridRowStart: position.row + 1,
                   gridRowEnd: position.row + 1 + (blockSpan.rowSpan || 1),
                   gridColumnStart: position.column + 1,
-                  gridColumnEnd: position.column + 1 + (blockSpan.columnSpan || 1)
+                  gridColumnEnd: position.column + 1 + (blockSpan.columnSpan || 1),
+                  height: '100%'
                 }}
               >
-                {renderBlock(block)}
+                <div className={block.type === 'graph' ? "h-full flex-grow" : ""}>
+                  {renderBlock(block)}
+                </div>
               </div>
             );
           })}
