@@ -178,7 +178,8 @@ const LessonPresentation: React.FC = () => {
         // 3. If we're forcing a new session, create one
         if (forceNew) {
           console.log("Creating new session as requested");
-          const code = await startPresentationSession(lessonId);
+          // Pass the classroomId to the startPresentationSession function
+          const code = await startPresentationSession(lessonId, classroomId);
           if (code) {
             // Get the new session ID
             const { data } = await supabase

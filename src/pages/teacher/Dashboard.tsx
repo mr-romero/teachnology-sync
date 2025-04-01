@@ -41,6 +41,7 @@ interface ActiveSession {
   started_at: string;
   active_students: number;
   classroom_name?: string;
+  classroom_id?: string;
 }
 
 interface LessonWithSessions extends Lesson {
@@ -73,7 +74,8 @@ const Dashboard: React.FC = () => {
       // 1. Fetch all lessons
       const fetchedLessons = await getLessonsForUser(user.id);
       
-      // 2. Fetch all active sessions - only query fields that exist
+      // 2. Fetch all active sessions - but don't request classroom_name directly
+      // as it might not exist in the database yet
       const { data: sessionData, error: sessionError } = await supabase
         .from('presentation_sessions')
         .select(`
@@ -89,32 +91,47 @@ const Dashboard: React.FC = () => {
       
       if (sessionError) throw sessionError;
       
-      // 3. Process session data
+      // 3. Get classroom names for sessions with classroom_id
+      const sessionsWithClassroomIds = sessionData?.filter(s => s.classroom_id) || [];
+      
+      // Create a map for classroom IDs to names
+      let classroomMap: {[key: string]: string} = {};
+      
+      if (sessionsWithClassroomIds.length > 0) {
+        // Extract unique classroom IDs
+        const uniqueClassroomIds = Array.from(
+          new Set(sessionsWithClassroomIds.map(s => s.classroom_id))
+        ).filter(Boolean) as string[];
+        
+        if (uniqueClassroomIds.length > 0) {
+          const { data: classrooms } = await supabase
+            .from('imported_classrooms')
+            .select('classroom_id, classroom_name')
+            .in('classroom_id', uniqueClassroomIds);
+            
+          if (classrooms?.length) {
+            // Create the map
+            classroomMap = classrooms.reduce((map, classroom) => {
+              map[classroom.classroom_id] = classroom.classroom_name;
+              return map;
+            }, {} as {[key: string]: string});
+          }
+        }
+      }
+      
+      // 4. Process session data
       const sessionsWithClassroomInfo: ActiveSession[] = await Promise.all(
         (sessionData || []).map(async (session) => {
           // Get student count for the session
-          const { count, error: countError } = await supabase
+          const { count } = await supabase
             .from('session_participants')
             .select('*', { count: 'exact', head: true })
             .eq('session_id', session.id);
           
-          // Try to get classroom name if classroom_id exists
+          // Get classroom name from our map if available
           let classroomName = "Class Session";
-          if (session.classroom_id) {
-            try {
-              // Look up in imported classrooms
-              const { data, error } = await supabase
-                .from('imported_classrooms')
-                .select('classroom_name')
-                .eq('classroom_id', session.classroom_id)
-                .maybeSingle();
-                
-              if (data && data.classroom_name) {
-                classroomName = data.classroom_name;
-              }
-            } catch (err) {
-              console.error('Error fetching classroom info:', err);
-            }
+          if (session.classroom_id && classroomMap[session.classroom_id]) {
+            classroomName = classroomMap[session.classroom_id];
           }
           
           return {
@@ -124,18 +141,19 @@ const Dashboard: React.FC = () => {
             presentation_title: session.presentations?.title || 'Untitled',
             started_at: session.started_at,
             active_students: count || 0,
-            classroom_name: classroomName
+            classroom_name: classroomName,
+            classroom_id: session.classroom_id
           };
         })
       );
       
-      // 4. Group sessions by lesson
+      // 5. Group sessions by lesson
       const lessonsWithSessions: LessonWithSessions[] = fetchedLessons.map(lesson => ({
         ...lesson,
         sessions: sessionsWithClassroomInfo.filter(session => session.presentation_id === lesson.id)
       }));
       
-      // 5. Sort lessons by creation date (newest first by default)
+      // 6. Sort lessons by creation date (newest first by default)
       lessonsWithSessions.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
@@ -379,7 +397,7 @@ const Dashboard: React.FC = () => {
                             <div className="flex items-center mb-1">
                               <GoogleClassroomIcon className="h-3.5 w-3.5 mr-1 text-primary" />
                               <span className="font-medium truncate">
-                                {session.classroom_name}
+                                {session.classroom_name || "Class Session"}
                               </span>
                             </div>
                             <div className="flex items-center mb-1 text-muted-foreground">

@@ -229,22 +229,63 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
 };
 
 // Start a new presentation session
-export const startPresentationSession = async (lessonId: string): Promise<string | null> => {
+export const startPresentationSession = async (lessonId: string, classroomId?: string): Promise<string | null> => {
   // Generate a 6-character join code
   // Using a direct random generation instead of RPC function
   const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
   
   try {
+    // If classroom ID is provided, get the classroom name
+    let classroomName: string | null = null;
+    
+    if (classroomId) {
+      // Look up the classroom name from imported_classrooms table
+      const { data, error } = await supabase
+        .from('imported_classrooms')
+        .select('classroom_name')
+        .eq('classroom_id', classroomId)
+        .maybeSingle();
+        
+      if (!error && data && data.classroom_name) {
+        classroomName = data.classroom_name;
+      }
+    }
+    
+    // Create the session with classroom_id only to ensure backward compatibility
+    // The classroom_name column is added via migration but might not exist yet
+    const sessionData = {
+      presentation_id: lessonId,
+      join_code: joinCode,
+      started_at: new Date().toISOString(),
+      is_synced: true,
+      is_paused: false,
+      current_slide: 0,
+      classroom_id: classroomId || null
+    };
+    
+    // Try to add the classroom_name if we've obtained it
+    // If the column doesn't exist yet, this will be safely ignored
+    try {
+      if (classroomName) {
+        const { data, error: testError } = await supabase
+          .from('presentation_sessions')
+          .insert({ ...sessionData, classroom_name: classroomName })
+          .select('id, join_code')
+          .single();
+          
+        if (!testError && data) {
+          return data.join_code;
+        }
+      }
+    } catch (nameError) {
+      // Column probably doesn't exist yet, continue with basic insert
+      console.log('Could not include classroom_name, falling back to basic insert:', nameError);
+    }
+    
+    // Fallback to basic insert without classroom_name
     const { data, error: sessionError } = await supabase
       .from('presentation_sessions')
-      .insert({
-        presentation_id: lessonId,
-        join_code: joinCode,
-        started_at: new Date().toISOString(),
-        is_synced: true,
-        is_paused: false,
-        current_slide: 0
-      })
+      .insert(sessionData)
       .select('id, join_code')
       .single();
       
