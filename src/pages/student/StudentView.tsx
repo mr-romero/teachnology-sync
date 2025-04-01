@@ -43,8 +43,12 @@ interface LocationState {
   presentationId?: string;
 }
 
-const StudentView: React.FC = () => {
-  const { joinCode: urlJoinCode } = useParams<{ joinCode?: string }>();
+interface StudentViewProps {
+  isPreview?: boolean;
+}
+
+const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
+  const { joinCode: urlJoinCode, lessonId: urlLessonId } = useParams<{ joinCode?: string; lessonId?: string }>();
   const location = useLocation();
   const locationState = location.state as LocationState || {};
   const { user } = useAuth();
@@ -263,6 +267,91 @@ const StudentView: React.FC = () => {
     }
   }, [sessionId, currentSlideIndex]);
   
+  // Handle direct loading of lesson data for preview mode
+  useEffect(() => {
+    const loadPreviewLesson = async () => {
+      if (isPreview && urlLessonId && user) {
+        setLoading(true);
+        try {
+          const lessonData = await getLessonById(urlLessonId);
+          
+          if (!lessonData) {
+            toast.error('Failed to load lesson preview');
+            navigate('/dashboard');
+            return;
+          }
+          
+          setLesson(lessonData);
+          setPresentationId(urlLessonId);
+          setIsJoined(true); // Set joined to true to show lesson content
+          setCurrentSlideIndex(0);
+        } catch (error) {
+          console.error('Error loading preview lesson:', error);
+          toast.error('Error loading lesson preview');
+          navigate('/dashboard');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    loadPreviewLesson();
+  }, [isPreview, urlLessonId, user, navigate]);
+
+  // Only check for active sessions if not in preview mode
+  useEffect(() => {
+    // Only check for active sessions if we don't have a URL join code or auto-join state
+    // and we're not in preview mode
+    if (urlJoinCode || locationState.autoJoin || isPreview) return;
+    
+    const checkActiveSession = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('session_participants')
+          .select(`
+            session_id,
+            current_slide,
+            presentation_sessions(
+              id,
+              join_code,
+              presentation_id,
+              is_synced,
+              ended_at
+            )
+          `)
+          .eq('user_id', user.id)
+          .is('presentation_sessions.ended_at', null)
+          .order('joined_at', { ascending: false })
+          .limit(1);
+          
+        if (error) {
+          console.error('Error checking active sessions:', error);
+          return;
+        }
+        
+        if (data && data.length > 0 && data[0].presentation_sessions) {
+          const sessionInfo = data[0].presentation_sessions;
+          
+          // Store active session info for later use
+          setActiveSessionInfo({
+            sessionId: sessionInfo.id,
+            joinCode: sessionInfo.join_code,
+            presentationId: sessionInfo.presentation_id,
+            currentSlide: data[0].current_slide
+          });
+          
+          setHasActiveSession(true);
+        }
+      } catch (error) {
+        console.error('Error in checkActiveSession:', error);
+      }
+    };
+    
+    checkActiveSession();
+  }, [user, urlJoinCode, locationState.autoJoin, isPreview]);
+
   // Update the join session handler to properly initialize the slide position
   const handleJoinSession = async () => {
     if (!joinCode.trim() || !user) {
@@ -321,6 +410,13 @@ const StudentView: React.FC = () => {
 
   const handleReturnToDashboard = () => {
     navigate('/student');
+  };
+
+  // Handle navigation back to editor
+  const handleReturnToEditor = () => {
+    if (isPreview && presentationId) {
+      navigate(`/editor/${presentationId}`);
+    }
   };
   
   const handlePreviousSlide = async () => {
@@ -546,13 +642,13 @@ const StudentView: React.FC = () => {
   const renderLessonView = () => {
     if (!lesson) return (
       <div className="flex justify-center items-center h-screen">
-        <p className="text-lg">Loading session...</p>
+        <p className="text-lg">Loading {isPreview ? 'preview' : 'session'}...</p>
       </div>
     );
     
     const currentSlide = lesson.slides[currentSlideIndex];
     const isSynced = sessionData?.is_synced ?? false;
-    const isPacedMode = allowedSlides.length > 0;
+    const isPacedMode = allowedSlides.length > 0 && !isPreview;
     
     return (
       <div className="flex flex-col h-screen">
@@ -561,7 +657,15 @@ const StudentView: React.FC = () => {
           <div className="container mx-auto flex justify-between items-center">
             <h1 className="text-xl font-semibold">{lesson.title}</h1>
             <div className="flex items-center space-x-4">
-              {isSynced && (
+              {isPreview && (
+                <button 
+                  className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors cursor-pointer"
+                  onClick={handleReturnToEditor}
+                >
+                  Exit Preview Mode
+                </button>
+              )}
+              {!isPreview && isSynced && (
                 <div className="flex items-center text-sm text-muted-foreground">
                   <LockIcon className="h-4 w-4 mr-1" />
                   <span>Teacher controlled</span>
@@ -570,17 +674,21 @@ const StudentView: React.FC = () => {
               <div className="text-sm font-medium bg-muted/20 px-3 py-1 rounded-md">
                 Slide {currentSlideIndex + 1} of {lesson.slides.length}
               </div>
-              <div className="text-sm">
-                <span className="font-medium">Code: </span> 
-                <span className="ml-1 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
-              </div>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleReturnToDashboard}
-              >
-                Dashboard
-              </Button>
+              {!isPreview && (
+                <div className="text-sm">
+                  <span className="font-medium">Code: </span> 
+                  <span className="ml-1 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
+                </div>
+              )}
+              {!isPreview && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => navigate('/student')}
+                >
+                  Dashboard
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -589,7 +697,7 @@ const StudentView: React.FC = () => {
         <div className="flex-1 overflow-auto">
           <div className="container mx-auto p-4">
             {/* Add paced slides info if enabled */}
-            {isPacedMode && !isSynced && (
+            {isPacedMode && !isSynced && !isPreview && (
               <div className="mb-4 bg-blue-50 border border-blue-200 rounded-md p-2 text-blue-700 text-sm">
                 <div className="flex items-center">
                   <span className="font-medium mr-2">Guided Navigation:</span>
@@ -612,10 +720,11 @@ const StudentView: React.FC = () => {
                 studentId={user?.id}
                 studentName={user?.name}
                 studentClass={user?.class}
-                onAnswerSubmit={handleSubmitAnswer}
+                onAnswerSubmit={isPreview ? undefined : handleSubmitAnswer}
                 answeredBlocks={answeredBlocks}
-                isPaused={isPaused}
+                isPaused={isPaused && !isPreview}
                 showCalculator={lesson.settings?.showCalculator ?? false}
+                isPreviewMode={isPreview}
               />
             </div>
           </div>
@@ -628,7 +737,7 @@ const StudentView: React.FC = () => {
               onClick={handlePreviousSlide} 
               disabled={
                 currentSlideIndex === 0 || 
-                isSynced || 
+                (isSynced && !isPreview) || 
                 (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0)
               }
               className="flex items-center"
@@ -638,7 +747,7 @@ const StudentView: React.FC = () => {
             </Button>
             
             {/* If in paced mode, show current position in sequence */}
-            {isPacedMode && !isSynced && (
+            {isPacedMode && !isSynced && !isPreview && (
               <div className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md flex items-center">
                 {allowedSlides.indexOf(currentSlideIndex) !== -1 ? 
                   `${allowedSlides.indexOf(currentSlideIndex) + 1} of ${allowedSlides.length} selected slides` :
@@ -650,7 +759,7 @@ const StudentView: React.FC = () => {
               onClick={handleNextSlide} 
               disabled={
                 currentSlideIndex === lesson.slides.length - 1 || 
-                isSynced || 
+                (isSynced && !isPreview) || 
                 (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1)
               }
               className="flex items-center"
@@ -665,7 +774,7 @@ const StudentView: React.FC = () => {
   };
   
   return (
-    <div className={isJoined ? "h-screen overflow-hidden" : "container mx-auto px-4 py-8"}>
+    <div className={isJoined || isPreview ? "h-screen overflow-hidden" : "container mx-auto px-4 py-8"}>
       {!isJoined ? renderJoinForm() : renderLessonView()}
     </div>
   );

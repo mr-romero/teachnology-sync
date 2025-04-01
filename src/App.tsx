@@ -66,6 +66,15 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            {/* Add a dedicated preview route for teachers */}
+            <Route 
+              path="/teacher/preview/:lessonId" 
+              element={
+                <ProtectedRoute requiredRole="teacher">
+                  <StudentView isPreview={true} />
+                </ProtectedRoute>
+              } 
+            />
             {/* Generic teacher route comes last */}
             <Route 
               path="/teacher/:lessonId" 

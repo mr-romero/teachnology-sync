@@ -197,8 +197,8 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
     .from('presentations')
     .update({ 
       title: dbData.presentation.title,
-      updated_at: now,
-      settings: lesson.settings || { showCalculator: true }  // Include settings in update
+      updated_at: now
+      // Removing settings field as it doesn't exist in the database schema
     })
     .eq('id', lesson.id);
     

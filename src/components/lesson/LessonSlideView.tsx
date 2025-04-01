@@ -30,7 +30,8 @@ interface LessonSlideViewProps {
   onAnswerSubmit?: (blockId: string, answer: string | number | boolean) => void;
   answeredBlocks?: string[];
   isPaused?: boolean;
-  showCalculator?: boolean; // Add this prop
+  showCalculator?: boolean;
+  isPreviewMode?: boolean; // Add this prop
 }
 
 const LessonSlideView: React.FC<LessonSlideViewProps> = ({ 
@@ -43,11 +44,12 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   onAnswerSubmit,
   answeredBlocks = [],
   isPaused = false,
-  showCalculator = false // Add default value
+  showCalculator = false,
+  isPreviewMode = false // Add default value
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   
-  const studentCanRespond = isStudentView && !answeredBlocks.length;
+  const studentCanRespond = isStudentView && !answeredBlocks.length && !isPreviewMode;
   
   // Check global calculator setting instead of graph block setting
   const shouldShowCalculator = () => {

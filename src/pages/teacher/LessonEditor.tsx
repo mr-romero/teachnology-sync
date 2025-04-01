@@ -499,9 +499,17 @@ const LessonEditor: React.FC = () => {
   };
 
   // Add a handler to preview as student
-  const handlePreviewAsStudent = () => {
-    if (lessonId) {
-      navigate(`/student/view/${lessonId}`);
+  const handlePreviewAsStudent = async () => {
+    if (lessonId && lesson) {
+      try {
+        // Save the lesson before navigating to student view
+        await saveLesson(lesson);
+        // Navigate to teacher preview route instead of student view
+        navigate(`/teacher/preview/${lessonId}`);
+      } catch (error) {
+        console.error('Error saving lesson before preview:', error);
+        toast.error("Failed to save lesson before preview");
+      }
     }
   };
 
