@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, HelpCircle, UserCheck, BookOpen } from 'lucide-re
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 interface StudentResponseListProps {
   studentProgress: StudentProgress[];
@@ -16,15 +17,12 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
   currentSlideId,
   anonymousMode 
 }) => {
-  const [activeStudentCount, setActiveStudentCount] = useState(0);
-  
-  useEffect(() => {
-    // Count active students (those who are in the student progress array)
-    setActiveStudentCount(studentProgress.length);
-  }, [studentProgress]);
+  // Calculate student counts - move to top of component
+  const activeStudentCount = studentProgress.filter(student => student.is_active).length;
+  const totalStudentCount = studentProgress.length;
   
   // If there are no students yet, show a message
-  if (studentProgress.length === 0) {
+  if (totalStudentCount === 0) {
     return (
       <div className="text-center py-4 text-muted-foreground text-sm">
         <p>No students have joined yet</p>
@@ -43,13 +41,16 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
     return (
       <div>
         <div className="flex items-center justify-between mb-2">
-          <div className="text-xs font-medium">Active Students: {activeStudentCount}</div>
+          <div className="text-xs font-medium">Active: {activeStudentCount} / Total: {totalStudentCount}</div>
         </div>
         <div className="space-y-1">
           {studentProgress.map((student, index) => (
             <div 
               key={student.studentId}
-              className="flex items-center justify-between p-1.5 bg-muted/30 rounded-md text-xs"
+              className={cn(
+                "flex items-center justify-between p-1.5 bg-muted/30 rounded-md text-xs",
+                !student.is_active && "opacity-50 italic text-muted-foreground"
+              )}
             >
               <span className="flex items-center gap-1">
                 {anonymousMode ? `Student ${index + 1}` : (
@@ -83,7 +84,7 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
       </div>
     );
   }
-  
+
   // Group responses by block ID
   const responsesByBlock: Record<string, StudentResponse[]> = {};
   
@@ -97,7 +98,9 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between mb-1">
-        <div className="text-xs font-medium">Active Students: {activeStudentCount}</div>
+        <div className="text-xs font-medium">
+          Active: {activeStudentCount} / Total: {totalStudentCount}
+        </div>
       </div>
       
       {Object.entries(responsesByBlock).map(([blockId, responses]) => (
@@ -105,32 +108,34 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
           <h4 className="text-xs font-medium mb-1">Question {blockId.split('-')[1] || blockId}</h4>
           <div className="space-y-1">
             {responses.map((response, index) => {
-              // Find the student's class info from the studentProgress array
-              const studentInfo = studentProgress.find(student => 
-                student.studentId === response.studentId
-              );
-              const studentClass = studentInfo?.studentClass;
+              // Find the student's info from the studentProgress array
+              const studentInfo = studentProgress.find(student => student.studentId === response.studentId);
+              
+              if (!studentInfo) return null;
               
               return (
                 <div 
                   key={`${response.studentId}-${index}`}
-                  className="flex items-center justify-between text-xs"
+                  className={cn(
+                    "flex items-center justify-between text-xs",
+                    !studentInfo.is_active && "opacity-50 italic"
+                  )}
                 >
                   <span className="truncate max-w-[120px] flex items-center gap-1">
                     {anonymousMode ? `Student ${index + 1}` : (
                       <>
                         <span>{response.studentName}</span>
-                        {studentClass && (
+                        {studentInfo.studentClass && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
                                   <BookOpen className="h-2 w-2 mr-0.5" />
-                                  {studentClass}
+                                  {studentInfo.studentClass}
                                 </Badge>
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p className="text-xs">Class: {studentClass}</p>
+                                <p className="text-xs">Class: {studentInfo.studentClass}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -159,51 +164,53 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
         </div>
       ))}
       
-      {/* Show students who haven't responded to this slide */}
-      {studentProgress.filter(student => 
-        !currentSlideResponses.some(response => response.studentId === student.studentId)
-      ).length > 0 && (
-        <div className="border rounded-md p-2 bg-muted/10">
-          <h4 className="text-xs font-medium mb-1">Waiting for responses</h4>
-          <div className="space-y-1">
-            {studentProgress
-              .filter(student => 
-                !currentSlideResponses.some(response => response.studentId === student.studentId)
-              )
-              .map((student, index) => (
-                <div 
-                  key={student.studentId}
-                  className="flex items-center justify-between text-xs"
-                >
-                  <span className="truncate max-w-[120px] text-muted-foreground flex items-center gap-1">
-                    {anonymousMode ? `Student ${index + 1}` : (
-                      <>
-                        <span>{student.studentName}</span>
-                        {student.studentClass && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1 opacity-60">
-                                  <BookOpen className="h-2 w-2 mr-0.5" />
-                                  {student.studentClass}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Class: {student.studentClass}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </>
-                    )}
-                  </span>
-                  <HelpCircle className="h-3 w-3 text-muted-foreground/50" />
-                </div>
-              ))
-            }
-          </div>
+      {/* Show students who haven't responded */}
+      <div className="border rounded-md p-2 bg-muted/10">
+        <h4 className="text-xs font-medium mb-1">Waiting for responses</h4>
+        <div className="space-y-1">
+          {studentProgress
+            .filter(student => !currentSlideResponses.some(response => response.studentId === student.studentId))
+            .map((student, index) => (
+              <div 
+                key={student.studentId}
+                className={cn(
+                  "flex items-center justify-between p-1.5 text-xs",
+                  !student.is_active && "opacity-50 italic text-muted-foreground"
+                )}
+              >
+                <span className="truncate max-w-[120px] flex items-center gap-1">
+                  {anonymousMode ? `Student ${index + 1}` : (
+                    <>
+                      <span>{student.studentName}</span>
+                      {student.studentClass && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="outline" 
+                                className={cn(
+                                  "px-1 h-4 text-[9px] ml-1",
+                                  !student.is_active && "opacity-60"
+                                )}
+                              >
+                                <BookOpen className="h-2 w-2 mr-0.5" />
+                                {student.studentClass}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Class: {student.studentClass}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </>
+                  )}
+                </span>
+                <UserCheck className="h-3 w-3 text-muted-foreground" />
+              </div>
+            ))}
         </div>
-      )}
+      </div>
     </div>
   );
 };

@@ -547,10 +547,16 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                     )}
                     
                     <tr className="hover:bg-muted/50 border-b last:border-b-0">
-                      <td className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r">
+                      <td className={cn(
+                        "sticky left-0 bg-background z-10 w-[200px] p-2 border-r",
+                        !student.is_active && "text-muted-foreground italic"
+                      )}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1">
-                            <span className="truncate text-xs font-medium">
+                            <span className={cn(
+                              "truncate text-xs font-medium",
+                              !student.is_active && "opacity-50"
+                            )}>
                               {anonymousMode 
                                 ? `Student ${studentIndex + 1}` 
                                 : student.studentName}
@@ -561,7 +567,13 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                               <TooltipProvider>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "px-1 h-4 text-[9px] ml-1",
+                                        !student.is_active && "opacity-50"
+                                      )}
+                                    >
                                       <BookOpen className="h-2 w-2 mr-0.5" />
                                       {student.studentClass}
                                     </Badge>
@@ -586,21 +598,17 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                         const isStudentCurrentSlide = !isNaN(studentCurrentSlide) && studentCurrentSlide === slideIndex;
                         
                         return (
-                          <td 
-                            key={`${student.studentId}-${slide.id}`} 
-                            className={cn(
-                              "text-center p-2 w-[120px]", 
-                              isSelectedCell
-                                ? "bg-green-50"
-                                : isPacedCell
-                                  ? "bg-blue-50"
-                                  : isStudentCurrentSlide
-                                    ? "bg-primary/5 border-2 border-primary ring-1 ring-primary/30"
-                                    : "",
-                            )}
-                          >
-                            {getStatusIcon(student, slide.id)}
-                          </td>
+                          <StudentCell
+                            key={`${student.studentId}-${slide.id}`}
+                            student={student}
+                            slide={slide}
+                            slideIndex={slideIndex}
+                            isCurrentSlide={slideIndex === currentSlideIndex}
+                            isPacedCell={!isSelectingSlides && studentPacingEnabled && pacedSlides.includes(slideIndex)}
+                            isSelectedCell={isSelectingSlides && selectedSlides.includes(slideIndex)}
+                            getStatusIcon={getStatusIcon}
+                            isActive={student.is_active}
+                          />
                         );
                       })}
                     </tr>
@@ -641,6 +649,51 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
         </Button>
       </div>
     </div>
+  );
+};
+
+interface StudentCellProps {
+  student: StudentProgress;
+  slide: LessonSlide;
+  slideIndex: number;
+  isCurrentSlide: boolean;
+  isPacedCell: boolean;
+  isSelectedCell: boolean;
+  getStatusIcon: (student: StudentProgress, slideId: string) => React.ReactNode;
+  isActive: boolean;
+}
+
+const StudentCell: React.FC<StudentCellProps> = ({
+  student,
+  slide,
+  slideIndex,
+  isCurrentSlide,
+  isPacedCell,
+  isSelectedCell,
+  getStatusIcon,
+  isActive
+}) => {
+  // Always ensure we're working with numbers for comparison
+  const studentCurrentSlide = Number(student.currentSlide);
+  const isStudentCurrentSlide = !isNaN(studentCurrentSlide) && studentCurrentSlide === slideIndex;
+
+  return (
+    <td 
+      key={`${student.studentId}-${slide.id}`} 
+      className={cn(
+        "text-center p-2 w-[120px]", 
+        isSelectedCell
+          ? "bg-green-50"
+          : isPacedCell
+            ? "bg-blue-50"
+            : isStudentCurrentSlide
+              ? "bg-primary/5 border-2 border-primary ring-1 ring-primary/30"
+              : "",
+        !isActive && "opacity-50 italic" // Add styling for inactive students
+      )}
+    >
+      {getStatusIcon(student, slide.id)}
+    </td>
   );
 };
 

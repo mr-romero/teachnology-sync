@@ -339,13 +339,6 @@ const LessonPresentation: React.FC = () => {
   useEffect(() => {
     if (!participants || !answers || participantsLoading || answersLoading) return;
     
-    // Don't update studentProgressData if participants array is empty but we already have data
-    // This prevents flickering between "no students" and showing students
-    if (participants.length === 0 && studentProgressData.length > 0) {
-      console.log("Ignoring empty participants update to prevent flickering");
-      return;
-    }
-    
     console.log("Processing participants:", participants);
     console.log("Processing answers:", answers);
     
@@ -365,7 +358,7 @@ const LessonPresentation: React.FC = () => {
     // Fetch student metadata for each participant
     const fetchStudentMetadata = async () => {
       try {
-        // Get user metadata for each participant to extract names and classes
+        // Get user metadata for all participants to extract names and classes
         const { data: usersData, error: usersError } = await supabase
           .from('profiles')
           .select('id, full_name, class')
@@ -376,52 +369,91 @@ const LessonPresentation: React.FC = () => {
           return null;
         }
         
-        return usersData || [];
+        // Also get classroom student list if this is a classroom session
+        let classroomStudents: any[] = [];
+        if (sessionData?.classroom_id) {
+          try {
+            classroomStudents = await classroomService.getClassroomStudents(sessionData.classroom_id);
+          } catch (error) {
+            console.error("Error fetching classroom students:", error);
+          }
+        }
+        
+        // Combine both classroom students and actual participants
+        const progressData: StudentProgress[] = [];
+        
+        // First add all classroom students as inactive if not already active
+        if (classroomStudents.length > 0) {
+          for (const student of classroomStudents) {
+            const isActive = uniqueParticipants.some(p => p.user_id === student.profileId);
+            const studentAnswers = answers.filter(answer => answer.user_id === student.profileId);
+            const participantData = uniqueParticipants.find(p => p.user_id === student.profileId);
+            
+            progressData.push({
+              studentId: student.profileId,
+              studentName: student.name,
+              studentClass: sessionData?.classroom_name || undefined,
+              lessonId: lessonId || '',
+              currentSlide: participantData?.current_slide ?? 0,
+              completedBlocks: studentAnswers.map(answer => answer.content_id),
+              responses: studentAnswers.map(answer => ({
+                studentId: answer.user_id,
+                studentName: student.name,
+                studentClass: sessionData?.classroom_name,
+                lessonId: lessonId || '',
+                slideId: answer.slide_id,
+                blockId: answer.content_id,
+                response: answer.answer,
+                isCorrect: answer.is_correct,
+                timestamp: answer.submitted_at
+              })),
+              is_active: isActive
+            });
+          }
+        } else {
+          // If no classroom, just process active participants
+          for (const participant of uniqueParticipants) {
+            const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
+            const userData = usersData?.find(u => u.id === participant.user_id);
+            const studentName = userData?.full_name || `Student ${participant.user_id.substring(0, 5)}`;
+            const studentClass = userData?.class;
+            
+            progressData.push({
+              studentId: participant.user_id,
+              studentName: studentName,
+              studentClass: studentClass,
+              lessonId: lessonId || '',
+              currentSlide: participant.current_slide,
+              completedBlocks: studentAnswers.map(answer => answer.content_id),
+              responses: studentAnswers.map(answer => ({
+                studentId: answer.user_id,
+                studentName: studentName,
+                studentClass: studentClass,
+                lessonId: lessonId || '',
+                slideId: answer.slide_id,
+                blockId: answer.content_id,
+                response: answer.answer,
+                isCorrect: answer.is_correct,
+                timestamp: answer.submitted_at
+              })),
+              is_active: true
+            });
+          }
+        }
+        
+        return progressData;
       } catch (error) {
         console.error("Exception fetching user metadata:", error);
         return null;
       }
     };
     
-    fetchStudentMetadata().then(usersData => {
-      const progressData: StudentProgress[] = uniqueParticipants.map(participant => {
-        const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
-        
-        // Find user metadata or use default
-        const userData = usersData?.find(u => u.id === participant.user_id);
-        const studentName = userData?.full_name || `Student ${participant.user_id.substring(0, 5)}`;
-        const studentClass = userData?.class;
-        
-        console.log(`Processing student ${studentName}:`, {
-          current_slide: participant.current_slide,
-          participant_data: participant
-        });
-        
-        return {
-          studentId: participant.user_id,
-          studentName: studentName,
-          studentClass: studentClass,
-          lessonId: lessonId || '',
-          // Fix: Ensure we're using the correct slide number from participant data
-          currentSlide: Number(participant.current_slide),
-          completedBlocks: studentAnswers.map(answer => answer.content_id),
-          responses: studentAnswers.map(answer => ({
-            studentId: answer.user_id,
-            studentName: studentName,
-            studentClass: studentClass,
-            lessonId: lessonId || '',
-            slideId: answer.slide_id,
-            blockId: answer.content_id,
-            response: answer.answer,
-            isCorrect: answer.is_correct,
-            timestamp: answer.submitted_at
-          }))
-        };
-      });
-      
-      setStudentProgressData(progressData);
+    fetchStudentMetadata().then(progressData => {
+      if (progressData) {
+        setStudentProgressData(progressData);
+      }
     });
-  }, [participants, answers, participantsLoading, answersLoading, lessonId, studentProgressData.length]);
+  }, [participants, answers, participantsLoading, answersLoading, lessonId, sessionData]);
   
   // Add session to localStorage when it's established
   useEffect(() => {

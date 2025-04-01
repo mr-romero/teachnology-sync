@@ -168,7 +168,8 @@ export interface StudentProgress {
   currentSlide: number;  // Explicitly typed as number
   completedBlocks: string[];
   responses: StudentResponse[];
-}
+  is_active: boolean;  // Add active status flag
+} 
 
 export interface LessonData {
   id: string;

@@ -3,6 +3,7 @@ import { Lesson, LessonSlide, LessonBlock } from "@/types/lesson";
 import { v4 as uuidv4 } from 'uuid';
 import { Database } from "@/integrations/supabase/types";
 import { Json } from "@/integrations/supabase/types";
+import { classroomService } from "@/services/classroomService";
 
 // Helper function to convert any object to Json type
 const toJson = <T>(data: T): Json => {
@@ -169,13 +170,16 @@ export const getLessonById = async (lessonId: string): Promise<Lesson | null> =>
   // Convert to application format
   const lessonSlides: LessonSlide[] = slides.map(convertDbSlideToAppSlide);
   
+  // Use type assertion for presentation data
+  const dbPresentation = presentation as any;
+  
   return {
-    id: presentation.id,
-    title: presentation.title,
-    createdBy: presentation.user_id,
-    createdAt: presentation.created_at,
-    updatedAt: presentation.updated_at,
-    settings: presentation.settings || { showCalculator: true },  // Include settings with default
+    id: dbPresentation.id,
+    title: dbPresentation.title,
+    createdBy: dbPresentation.user_id,
+    createdAt: dbPresentation.created_at,
+    updatedAt: dbPresentation.updated_at,
+    settings: dbPresentation.settings || { showCalculator: true },
     slides: lessonSlides
   };
 };
@@ -230,29 +234,29 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
 
 // Start a new presentation session
 export const startPresentationSession = async (lessonId: string, classroomId?: string): Promise<string | null> => {
-  // Generate a 6-character join code
-  // Using a direct random generation instead of RPC function
   const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
   
   try {
-    // If classroom ID is provided, get the classroom name
-    let classroomName: string | null = null;
+    // If we have a classroom ID, get the classroom details first
+    let classroomName = null;
+    let classroomStudents: any[] = [];
     
     if (classroomId) {
-      // Look up the classroom name from imported_classrooms table
-      const { data, error } = await supabase
-        .from('imported_classrooms')
-        .select('classroom_name')
-        .eq('classroom_id', classroomId)
-        .maybeSingle();
+      try {
+        // Get all classrooms and find the matching one
+        const classrooms = await classroomService.getClassrooms();
+        const classroom = classrooms.find(c => c.id === classroomId);
+        classroomName = classroom?.name;
         
-      if (!error && data && data.classroom_name) {
-        classroomName = data.classroom_name;
+        // Get students for this classroom
+        classroomStudents = await classroomService.getClassroomStudents(classroomId);
+      } catch (error) {
+        console.error('Error getting classroom details:', error);
+        // Continue anyway as this is not critical
       }
     }
-    
-    // Create the session with classroom_id only to ensure backward compatibility
-    // The classroom_name column is added via migration but might not exist yet
+
+    // Create the session
     const sessionData = {
       presentation_id: lessonId,
       join_code: joinCode,
@@ -260,41 +264,45 @@ export const startPresentationSession = async (lessonId: string, classroomId?: s
       is_synced: true,
       is_paused: false,
       current_slide: 0,
-      classroom_id: classroomId || null
+      classroom_id: classroomId || null,
+      classroom_name: classroomName
     };
-    
-    // Try to add the classroom_name if we've obtained it
-    // If the column doesn't exist yet, this will be safely ignored
-    try {
-      if (classroomName) {
-        const { data, error: testError } = await supabase
-          .from('presentation_sessions')
-          .insert({ ...sessionData, classroom_name: classroomName })
-          .select('id, join_code')
-          .single();
-          
-        if (!testError && data) {
-          return data.join_code;
-        }
-      }
-    } catch (nameError) {
-      // Column probably doesn't exist yet, continue with basic insert
-      console.log('Could not include classroom_name, falling back to basic insert:', nameError);
-    }
-    
-    // Fallback to basic insert without classroom_name
-    const { data, error: sessionError } = await supabase
+
+    // Create session and get its ID
+    const { data: sessionResult, error: sessionError } = await supabase
       .from('presentation_sessions')
       .insert(sessionData)
-      .select('id, join_code')
+      .select('id')
       .single();
       
-    if (sessionError || !data) {
+    if (sessionError || !sessionResult) {
       console.error('Error creating presentation session:', sessionError);
       return null;
     }
-    
-    return data.join_code;
+
+    // If we have classroom students, create inactive session participants for them
+    if (classroomStudents.length > 0) {
+      const participantRecords = classroomStudents.map(student => ({
+        session_id: sessionResult.id,
+        user_id: student.profileId,
+        current_slide: 0,
+        is_active: false,
+        joined_at: null,
+        last_active_at: null
+      }));
+
+      // Insert all classroom students as inactive participants
+      const { error: participantsError } = await supabase
+        .from('session_participants')
+        .insert(participantRecords);
+
+      if (participantsError) {
+        console.error('Error creating inactive participants:', participantsError);
+        // Continue anyway as this is not critical
+      }
+    }
+
+    return joinCode;
   } catch (error) {
     console.error('Error in startPresentationSession:', error);
     return null;
@@ -322,7 +330,8 @@ export const joinPresentationSession = async (joinCode: string, userId: string):
     .upsert({
       session_id: session.id,
       user_id: userId,
-      current_slide: session.current_slide, // Always use the session's current slide
+      current_slide: session.current_slide,
+      is_active: true,  // Set active when joining
       joined_at: new Date().toISOString(),
       last_active_at: new Date().toISOString()
     }, {
@@ -403,24 +412,6 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
         // If in sync mode, students shouldn't update their position at all
         console.log('Student attempted to navigate while in sync mode');
         return false;
-      }
-      
-      // Check if paced slides are configured
-      // This is a separate query to handle if the column doesn't exist
-      try {
-        const { data, error } = await supabase.rpc('check_paced_slides', { 
-          session_id: sessionId,
-          slide_idx: slideIndex
-        });
-        
-        // If the RPC function exists and returns false, slide is not allowed
-        if (!error && data === false) {
-          console.warn(`Student attempted to navigate to non-allowed slide: ${slideIndex}`);
-          return false;
-        }
-      } catch (rpcError) {
-        // RPC function might not exist, just continue
-        console.log('Paced slides check not available:', rpcError);
       }
     } catch (checkError) {
       // If any error happens during restriction checks, log it but still
