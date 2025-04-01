@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
@@ -20,10 +20,20 @@ interface ActiveSession {
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const joinCode = searchParams.get('join');
+  
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [joiningSession, setJoiningSession] = useState<string | null>(null);
 
+  // Check for join code in URL parameters
+  useEffect(() => {
+    if (joinCode && user) {
+      handleDirectJoinSession(joinCode);
+    }
+  }, [joinCode, user]);
+  
   useEffect(() => {
     const fetchActiveSessions = async () => {
       if (!user) return;
@@ -144,11 +154,12 @@ const StudentDashboard: React.FC = () => {
       }
       
       // Directly navigate to the session view with session data
-      navigate(`/student/join/${joinCode}`, { 
+      navigate(`/student/session/${result.sessionId}`, { 
         state: { 
           autoJoin: true,
           sessionId: result.sessionId,
-          presentationId: result.presentationId
+          presentationId: result.presentationId,
+          joinCode
         }
       });
     } catch (error) {
@@ -159,7 +170,7 @@ const StudentDashboard: React.FC = () => {
   };
   
   const handleJoinNewSession = () => {
-    navigate('/student/join');
+    navigate('/join');
   };
 
   // Format date to a more readable format

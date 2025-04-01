@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import LessonMatrix from '@/components/lesson/LessonMatrix';
 import StudentResponseList from '@/components/lesson/StudentResponseList';
+import { classroomService } from '@/services/classroomService';
 
 interface PresentationSession {
   id: string;
@@ -85,6 +86,13 @@ const LessonPresentation: React.FC = () => {
   const [selectedSlides, setSelectedSlides] = useState<number[]>([]);
   const [pacedSlides, setPacedSlides] = useState<number[]>([]);
   
+  // Add a state for tracking if we need to create an assignment
+  const [creatingAssignment, setCreatingAssignment] = useState(false);
+  
+  // Add state to prevent duplicate session creation
+  const [sessionCreationInProgress, setSessionCreationInProgress] = useState(false);
+  const [sessionCreated, setSessionCreated] = useState(false);
+  
   const { 
     data: sessionData,
     loading: sessionLoading 
@@ -131,8 +139,21 @@ const LessonPresentation: React.FC = () => {
     const loadLessonAndSession = async () => {
       if (!lessonId || !user) return;
       
+      // Return early if we're already creating a session
+      if (sessionCreationInProgress) {
+        console.log("Session creation already in progress, skipping duplicate call");
+        return;
+      }
+      
+      // Return early if a session was already created for this component instance
+      if (sessionCreated) {
+        console.log("Session was already created, skipping duplicate call");
+        return;
+      }
+      
       try {
         setLoading(true);
+        setSessionCreationInProgress(true);
         
         // 1. First, load the lesson data
         const fetchedLesson = await getLessonById(lessonId);
@@ -147,10 +168,12 @@ const LessonPresentation: React.FC = () => {
         const urlParams = new URLSearchParams(window.location.search);
         const forceNew = urlParams.get('forceNew') === 'true';
         const specificSessionId = urlParams.get('sessionId');
+        const classroomId = urlParams.get('classroomId');
         
         console.log("Loading lesson and session...");
         console.log("Force new session:", forceNew);
         console.log("Specific session ID:", specificSessionId);
+        console.log("Classroom ID:", classroomId);
         
         // 3. If we're forcing a new session, create one
         if (forceNew) {
@@ -172,16 +195,49 @@ const LessonPresentation: React.FC = () => {
               setCurrentSlideIndex(0);
               toast.success(`New session started with code: ${code}`);
               
-              // Remove forceNew from URL without page reload
+              // Set session as created to prevent duplicate creation
+              setSessionCreated(true);
+              
+              // If a classroom ID was provided and we have a join code, create an assignment
+              if (classroomId) {
+                try {
+                  setCreatingAssignment(true);
+                  // Generate the join URL
+                  const baseUrl = window.location.origin;
+                  const joinUrl = `${baseUrl}/join?code=${code}`;
+                  
+                  console.log("Creating classroom assignment with URL:", joinUrl);
+                  
+                  // Create the assignment in Google Classroom
+                  await classroomService.createAssignment(
+                    classroomId,
+                    `${fetchedLesson.title} - Interactive Session`,
+                    `Join our interactive lesson session using the link below or with join code: ${code}`,
+                    joinUrl
+                  );
+                  
+                  toast.success('Google Classroom assignment created successfully');
+                } catch (error) {
+                  console.error('Error creating Google Classroom assignment:', error);
+                  toast.error('Failed to create Google Classroom assignment');
+                } finally {
+                  setCreatingAssignment(false);
+                }
+              }
+              
+              // Remove query params from URL without page reload
               const newUrl = new URL(window.location.href);
               newUrl.searchParams.delete('forceNew');
+              newUrl.searchParams.delete('classroomId');
               window.history.replaceState({}, '', newUrl);
             }
           }
           setLoading(false);
+          setSessionCreationInProgress(false);
           return;
         }
         
+        // Rest of the function remains the same
         // 4. If we have a specific session ID from the URL, try to use it
         if (specificSessionId) {
           console.log("Looking for specific session:", specificSessionId);
@@ -198,7 +254,9 @@ const LessonPresentation: React.FC = () => {
             setJoinCode(data.join_code);
             setCurrentSlideIndex(data.current_slide);
             toast.success(`Connected to session with code: ${data.join_code}`);
+            setSessionCreated(true);
             setLoading(false);
+            setSessionCreationInProgress(false);
             return;
           } else {
             console.log("Specified session not found or ended");
@@ -215,6 +273,7 @@ const LessonPresentation: React.FC = () => {
           setJoinCode(existingSession.join_code);
           setCurrentSlideIndex(existingSession.current_slide);
           toast.success(`Reconnected to existing session with code: ${existingSession.join_code}`);
+          setSessionCreated(true);
         } else {
           // 6. If no active session exists, create a new one
           console.log("No active session found, creating a new one");
@@ -234,6 +293,7 @@ const LessonPresentation: React.FC = () => {
               setJoinCode(code);
               setCurrentSlideIndex(0);
               toast.success(`New session started with code: ${code}`);
+              setSessionCreated(true);
             }
           } else {
             toast.error("Failed to start presentation session");
@@ -245,11 +305,12 @@ const LessonPresentation: React.FC = () => {
         navigate('/dashboard');
       } finally {
         setLoading(false);
+        setSessionCreationInProgress(false);
       }
     };
     
     loadLessonAndSession();
-  }, [lessonId, user, navigate]);
+  }, [lessonId, user, navigate, sessionCreationInProgress, sessionCreated]);
   
   useEffect(() => {
     if (sessionData && !sessionLoading) {

@@ -13,6 +13,7 @@ import LessonEditor from "./pages/teacher/LessonEditor";
 import LessonPresentation from "./pages/teacher/LessonPresentation";
 import StudentView from "./pages/student/StudentView";
 import StudentDashboard from "./pages/student/StudentDashboard";
+import JoinSession from "./pages/student/JoinSession";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
 
@@ -84,6 +85,11 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
+            {/* New route for Google Classroom assignment links */}
+            <Route 
+              path="/join" 
+              element={<JoinSession />} 
+            />
             <Route 
               path="/student/join" 
               element={
@@ -102,6 +108,14 @@ const App = () => (
             />
             <Route 
               path="/student/view/:lessonId" 
+              element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentView />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/student/session/:sessionId" 
               element={
                 <ProtectedRoute requiredRole="student">
                   <StudentView />

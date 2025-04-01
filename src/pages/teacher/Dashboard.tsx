@@ -6,21 +6,29 @@ import {
   Plus, 
   ClipboardEdit, 
   Play,
-  Calendar,
-  Users,
   ChevronRight,
-  Eye,
   Trash2,
-  PlusCircle
+  School,
+  Clock,
+  Calendar,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson } from '@/types/lesson';
-import { getLessonsForUser, deleteLesson, endPresentationSession } from '@/services/lessonService';
+import { getLessonsForUser, deleteLesson, endPresentationSession, getActiveSessionForLesson } from '@/services/lessonService';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter 
+} from '@/components/ui/dialog';
 import { toast } from '@/components/ui/sonner';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import PresentationDialog from '@/components/lesson/PresentationDialog';
+import { classroomService, ImportedClassroom } from '@/services/classroomService';
 
 interface ActiveSession {
   id: string;
@@ -29,98 +37,104 @@ interface ActiveSession {
   presentation_title: string;
   started_at: string;
   active_students: number;
+  classroom_name?: string;
+}
+
+interface LessonWithSessions extends Lesson {
+  sessions: ActiveSession[];
 }
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessons, setLessons] = useState<LessonWithSessions[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
-  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedLesson, setSelectedLesson] = useState<string>('');
+  
+  // State for lesson sessions dialog
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+  const [isSessionsDialogOpen, setIsSessionsDialogOpen] = useState(false);
+  
+  // Presentation dialog state
+  const [presentingLessonId, setPresentingLessonId] = useState<string | null>(null);
+  const [isPresentationDialogOpen, setIsPresentationDialogOpen] = useState(false);
 
-  useEffect(() => {
-    const fetchLessons = async () => {
-      if (!user) return;
-      
-      try {
-        setLoading(true);
-        const fetchedLessons = await getLessonsForUser(user.id);
-        setLessons(fetchedLessons);
-      } catch (error) {
-        console.error('Error fetching lessons:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchLessons();
-  }, [user]);
-
-  useEffect(() => {
-    const fetchActiveSessions = async () => {
-      if (!user) return;
-      
-      try {
-        // Log what we're trying to do
-        console.log("Fetching active sessions for dashboard...");
-        
-        const { data, error } = await supabase
-          .from('presentation_sessions')
-          .select(`
-            id, 
-            join_code, 
-            started_at, 
-            presentation_id,
-            presentations(title)
-          `)
-          .is('ended_at', null)
-          .order('started_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        // Log what we received from the database
-        console.log("Active sessions response:", data);
-        
-        if (data) {
-          const sessionsWithStudentCount = await Promise.all(
-            data.map(async (session) => {
-              const { count, error: countError } = await supabase
-                .from('session_participants')
-                .select('*', { count: 'exact', head: true })
-                .eq('session_id', session.id);
-                
-              // Format session with student count
-              const formattedSession = {
-                id: session.id,
-                join_code: session.join_code,
-                presentation_id: session.presentation_id,
-                presentation_title: session.presentations?.title || 'Untitled',
-                started_at: session.started_at,
-                active_students: count || 0
-              };
-              
-              // Log each session as we process it
-              console.log(`Session ${formattedSession.id} | Code: ${formattedSession.join_code}`);
-              
-              return formattedSession;
-            })
-          );
-          
-          // Log the final processed sessions before setting state
-          console.log("Processed sessions for dashboard:", sessionsWithStudentCount);
-          setActiveSessions(sessionsWithStudentCount);
-        }
-      } catch (error) {
-        console.error('Error fetching active sessions:', error);
-      }
-    };
-
-    fetchActiveSessions();
+  // Function to fetch lessons and their sessions
+  const fetchLessonsAndSessions = async () => {
+    if (!user) return;
     
+    try {
+      setLoading(true);
+      
+      // 1. Fetch all lessons
+      const fetchedLessons = await getLessonsForUser(user.id);
+      
+      // 2. Fetch all active sessions - only query fields that exist
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('presentation_sessions')
+        .select(`
+          id, 
+          join_code, 
+          started_at, 
+          presentation_id,
+          presentations(title)
+        `)
+        .is('ended_at', null)
+        .order('started_at', { ascending: false });
+      
+      if (sessionError) throw sessionError;
+      
+      // 3. Process session data
+      const sessionsWithClassroomInfo: ActiveSession[] = await Promise.all(
+        (sessionData || []).map(async (session) => {
+          // Get student count for the session
+          const { count, error: countError } = await supabase
+            .from('session_participants')
+            .select('*', { count: 'exact', head: true })
+            .eq('session_id', session.id);
+          
+          // We'll use a placeholder for now since we don't have classroom info
+          // In a future update, you could store classroom info when creating a session
+          let classroomName = "Class Session";
+          
+          return {
+            id: session.id,
+            join_code: session.join_code,
+            presentation_id: session.presentation_id,
+            presentation_title: session.presentations?.title || 'Untitled',
+            started_at: session.started_at,
+            active_students: count || 0,
+            classroom_name: classroomName
+          };
+        })
+      );
+      
+      // 4. Group sessions by lesson
+      const lessonsWithSessions: LessonWithSessions[] = fetchedLessons.map(lesson => ({
+        ...lesson,
+        sessions: sessionsWithClassroomInfo.filter(session => session.presentation_id === lesson.id)
+      }));
+      
+      // 5. Sort lessons by creation date (newest first by default)
+      lessonsWithSessions.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      setLessons(lessonsWithSessions);
+      
+    } catch (error) {
+      console.error('Error fetching lessons and sessions:', error);
+      toast.error('Failed to load lessons');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchLessonsAndSessions();
+    
+    // Set up real-time subscription for presentation_sessions table
     const channel = supabase
       .channel('dashboard-sessions-changes')
       .on(
@@ -131,7 +145,7 @@ const Dashboard: React.FC = () => {
           table: 'presentation_sessions'
         },
         () => {
-          fetchActiveSessions();
+          fetchLessonsAndSessions();
         }
       )
       .subscribe();
@@ -145,7 +159,7 @@ const Dashboard: React.FC = () => {
     const success = await endPresentationSession(sessionId);
     if (success) {
       toast.success('Session ended successfully');
-      setActiveSessions(prev => prev.filter(session => session.id !== sessionId));
+      fetchLessonsAndSessions();
     } else {
       toast.error('Failed to end session');
     }
@@ -160,8 +174,7 @@ const Dashboard: React.FC = () => {
       
       if (success) {
         toast.success(`Lesson "${lessonToDelete.title}" deleted successfully`);
-        // Update lessons list
-        setLessons(prev => prev.filter(lesson => lesson.id !== lessonToDelete.id));
+        fetchLessonsAndSessions();
       } else {
         toast.error('Failed to delete lesson');
       }
@@ -180,9 +193,54 @@ const Dashboard: React.FC = () => {
     setIsDeleteModalOpen(true);
   };
 
-  // New function to handle starting a new session
-  const resetSelectedLesson = () => {
-    setSelectedLesson('');
+  // Open the lesson details dialog
+  const handleViewLessonSessions = (lessonId: string) => {
+    setSelectedLessonId(lessonId);
+    setIsSessionsDialogOpen(true);
+  };
+
+  // Assign a lesson (previously called "Present")
+  const handleAssignLesson = (lessonId: string) => {
+    setPresentingLessonId(lessonId);
+    setIsPresentationDialogOpen(true);
+  };
+
+  // Handler for creating a new session from the dialog
+  const handleCreateNewSession = async (params?: { classroomId?: string }) => {
+    if (!presentingLessonId) {
+      toast.error("No lesson selected for assignment");
+      return { sessionId: "", joinCode: "" };
+    }
+    try {
+      // Navigate to the presentation with params to create a new session
+      window.location.href = `/teacher/${presentingLessonId}?forceNew=true${params?.classroomId ? `&classroomId=${params.classroomId}` : ""}`;
+      
+      // This is just a placeholder return since we're navigating away
+      return { sessionId: "redirecting", joinCode: "redirecting" };
+    } catch (error) {
+      console.error("Error starting presentation:", error);
+      toast.error("Failed to start presentation");
+      return { sessionId: "", joinCode: "" };
+    }
+  };
+
+  // Handler for joining an existing session from the dialog
+  const handleJoinExistingSession = (sessionId: string) => {
+    if (!presentingLessonId) return;
+    
+    // Navigate to the presentation with the session ID
+    window.location.href = `/teacher/${presentingLessonId}?sessionId=${sessionId}`;
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   if (!user) {
@@ -193,222 +251,134 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  // Find the selected lesson for the sessions dialog
+  const selectedLesson = lessons.find(lesson => lesson.id === selectedLessonId);
+
   return (
     <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Welcome, {user.name}</h1>
-        <p className="text-muted-foreground">Manage your lessons and presentations</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Welcome, {user.name}</h1>
+          <p className="text-muted-foreground">Manage your lessons and assignments</p>
+        </div>
+        <Link to="/editor/new">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Create New Lesson
+          </Button>
+        </Link>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xl">Lessons</CardTitle>
-            <CardDescription>Manage your created lessons</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{lessons.length}</div>
-          </CardContent>
-          <CardFooter>
-            <Link to="/editor/new" className="w-full">
-              <Button className="w-full">
-                <Plus className="mr-2 h-4 w-4" />
-                Create New Lesson
-              </Button>
-            </Link>
-          </CardFooter>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xl">Active Sessions</CardTitle>
-            <CardDescription>Ongoing presentation sessions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{activeSessions.length}</div>
-          </CardContent>
-          <CardFooter>
-            <Button 
-              variant={activeSessions.length > 0 ? "default" : "outline"} 
-              className="w-full"
-              disabled={activeSessions.length === 0}
-              onClick={() => setIsSessionModalOpen(true)}
-            >
-              <Eye className="mr-2 h-4 w-4" />
-              View Active Sessions
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-xl">Students</CardTitle>
-            <CardDescription>Student engagement stats</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {activeSessions.reduce((sum, session) => sum + session.active_students, 0)}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="outline" className="w-full" disabled>
-              <Users className="mr-2 h-4 w-4" />
-              Manage Students
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-
-      <Dialog 
-        open={isSessionModalOpen} 
-        onOpenChange={(open) => {
-          setIsSessionModalOpen(open);
-          if (!open) resetSelectedLesson();
-        }}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Active Presentation Sessions</DialogTitle>
-            <DialogDescription>
-              View and manage your ongoing presentation sessions
-            </DialogDescription>
-          </DialogHeader>
-          
-          {/* New Section: Start a new session */}
-          <div className="border rounded-md p-4 my-4">
-            <h3 className="font-medium mb-2">Start a New Session</h3>
-            <div className="flex flex-col space-y-3">
-              <Select 
-                value={selectedLesson} 
-                onValueChange={setSelectedLesson}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a lesson" />
-                </SelectTrigger>
-                <SelectContent>
-                  {lessons.map(lesson => (
-                    <SelectItem key={lesson.id} value={lesson.id}>
-                      {lesson.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button 
-                disabled={!selectedLesson}
-                asChild
-              >
-                <Link to={`/teacher/${selectedLesson}?forceNew=true`}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Start New Session
-                </Link>
-              </Button>
-            </div>
-          </div>
-          
-          <div className="space-y-4 mt-4 max-h-[60vh] overflow-y-auto">
-            <h3 className="font-semibold">Current Active Sessions</h3>
-            {activeSessions.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">No active sessions</p>
-            ) : (
-              activeSessions.map(session => (
-                <Card key={session.id} className="overflow-hidden">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-semibold">{session.presentation_title}</h3>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <Badge variant="outline" className="text-sm">
-                            Code: {session.join_code}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            {session.active_students} {session.active_students === 1 ? 'student' : 'students'}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Started: {new Date(session.started_at).toLocaleString()}
-                        </p>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="sm"
-                          variant="outline"
-                          asChild
-                        >
-                          <Link to={`/teacher/${session.presentation_id}?sessionId=${session.id}`}>
-                            <Play className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button 
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleEndSession(session.id)}
-                        >
-                          End
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      
+      {/* Lessons List */}
       <div className="mb-6">
         <h2 className="text-2xl font-bold mb-4">Your Lessons</h2>
         {loading ? (
           <p>Loading your lessons...</p>
         ) : lessons.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-4">
             {lessons.map((lesson) => (
-              <Card key={lesson.id}>
-                <CardHeader>
-                  <CardTitle>{lesson.title}</CardTitle>
-                  <CardDescription>
-                    {new Date(lesson.updatedAt).toLocaleDateString()} • {lesson.slides.length} slides
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground line-clamp-2">
-                    {lesson.slides[0]?.blocks.find(block => block.type === 'text')?.content || 'No description available'}
-                  </p>
-                </CardContent>
-                <CardFooter className="flex flex-col space-y-3">
-                  {/* First row of buttons */}
-                  <div className="flex justify-between w-full">
-                    <Button variant="outline" asChild className="flex-1 mr-2">
-                      <Link to={`/editor/${lesson.id}`}>
-                        <ClipboardEdit className="mr-2 h-4 w-4" />
-                        Edit
-                      </Link>
-                    </Button>
-                    <Button asChild className="flex-1">
-                      <Link to={`/teacher/${lesson.id}`}>
-                        <Play className="mr-2 h-4 w-4" />
-                        Present
-                      </Link>
-                    </Button>
+              <Card key={lesson.id} className="overflow-hidden">
+                <div className="flex flex-col md:flex-row">
+                  <div className="flex-1 p-6">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold mb-1">{lesson.title}</h3>
+                        <div className="flex items-center text-sm text-muted-foreground mb-2">
+                          <Calendar className="h-3.5 w-3.5 mr-1" />
+                          <span>Created: {formatDate(lesson.createdAt)}</span>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="ml-2">
+                        {lesson.slides.length} {lesson.slides.length === 1 ? 'slide' : 'slides'}
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground mb-4 line-clamp-2">
+                      {lesson.slides[0]?.blocks.find(block => block.type === 'text')?.content || 'No description available'}
+                    </p>
+                    
+                    {/* Show session count if there are any */}
+                    {lesson.sessions.length > 0 && (
+                      <div 
+                        className="flex items-center text-sm text-primary cursor-pointer mb-3 hover:underline"
+                        onClick={() => handleViewLessonSessions(lesson.id)}
+                      >
+                        <School className="h-4 w-4 mr-1" />
+                        <span>{lesson.sessions.length} active {lesson.sessions.length === 1 ? 'session' : 'sessions'}</span>
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </div>
+                    )}
+                    
+                    <div className="flex space-x-2 mt-2">
+                      <Button variant="outline" asChild size="sm">
+                        <Link to={`/editor/${lesson.id}`}>
+                          <ClipboardEdit className="mr-2 h-4 w-4" />
+                          Edit
+                        </Link>
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleAssignLesson(lesson.id)}
+                      >
+                        <School className="mr-2 h-4 w-4" />
+                        Assign
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="border-destructive text-destructive hover:bg-destructive/10"
+                        onClick={() => confirmDeleteLesson(lesson)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   
-                  {/* Second row of buttons */}
-                  <div className="flex justify-between w-full">
-                    <Button 
-                      variant="outline" 
-                      className="flex-1 mr-2 border-destructive text-destructive hover:bg-destructive/10"
-                      onClick={() => confirmDeleteLesson(lesson)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </Button>
-                    <Button variant="outline" asChild className="flex-1">
-                      <Link to={`/teacher/${lesson.id}?forceNew=true`}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        New Session
-                      </Link>
-                    </Button>
-                  </div>
-                </CardFooter>
+                  {/* Right side - Recent sessions preview */}
+                  {lesson.sessions.length > 0 && (
+                    <div className="md:w-64 bg-muted/30 border-t md:border-t-0 md:border-l p-4">
+                      <h4 className="text-sm font-medium mb-3">Recent Sessions</h4>
+                      <div className="space-y-3">
+                        {lesson.sessions.slice(0, 2).map(session => (
+                          <div key={session.id} className="text-xs">
+                            <div className="flex items-center mb-1">
+                              <School className="h-3.5 w-3.5 mr-1 text-primary" />
+                              <span className="font-medium truncate">
+                                {session.classroom_name || "Class Session"}
+                              </span>
+                            </div>
+                            <div className="flex items-center mb-1 text-muted-foreground">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>{new Date(session.started_at).toLocaleDateString()}</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="w-full mt-1"
+                              asChild
+                            >
+                              <Link to={`/teacher/${session.presentation_id}?sessionId=${session.id}`}>
+                                <Play className="h-3 w-3 mr-1" />
+                                Present
+                              </Link>
+                            </Button>
+                          </div>
+                        ))}
+                        
+                        {lesson.sessions.length > 2 && (
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="w-full mt-1 text-xs"
+                            onClick={() => handleViewLessonSessions(lesson.id)}
+                          >
+                            View all {lesson.sessions.length} sessions
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </Card>
             ))}
           </div>
@@ -425,7 +395,109 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </div>
-
+      
+      {/* Lesson Sessions Dialog */}
+      {selectedLesson && (
+        <Dialog 
+          open={isSessionsDialogOpen} 
+          onOpenChange={setIsSessionsDialogOpen}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{selectedLesson.title} - Sessions</DialogTitle>
+              <DialogDescription>
+                View and manage active sessions for this lesson
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 my-4 max-h-[60vh] overflow-y-auto">
+              {selectedLesson.sessions.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p>No active sessions for this lesson</p>
+                  <Button 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={() => {
+                      setIsSessionsDialogOpen(false);
+                      handleAssignLesson(selectedLesson.id);
+                    }}
+                  >
+                    <School className="mr-2 h-4 w-4" />
+                    Assign to a Class
+                  </Button>
+                </div>
+              ) : (
+                selectedLesson.sessions.map(session => (
+                  <Card key={session.id} className="overflow-hidden">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <div className="flex items-center mb-1">
+                            <School className="h-4 w-4 mr-2 text-primary" />
+                            <h3 className="font-semibold">
+                              {session.classroom_name || "Class Session"}
+                            </h3>
+                          </div>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="outline" className="text-sm">
+                              Code: {session.join_code}
+                            </Badge>
+                            <Badge variant="secondary" className="text-xs">
+                              {session.active_students} {session.active_students === 1 ? 'student' : 'students'}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2 flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Started: {new Date(session.started_at).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            asChild
+                          >
+                            <Link to={`/teacher/${session.presentation_id}?sessionId=${session.id}`}>
+                              <Play className="h-4 w-4 mr-1" />
+                              Present
+                            </Link>
+                          </Button>
+                          <Button 
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleEndSession(session.id)}
+                          >
+                            End
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsSessionsDialogOpen(false)}
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  setIsSessionsDialogOpen(false);
+                  handleAssignLesson(selectedLesson.id);
+                }}
+              >
+                <School className="mr-2 h-4 w-4" />
+                Assign New
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+      
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -433,7 +505,7 @@ const Dashboard: React.FC = () => {
             <DialogTitle>Delete Lesson</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete "{lessonToDelete?.title}"? 
-              This action cannot be undone and all presentation data will be lost.
+              This action cannot be undone and all session data will be lost.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4">
@@ -454,37 +526,21 @@ const Dashboard: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <div className="mt-12">
-        <h2 className="text-2xl font-bold mb-4">Recent Activity</h2>
-        <Card>
-          <CardContent className="p-0">
-            <div className="divide-y">
-              {lessons.length > 0 ? (
-                lessons.slice(0, 5).map((lesson) => (
-                  <div key={lesson.id} className="flex items-center justify-between p-4">
-                    <div>
-                      <h3 className="font-medium">{lesson.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        Last updated {new Date(lesson.updatedAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <Link to={`/editor/${lesson.id}`}>
-                      <Button variant="ghost" size="icon">
-                        <ChevronRight className="h-5 w-5" />
-                      </Button>
-                    </Link>
-                  </div>
-                ))
-              ) : (
-                <div className="p-4 text-center text-muted-foreground">
-                  No recent activity
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
+      {/* Presentation Dialog (renamed to Assignment Dialog) */}
+      {presentingLessonId && (
+        <PresentationDialog
+          lessonId={presentingLessonId}
+          lessonTitle={lessons.find(l => l.id === presentingLessonId)?.title}
+          isOpen={isPresentationDialogOpen}
+          onClose={() => {
+            setIsPresentationDialogOpen(false);
+            setPresentingLessonId(null);
+          }}
+          onCreateNewSession={handleCreateNewSession}
+          onJoinExistingSession={handleJoinExistingSession}
+        />
+      )}
     </div>
   );
 };

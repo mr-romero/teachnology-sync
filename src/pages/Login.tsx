@@ -1,24 +1,29 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
-import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [className, setClassName] = useState('');
   const [role, setRole] = useState<'teacher' | 'student'>('student');
-  const { login, loginWithGoogle, isLoading } = useAuth();
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    login(email, password);
-  };
+  const { user, loginWithGoogle, isLoading } = useAuth();
+  
+  // Show/hide class field based on role
+  const showClassField = role === 'student';
+  
+  // If user is already logged in, redirect to dashboard or student page
+  if (user) {
+    if (user.role === 'teacher') {
+      return <Navigate to="/dashboard" />;
+    } else {
+      return <Navigate to="/student" />;
+    }
+  }
 
   const handleGoogleLogin = () => {
-    loginWithGoogle(role);
+    loginWithGoogle(role, role === 'student' ? (className || null) : null);
   };
 
   return (
@@ -29,14 +34,14 @@ const Login: React.FC = () => {
             <div className="flex justify-center mb-6">
               <div className="bg-primary text-white p-3 rounded-lg text-2xl font-bold">TS</div>
             </div>
-            <CardTitle className="text-2xl text-center font-bold">Login to TeachSync</CardTitle>
+            <CardTitle className="text-2xl text-center font-bold">Welcome back</CardTitle>
             <CardDescription className="text-center">
-              Enter your credentials to access your account
+              Sign in to your account
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {/* Google Sign In Button */}
+              {/* Role Selection */}
               <div className="space-y-2">
                 <div className="flex gap-2 mb-2">
                   <Button
@@ -56,6 +61,23 @@ const Login: React.FC = () => {
                     As Teacher
                   </Button>
                 </div>
+                
+                {showClassField && (
+                  <div className="mb-3">
+                    <Input
+                      id="className"
+                      placeholder="Enter your class (e.g., Math 101, Physics A)"
+                      type="text"
+                      value={className}
+                      onChange={(e) => setClassName(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Adding your class helps teachers identify you (optional)
+                    </p>
+                  </div>
+                )}
+                
+                {/* Google Sign In Button */}
                 <Button 
                   type="button" 
                   className="w-full flex items-center justify-center gap-2" 
@@ -64,70 +86,23 @@ const Login: React.FC = () => {
                   onClick={handleGoogleLogin}
                 >
                   <svg width="20" height="20" viewBox="0 0 48 48">
-                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C39.211 39.604 44 33.33 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                    <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                    <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                    <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C39.211 39.604 44 33.33 44 24c0-1.341-.138-2.65-.389-3.917z"/>
                   </svg>
                   Sign in with Google
                 </Button>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <Separator />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Input
-                    id="email"
-                    placeholder="Email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Input
-                    id="password"
-                    placeholder="Password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Signing in...' : 'Sign In'}
-                </Button>
                 
-                <div className="text-center text-sm text-gray-500 mt-4">
-                  <p>Demo credentials:</p>
-                  <p>Teacher: teacher@example.com</p>
-                  <p>Student: student@example.com</p>
-                  <p>(Any password will work)</p>
+                <div className="text-center text-sm text-muted-foreground mt-4">
+                  New to TeachSync?{' '}
+                  <Link to="/register" className="text-primary hover:underline">
+                    Create an account
+                  </Link>
                 </div>
-              </form>
+              </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{' '}
-              <Link to="/register" className="text-primary font-medium hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
         </Card>
       </div>
     </div>
