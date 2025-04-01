@@ -149,7 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         provider: 'google',
         options: {
           queryParams,
-          ...commonOptions
+          ...commonOptions,
+          // Google credentials are configured in Supabase dashboard
         }
       });
       

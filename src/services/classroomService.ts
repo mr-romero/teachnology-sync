@@ -51,10 +51,17 @@ export const classroomService = {
       }
       
       // Get provider token from Supabase session
-      const providerToken = sessionData.session.provider_token;
+      let providerToken = sessionData.session.provider_token;
       
       if (!providerToken) {
-        throw new Error("No provider token available. Please re-authenticate with Google.");
+        // Attempt to refresh the session
+        await supabase.auth.refreshSession();
+        const refreshedSession = (await supabase.auth.getSession()).data.session;
+        providerToken = refreshedSession?.provider_token;
+        
+        if (!providerToken) {
+          throw new Error("No provider token available. Please re-authenticate with Google.");
+        }
       }
       
       // Fetch classrooms from Google Classroom API
@@ -98,10 +105,17 @@ export const classroomService = {
       }
       
       // Get provider token from Supabase session
-      const providerToken = sessionData.session.provider_token;
+      let providerToken = sessionData.session.provider_token;
       
       if (!providerToken) {
-        throw new Error("No provider token available. Please re-authenticate with Google.");
+        // Attempt to refresh the session
+        await supabase.auth.refreshSession();
+        const refreshedSession = (await supabase.auth.getSession()).data.session;
+        providerToken = refreshedSession?.provider_token;
+        
+        if (!providerToken) {
+          throw new Error("No provider token available. Please re-authenticate with Google.");
+        }
       }
       
       // Fetch students from Google Classroom API
