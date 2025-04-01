@@ -11,7 +11,8 @@ import {
   School,
   Clock,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  Eye
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Lesson } from '@/types/lesson';
@@ -29,6 +30,8 @@ import {
 import { toast } from '@/components/ui/sonner';
 import PresentationDialog from '@/components/lesson/PresentationDialog';
 import { classroomService, ImportedClassroom } from '@/services/classroomService';
+import GoogleClassroomIcon from '@/components/ui/google-classroom-icon';
+import LessonPreviewModal from '@/components/lesson/LessonPreviewModal';
 
 interface ActiveSession {
   id: string;
@@ -78,7 +81,8 @@ const Dashboard: React.FC = () => {
           join_code, 
           started_at, 
           presentation_id,
-          presentations(title)
+          presentations(title),
+          classroom_id
         `)
         .is('ended_at', null)
         .order('started_at', { ascending: false });
@@ -94,9 +98,24 @@ const Dashboard: React.FC = () => {
             .select('*', { count: 'exact', head: true })
             .eq('session_id', session.id);
           
-          // We'll use a placeholder for now since we don't have classroom info
-          // In a future update, you could store classroom info when creating a session
+          // Try to get classroom name if classroom_id exists
           let classroomName = "Class Session";
+          if (session.classroom_id) {
+            try {
+              // Look up in imported classrooms
+              const { data, error } = await supabase
+                .from('imported_classrooms')
+                .select('classroom_name')
+                .eq('classroom_id', session.classroom_id)
+                .maybeSingle();
+                
+              if (data && data.classroom_name) {
+                classroomName = data.classroom_name;
+              }
+            } catch (err) {
+              console.error('Error fetching classroom info:', err);
+            }
+          }
           
           return {
             id: session.id,
@@ -323,6 +342,22 @@ const Dashboard: React.FC = () => {
                         <School className="mr-2 h-4 w-4" />
                         Assign
                       </Button>
+                      
+                      {/* Add Student View Preview Button */}
+                      <LessonPreviewModal
+                        slides={lesson.slides}
+                        title={lesson.title}
+                        trigger={
+                          <Button 
+                            size="sm"
+                            variant="secondary"
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Preview
+                          </Button>
+                        }
+                      />
+                      
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -342,9 +377,9 @@ const Dashboard: React.FC = () => {
                         {lesson.sessions.slice(0, 2).map(session => (
                           <div key={session.id} className="text-xs">
                             <div className="flex items-center mb-1">
-                              <School className="h-3.5 w-3.5 mr-1 text-primary" />
+                              <GoogleClassroomIcon className="h-3.5 w-3.5 mr-1 text-primary" />
                               <span className="font-medium truncate">
-                                {session.classroom_name || "Class Session"}
+                                {session.classroom_name}
                               </span>
                             </div>
                             <div className="flex items-center mb-1 text-muted-foreground">
@@ -433,9 +468,9 @@ const Dashboard: React.FC = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center mb-1">
-                            <School className="h-4 w-4 mr-2 text-primary" />
+                            <GoogleClassroomIcon className="h-4 w-4 mr-2 text-primary" />
                             <h3 className="font-semibold">
-                              {session.classroom_name || "Class Session"}
+                              {session.classroom_name}
                             </h3>
                           </div>
                           <div className="flex items-center space-x-2 mt-1">

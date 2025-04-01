@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check, Trash, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import StudentViewPreview from './StudentViewPreview';
 
 interface SlideCarouselProps {
   slides: LessonSlide[];
@@ -45,26 +46,21 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
     // Check if this slide is a paced slide (allowed for student navigation)
     const isPacedSlide = allowedSlides.length > 0 && allowedSlides.includes(index);
     
-    // Get first text content for preview
-    const firstTextBlock = slide.blocks.find(block => block.type === 'text');
-    const textPreview = firstTextBlock?.content ? 
-      String(firstTextBlock.content).substring(0, 20) + '...' : '';
-    
     return (
       <Card 
         className={cn(
-          "rounded-md border hover:border-primary transition-all duration-200 overflow-hidden cursor-pointer h-full",
+          "rounded-md border hover:border-primary transition-all duration-200 overflow-hidden cursor-pointer h-full relative group",
           index === currentSlideIndex ? "border-primary border-2 ring-2 ring-primary/30 shadow-md" : 
           isPacedSlide ? "border-blue-400 border-2 shadow-sm" : "border-muted-foreground/10"
         )}
         onClick={() => onSlideClick(index)}
       >
         <CardContent className={cn(
-          "p-3 flex flex-col h-full w-full overflow-hidden",
+          "p-2 flex flex-col h-full w-full overflow-hidden",
           isPacedSlide && "bg-blue-50/50"
         )}>
           {/* Slide number badge and title */}
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-between items-center mb-1">
             <Badge 
               variant={
                 index === currentSlideIndex ? "default" : 
@@ -83,53 +79,39 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
             </Badge>
             
             {/* Title */}
-            <div className="text-[8px] font-medium truncate w-[80%] text-right">
+            <div className="text-[8px] font-medium truncate w-[70%] text-right">
               {title}
             </div>
           </div>
           
-          {/* Content preview */}
-          <div className="flex-grow flex flex-col justify-between">
-            {/* Text preview */}
-            {hasText && (
-              <div className="flex items-start gap-1 mb-2">
-                <FileText className="h-3 w-3 text-gray-500 flex-shrink-0 mt-0.5" />
-                <div className="text-[7px] line-clamp-3 opacity-80">{textPreview}</div>
+          {/* Student view preview - Show actual content */}
+          <div className="flex-grow overflow-hidden rounded-sm border bg-white shadow-sm">
+            <StudentViewPreview 
+              slide={slide} 
+              showRealContent={true}
+            />
+          </div>
+          
+          {/* Bottom content indicators */}
+          <div className="flex flex-wrap gap-1 mt-1 justify-end">
+            {hasImage && (
+              <div className="flex items-center gap-0.5 bg-blue-50 rounded-full px-1.5 py-0.5">
+                <Image className="h-2.5 w-2.5 text-blue-500" />
+                <span className="text-[6px] text-blue-600 font-medium">Image</span>
               </div>
             )}
-            
-            {/* Bottom content indicators */}
-            <div className="mt-auto">
-              {/* Image/Graph indicators */}
-              <div className="flex flex-wrap gap-1.5 mt-1">
-                {hasImage && (
-                  <div className="flex items-center gap-0.5 bg-blue-50 rounded-full px-1.5 py-0.5">
-                    <Image className="h-2.5 w-2.5 text-blue-500" />
-                    <span className="text-[6px] text-blue-600 font-medium">Image</span>
-                  </div>
-                )}
-                {hasGraph && (
-                  <div className="flex items-center gap-0.5 bg-green-50 rounded-full px-1.5 py-0.5">
-                    <BarChart2 className="h-2.5 w-2.5 text-green-500" />
-                    <span className="text-[6px] text-green-600 font-medium">Graph</span>
-                  </div>
-                )}
-                {/* Question indicator */}
-                {hasQuestion && (
-                  <div className="flex items-center gap-0.5 bg-amber-50 rounded-full px-1.5 py-0.5">
-                    <CheckCircle className="h-2.5 w-2.5 text-amber-500" />
-                    <span className="text-[6px] text-amber-600 font-medium">Question</span>
-                  </div>
-                )}
+            {hasGraph && (
+              <div className="flex items-center gap-0.5 bg-green-50 rounded-full px-1.5 py-0.5">
+                <BarChart2 className="h-2.5 w-2.5 text-green-500" />
+                <span className="text-[6px] text-green-600 font-medium">Graph</span>
               </div>
-              
-              {/* Bottom divider to simulate slide content */}
-              <div className={cn(
-                "h-1 w-full rounded-full mt-2",
-                index === currentSlideIndex ? "bg-primary/20" : 
-                isPacedSlide ? "bg-blue-300/30" : "bg-muted"
-              )}></div>
-            </div>
+            )}
+            {hasQuestion && (
+              <div className="flex items-center gap-0.5 bg-amber-50 rounded-full px-1.5 py-0.5">
+                <CheckCircle className="h-2.5 w-2.5 text-amber-500" />
+                <span className="text-[6px] text-amber-600 font-medium">Question</span>
+              </div>
+            )}
           </div>
 
           {/* Delete button overlay - hidden by default, shown on hover */}
@@ -202,7 +184,7 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
             {slides.map((slide, index) => (
               <CarouselItem 
                 key={slide.id} 
-                className="pl-4 basis-[110px] md:basis-[130px] min-w-[110px] md:min-w-[130px] h-[100px] md:h-[110px] group"
+                className="pl-4 basis-[130px] md:basis-[160px] min-w-[130px] md:min-w-[160px] h-[110px] md:h-[130px] group"
               >
                 {renderMiniSlidePreview(slide, index)}
               </CarouselItem>
