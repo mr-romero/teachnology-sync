@@ -267,7 +267,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
           <Badge 
             variant={
               isSelected 
-                ? "success" 
+                ? "default" 
                 : isPacedSlide
                   ? "secondary"
                   : index === currentSlideIndex 
@@ -357,7 +357,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
 
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
-        {/* More graceful scroll controls that don't cover slide content */}
+        {/* Scroll controls - keep these */}
         <div className="absolute top-0 bottom-0 left-[204px] z-10 flex items-center">
           <Button 
             onClick={() => scrollMatrix('left')} 
@@ -380,253 +380,236 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
           </Button>
         </div>
         
-        {/* Table Headers Row with Controls in first column */}
-        <div className="flex border-b bg-muted/10">
-          {/* Fixed Control Column Header */}
-          <div className="flex-shrink-0 w-[200px] border-r p-2 flex flex-col justify-between">
-            {isSelectingSlides ? (
-              <div className="flex flex-col items-center justify-center h-full">
-                <div className="text-xs font-medium mb-1 text-center">
-                  Selected: {selectedSlides.length} slides
-                </div>
-                <div className="text-[10px] text-muted-foreground text-center px-2">
-                  Click on slides to select or deselect them for student access
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-center">
-                  <div className="flex items-center">
-                    <div className="font-medium text-xs mr-1">Code:</div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={copyJoinCode}
-                      className="flex gap-1 items-center h-6 px-2"
-                    >
-                      <span className="font-mono text-primary font-bold text-xs">{joinCode}</span>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-between mt-2">
-                  {/* Anonymize button with label */}
-                  <div className="flex flex-col items-center w-[60px]">
-                    <Button
-                      variant={anonymousMode ? "default" : "outline"}
-                      size="sm"
-                      onClick={onToggleAnonymous}
-                      className="h-8 w-8 rounded-full p-0 mb-1"
-                      title={anonymousMode ? "Show names" : "Hide names"}
-                    >
-                      <Glasses size={14} />
-                    </Button>
-                    <span className="text-[9px] text-muted-foreground">Anonymize</span>
-                  </div>
-                  
-                  {/* Pace button with label */}
-                  <div className="flex flex-col items-center w-[60px]">
-                    <Button
-                      variant={studentPacingEnabled ? "default" : "outline"}
-                      size="sm"
-                      onClick={onTogglePacing}
-                      className={`h-8 w-8 rounded-full p-0 mb-1 ${studentPacingEnabled ? "bg-blue-600 hover:bg-blue-700" : ""}`}
-                      title={studentPacingEnabled ? "Edit paced slides" : "Enable student pacing"}
-                    >
-                      <LayoutGrid size={14} />
-                    </Button>
-                    <span className="text-[9px] text-muted-foreground">Pace</span>
-                  </div>
-                  
-                  {/* Sync button with label - MODIFIED FOR REVERSED LOCK BEHAVIOR */}
-                  <div className="flex flex-col items-center w-[60px]">
-                    <Button
-                      variant={syncEnabled ? "default" : "outline"}
-                      size="sm"
-                      onClick={onToggleSync}
-                      className={`h-8 w-8 rounded-full p-0 mb-1 ${syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}`}
-                      title={syncEnabled ? "Students follow teacher view" : "Students can navigate freely"}
-                    >
-                      {syncEnabled ? <Unlock size={14} /> : <Lock size={14} />}
-                    </Button>
-                    <span className="text-[9px] text-muted-foreground text-center">Sync</span>
-                  </div>
-                  
-                  {/* Pause button with label */}
-                  <div className="flex flex-col items-center w-[60px]">
-                    <Button
-                      variant={isPaused ? "default" : "outline"}
-                      size="sm"
-                      onClick={onTogglePause}
-                      className={`h-8 w-8 rounded-full p-0 mb-1 ${isPaused ? "bg-amber-500 hover:bg-amber-600" : ""}`}
-                      title={isPaused ? "Resume session" : "Pause session"}
-                    >
-                      {isPaused ? <Play size={14} /> : <Pause size={14} />}
-                    </Button>
-                    <span className="text-[9px] text-muted-foreground text-center">
-                      {isPaused ? "Resume" : "Pause"}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex justify-center mt-3">
-                  <Select onValueChange={onSortChange} defaultValue={sortBy}>
-                    <SelectTrigger className="h-7 w-[140px] text-xs">
-                      <div className="flex items-center gap-1">
-                        <ArrowDownAZ className="h-3.5 w-3.5 text-muted-foreground" />
-                        <SelectValue placeholder="Sort by" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="lastName">Last Name</SelectItem>
-                      <SelectItem value="firstName">First Name</SelectItem>
-                      <SelectItem value="class">Class</SelectItem>
-                      <SelectItem value="joinTime">Join Time</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-          </div>
+        {/* Use a table for both headers and content to ensure alignment */}
+        <table className="w-full border-collapse table-fixed">
+          <colgroup>
+            <col style={{ width: "200px" }} />
+            {slides.map((_, index) => (
+              <col key={index} style={{ width: "120px" }} />
+            ))}
+          </colgroup>
           
-          {/* Scrollable Slide Headers */}
-          <div className="relative flex-grow overflow-hidden">
-            <div 
-              ref={slidesContainerRef} 
-              className="flex overflow-x-auto"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-            >
+          {/* Table Headers */}
+          <thead className="border-b bg-muted/10">
+            <tr>
+              {/* Fixed Control Column Header */}
+              <th className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r text-start">
+                {isSelectingSlides ? (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <div className="text-xs font-medium mb-1 text-center">
+                      Selected: {selectedSlides.length} slides
+                    </div>
+                    <div className="text-[10px] text-muted-foreground text-center px-2">
+                      Click on slides to select or deselect them for student access
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col justify-between h-[120px]">
+                    {/* Height increased to 120px from 100px */}
+                    <div className="flex items-center justify-center">
+                      <div className="flex items-center">
+                        <div className="font-medium text-xs mr-1">Code:</div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={copyJoinCode}
+                          className="flex gap-1 items-center h-6 px-2"
+                        >
+                          <span className="font-mono text-primary font-bold text-xs">{joinCode}</span>
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-2">
+                      {/* Anonymize button with label */}
+                      <div className="flex flex-col items-center w-[60px]">
+                        <Button
+                          variant={anonymousMode ? "default" : "outline"}
+                          size="sm"
+                          onClick={onToggleAnonymous}
+                          className="h-8 w-8 rounded-full p-0 mb-1"
+                          title={anonymousMode ? "Show names" : "Hide names"}
+                        >
+                          <Glasses size={14} />
+                        </Button>
+                        <span className="text-[9px] text-muted-foreground">Anonymize</span>
+                      </div>
+                      
+                      {/* Pace button with label */}
+                      <div className="flex flex-col items-center w-[60px]">
+                        <Button
+                          variant={studentPacingEnabled ? "default" : "outline"}
+                          size="sm"
+                          onClick={onTogglePacing}
+                          className={`h-8 w-8 rounded-full p-0 mb-1 ${studentPacingEnabled ? "bg-blue-600 hover:bg-blue-700" : ""}`}
+                          title={studentPacingEnabled ? "Edit paced slides" : "Enable student pacing"}
+                        >
+                          <LayoutGrid size={14} />
+                        </Button>
+                        <span className="text-[9px] text-muted-foreground">Pace</span>
+                      </div>
+                      
+                      {/* Sync button with label */}
+                      <div className="flex flex-col items-center w-[60px]">
+                        <Button
+                          variant={syncEnabled ? "default" : "outline"}
+                          size="sm"
+                          onClick={onToggleSync}
+                          className={`h-8 w-8 rounded-full p-0 mb-1 ${syncEnabled ? "bg-green-600 hover:bg-green-700" : ""}`}
+                          title={syncEnabled ? "Students follow teacher view" : "Students can navigate freely"}
+                        >
+                          {syncEnabled ? <Unlock size={14} /> : <Lock size={14} />}
+                        </Button>
+                        <span className="text-[9px] text-muted-foreground text-center">Sync</span>
+                      </div>
+                      
+                      {/* Pause button with label */}
+                      <div className="flex flex-col items-center w-[60px]">
+                        <Button
+                          variant={isPaused ? "default" : "outline"}
+                          size="sm"
+                          onClick={onTogglePause}
+                          className={`h-8 w-8 rounded-full p-0 mb-1 ${isPaused ? "bg-amber-500 hover:bg-amber-600" : ""}`}
+                          title={isPaused ? "Resume session" : "Pause session"}
+                        >
+                          {isPaused ? <Play size={14} /> : <Pause size={14} />}
+                        </Button>
+                        <span className="text-[9px] text-muted-foreground text-center">
+                          {isPaused ? "Resume" : "Pause"}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-center mt-3">
+                      <Select onValueChange={onSortChange} defaultValue={sortBy}>
+                        <SelectTrigger className="h-7 w-[140px] text-xs">
+                          <div className="flex items-center gap-1">
+                            <ArrowDownAZ className="h-3.5 w-3.5 text-muted-foreground" />
+                            <SelectValue placeholder="Sort by" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="lastName">Last Name</SelectItem>
+                          <SelectItem value="firstName">First Name</SelectItem>
+                          {/* Remove Class option */}
+                          <SelectItem value="joinTime">Join Time</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </th>
+              
+              {/* Slide Headers - Now as table cells for perfect alignment */}
               {slides.map((slide, index) => (
-                <div 
-                  key={index}
-                  className="flex-shrink-0 w-[120px] box-border" 
+                <th 
+                  key={index} 
+                  className="p-0 align-top"
                 >
                   {renderSlideHeader(slide, index)}
-                </div>
+                </th>
               ))}
-            </div>
-          </div>
-        </div>
-        
-        {/* Student Progress Rows */}
-        <div 
-          ref={tableContainerRef} 
-          className="overflow-x-auto max-h-[60vh]"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {/* Table with absolute sizing to match header row */}
-          <table className="w-full border-collapse table-fixed">
-            <colgroup>
-              <col style={{ width: "200px" }} />
-              {slides.map((_, index) => (
-                <col key={index} style={{ width: "120px" }} />
-              ))}
-            </colgroup>
-            <tbody>
-              {isLoading || sortedStudents.length === 0 ? (
-                <tr>
-                  <td colSpan={slides.length + 1} className="text-center h-32 text-muted-foreground p-4">
-                    {isLoading ? "Loading student data..." : "No students have joined yet"}
-                  </td>
-                </tr>
-              ) : (
-                sortedStudents.map((student, studentIndex) => {
-                  // Get previous student's class for comparison when grouping by class
-                  const prevStudent = studentIndex > 0 ? sortedStudents[studentIndex - 1] : null;
-                  const isNewClassGroup = sortBy === "class" && 
-                    student.studentClass && 
-                    (!prevStudent || prevStudent.studentClass !== student.studentClass);
-                  
-                  return (
-                    <React.Fragment key={student.studentId}>
-                      {/* Add class separator when sorting by class and encountering a new class */}
-                      {isNewClassGroup && (
-                        <tr className="bg-muted/30">
-                          <td colSpan={slides.length + 1} className="py-1 px-2 text-xs font-medium">
-                            <div className="flex items-center gap-1">
-                              <BookOpen className="h-3.5 w-3.5 text-primary" />
-                              <span>Class: {student.studentClass}</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                      
-                      <tr className="hover:bg-muted/50 border-b last:border-b-0">
-                        <td className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1">
-                              <span className="truncate text-xs font-medium">
-                                {anonymousMode 
-                                  ? `Student ${studentIndex + 1}` 
-                                  : student.studentName}
-                              </span>
-                              
-                              {/* Show class as a badge unless we're already sorting by class */}
-                              {!anonymousMode && student.studentClass && sortBy !== "class" && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
-                                        <BookOpen className="h-2 w-2 mr-0.5" />
-                                        {student.studentClass}
-                                      </Badge>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p className="text-xs">Class: {student.studentClass}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </div>
-                            
-                            <Badge 
-                              variant="outline" 
-                              className="text-[10px] h-5 px-1 bg-background ml-1"
-                            >
-                              {parseInt(student.currentSlide) + 1}
-                            </Badge>
+            </tr>
+          </thead>
+          
+          {/* Table Body - now directly connected to the headers */}
+          <tbody 
+            ref={tableContainerRef as React.LegacyRef<HTMLTableSectionElement>}
+            className="max-h-[60vh] overflow-y-auto"
+          >
+            {isLoading || sortedStudents.length === 0 ? (
+              <tr>
+                <td colSpan={slides.length + 1} className="text-center h-32 text-muted-foreground p-4">
+                  {isLoading ? "Loading student data..." : "No students have joined yet"}
+                </td>
+              </tr>
+            ) : (
+              sortedStudents.map((student, studentIndex) => {
+                // Get previous student's class for comparison when grouping by class
+                const prevStudent = studentIndex > 0 ? sortedStudents[studentIndex - 1] : null;
+                const isNewClassGroup = sortBy === "class" && 
+                  student.studentClass && 
+                  (!prevStudent || prevStudent.studentClass !== student.studentClass);
+                
+                return (
+                  <React.Fragment key={student.studentId}>
+                    {/* Add class separator when sorting by class and encountering a new class */}
+                    {isNewClassGroup && (
+                      <tr className="bg-muted/30">
+                        <td colSpan={slides.length + 1} className="py-1 px-2 text-xs font-medium">
+                          <div className="flex items-center gap-1">
+                            <BookOpen className="h-3.5 w-3.5 text-primary" />
+                            <span>Class: {student.studentClass}</span>
                           </div>
                         </td>
-                        
-                        {slides.map((slide, slideIndex) => {
-                          // Determine cell styling based on selection state and current position
-                          const isPacedCell = !isSelectingSlides && studentPacingEnabled && pacedSlides.includes(slideIndex);
-                          const isSelectedCell = isSelectingSlides && selectedSlides.includes(slideIndex);
-                          const isStudentCurrentSlide = parseInt(student.currentSlide) === slideIndex;
-                          
-                          return (
-                            <td 
-                              key={`${student.studentId}-${slide.id}`} 
-                              className={cn(
-                                "text-center p-2", 
-                                isSelectedCell
-                                  ? "bg-green-50"
-                                  : isPacedCell
-                                    ? "bg-blue-50"
-                                    : isStudentCurrentSlide
-                                      ? "bg-primary/5"
-                                      : slideIndex === currentSlideIndex 
-                                        ? "bg-primary/5"
-                                        : "",
-                                // Add a prominent border when this is the student's current slide
-                                isStudentCurrentSlide
-                                  ? "border-2 border-primary ring-1 ring-primary/30"
-                                  : ""
-                              )}
-                            >
-                              {getStatusIcon(student, slide.id)}
-                            </td>
-                          );
-                        })}
                       </tr>
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                    )}
+                    
+                    <tr className="hover:bg-muted/50 border-b last:border-b-0">
+                      <td className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <span className="truncate text-xs font-medium">
+                              {anonymousMode 
+                                ? `Student ${studentIndex + 1}` 
+                                : student.studentName}
+                            </span>
+                            
+                            {/* Show class as a badge unless we're already sorting by class */}
+                            {!anonymousMode && student.studentClass && sortBy !== "class" && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
+                                      <BookOpen className="h-2 w-2 mr-0.5" />
+                                      {student.studentClass}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">Class: {student.studentClass}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      
+                      {slides.map((slide, slideIndex) => {
+                        // Determine cell styling based on selection state and current position
+                        const isPacedCell = !isSelectingSlides && studentPacingEnabled && pacedSlides.includes(slideIndex);
+                        const isSelectedCell = isSelectingSlides && selectedSlides.includes(slideIndex);
+                        
+                        // Always ensure we're working with numbers for comparison
+                        const studentCurrentSlide = Number(student.currentSlide);
+                        const isStudentCurrentSlide = !isNaN(studentCurrentSlide) && studentCurrentSlide === slideIndex;
+                        
+                        return (
+                          <td 
+                            key={`${student.studentId}-${slide.id}`} 
+                            className={cn(
+                              "text-center p-2 w-[120px]", 
+                              isSelectedCell
+                                ? "bg-green-50"
+                                : isPacedCell
+                                  ? "bg-blue-50"
+                                  : isStudentCurrentSlide
+                                    ? "bg-primary/5 border-2 border-primary ring-1 ring-primary/30"
+                                    : "",
+                            )}
+                          >
+                            {getStatusIcon(student, slide.id)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </React.Fragment>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
       
       {/* Slide Navigation Controls */}

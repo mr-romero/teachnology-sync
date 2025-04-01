@@ -92,6 +92,7 @@ const StudentView: React.FC = () => {
             }
             
             setLesson(lessonData);
+            // Remove the setCurrentSlideIndex(0) here as it will be set by the session data
           } catch (error) {
             console.error('Error auto-joining session:', error);
             toast.error('Error joining session automatically');
@@ -117,50 +118,44 @@ const StudentView: React.FC = () => {
     if (sessionData && !sessionLoading) {
       // First, update current slide based on sync mode
       if (sessionData.is_synced) {
-        setCurrentSlideIndex(sessionData.current_slide);
-        
-        // When in sync mode, paced slides don't matter
-        // because the teacher controls everything
+        // When in sync mode, always use the session's current slide
+        setCurrentSlideIndex(Number(sessionData.current_slide));
         setAllowedSlides([]);
       } else {
         // When not in sync mode, check if we have paced slides
         if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
-          console.log("Received paced slides from server:", sessionData.paced_slides);
           setAllowedSlides(sessionData.paced_slides);
           
-          // If current slide is not in allowed slides, navigate to the closest allowed slide
-          if (!sessionData.paced_slides.includes(sessionData.current_slide)) {
-            // Find closest allowed slide
-            const nextSlides = sessionData.paced_slides.filter(index => index >= sessionData.current_slide);
-            const prevSlides = sessionData.paced_slides.filter(index => index < sessionData.current_slide);
+          if (!sessionData.paced_slides.includes(Number(sessionData.current_slide))) {
+            const nextSlides = sessionData.paced_slides.filter(index => index >= Number(sessionData.current_slide));
+            const prevSlides = sessionData.paced_slides.filter(index => index < Number(sessionData.current_slide));
             
-            let targetSlide = sessionData.current_slide;
+            let targetSlide = Number(sessionData.current_slide);
             if (nextSlides.length > 0) {
-              targetSlide = nextSlides[0]; // First slide ahead
+              targetSlide = nextSlides[0];
             } else if (prevSlides.length > 0) {
-              targetSlide = prevSlides[prevSlides.length - 1]; // Last slide behind
+              targetSlide = prevSlides[prevSlides.length - 1];
             } else if (sessionData.paced_slides.length > 0) {
-              targetSlide = sessionData.paced_slides[0]; // First allowed slide
+              targetSlide = sessionData.paced_slides[0];
             }
             
-            console.log("Navigating to allowed slide:", targetSlide);
             setCurrentSlideIndex(targetSlide);
             if (user) {
               updateStudentSlide(sessionId, user.id, targetSlide);
             }
           } else {
-            // Current slide is allowed, just update to the teacher's position
-            setCurrentSlideIndex(sessionData.current_slide);
+            // Current slide is allowed, update to stay in sync with session
+            setCurrentSlideIndex(Number(sessionData.current_slide));
           }
         } else {
           // No paced slides, free navigation
           setAllowedSlides([]);
-          // Still follow the teacher's initial slide position
-          setCurrentSlideIndex(sessionData.current_slide);
+          // Update to stay in sync with session
+          setCurrentSlideIndex(Number(sessionData.current_slide));
         }
       }
       
-      // Update the local isPaused state based on the database value
+      // Update pause state
       if (sessionData.is_paused !== undefined) {
         setIsPaused(!!sessionData.is_paused);
       }
@@ -268,6 +263,7 @@ const StudentView: React.FC = () => {
     }
   }, [sessionId, currentSlideIndex]);
   
+  // Update the join session handler to properly initialize the slide position
   const handleJoinSession = async () => {
     if (!joinCode.trim() || !user) {
       toast.error('Please enter a valid join code');
@@ -288,6 +284,18 @@ const StudentView: React.FC = () => {
       setSessionId(result.sessionId);
       setPresentationId(result.presentationId);
       
+      // Get the current session state
+      const { data: sessionData } = await supabase
+        .from('presentation_sessions')
+        .select('current_slide, is_synced')
+        .eq('id', result.sessionId)
+        .single();
+        
+      if (sessionData) {
+        // Initialize the current slide from the session state
+        setCurrentSlideIndex(Number(sessionData.current_slide));
+      }
+      
       const lessonData = await getLessonById(result.presentationId);
       
       if (!lessonData) {
@@ -298,6 +306,11 @@ const StudentView: React.FC = () => {
       
       setLesson(lessonData);
       setIsJoined(true);
+      
+      // Update the student's position in the database
+      if (sessionData) {
+        await updateStudentSlide(result.sessionId, user.id, Number(sessionData.current_slide));
+      }
     } catch (error) {
       console.error('Error joining session:', error);
       toast.error('An error occurred while joining the session');

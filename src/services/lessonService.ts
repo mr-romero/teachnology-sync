@@ -315,42 +315,23 @@ export const joinPresentationSession = async (joinCode: string, userId: string):
     console.error('Error finding session:', sessionError);
     return null;
   }
-  
-  // Add the student to the session
+
+  // Add the student to the session or update their record
   const { error: participantError } = await supabase
     .from('session_participants')
-    .insert({
+    .upsert({
       session_id: session.id,
       user_id: userId,
-      current_slide: session.current_slide
+      current_slide: session.current_slide, // Always use the session's current slide
+      joined_at: new Date().toISOString(),
+      last_active_at: new Date().toISOString()
+    }, {
+      onConflict: 'session_id,user_id'
     });
     
   if (participantError) {
     console.error('Error joining session:', participantError);
     return null;
-  }
-  
-  // Update session data to reflect new student joining
-  try {
-    // Manually increment the count instead of using RPC
-    const { data: currentSession } = await supabase
-      .from('presentation_sessions')
-      .select('*')
-      .eq('id', session.id)
-      .single();
-    
-    if (currentSession) {
-      // Only update the current_slide to ensure compatibility with the database schema
-      await supabase
-        .from('presentation_sessions')
-        .update({ 
-          current_slide: currentSession.current_slide // Keep existing value
-        })
-        .eq('id', session.id);
-    }
-  } catch (error) {
-    // Log but don't fail the function if this update fails
-    console.warn('Could not update active students count:', error);
   }
   
   return {
@@ -361,12 +342,46 @@ export const joinPresentationSession = async (joinCode: string, userId: string):
 
 // Update current slide for a session
 export const updateSessionSlide = async (sessionId: string, slideIndex: number): Promise<boolean> => {
-  const { error } = await supabase
-    .from('presentation_sessions')
-    .update({ current_slide: slideIndex })
-    .eq('id', sessionId);
-    
-  return !error;
+  try {
+    // First update the session's current slide
+    const { error: sessionError } = await supabase
+      .from('presentation_sessions')
+      .update({ current_slide: slideIndex })
+      .eq('id', sessionId);
+
+    if (sessionError) {
+      console.error('Error updating session slide:', sessionError);
+      return false;
+    }
+
+    // Check if the session is in sync mode
+    const { data: sessionData } = await supabase
+      .from('presentation_sessions')
+      .select('is_synced')
+      .eq('id', sessionId)
+      .single();
+
+    // If in sync mode, update all participants to match the new slide position
+    if (sessionData?.is_synced) {
+      const { error: participantsError } = await supabase
+        .from('session_participants')
+        .update({ 
+          current_slide: slideIndex,
+          last_active_at: new Date().toISOString()
+        })
+        .eq('session_id', sessionId);
+
+      if (participantsError) {
+        console.error('Error updating participants slide:', participantsError);
+        return false;
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in updateSessionSlide:', error);
+    return false;
+  }
 };
 
 // Update student's current slide

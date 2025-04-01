@@ -53,8 +53,9 @@ export function useRealTimeSync<T extends Record<string, any>>(
       
       let query = supabase
         .from(tableName)
-        .select('*')
-        .eq(filterColumn, filterValue);
+        .select('*') as any;
+
+      query = query.eq(filterColumn, filterValue);
       
       // Apply additional filters if provided
       if (options?.additionalFilters) {
@@ -205,8 +206,9 @@ export function useRealTimeCollection<T extends Record<string, any>>(
     try {
       let query = supabase
         .from(tableName)
-        .select('*')
-        .eq(filterColumn, filterValue);
+        .select('*') as any;
+
+      query = query.eq(filterColumn, filterValue);
       
       if (orderBy) {
         query = query.order(orderBy);
@@ -230,7 +232,25 @@ export function useRealTimeCollection<T extends Record<string, any>>(
           // Only update if data actually changed - prevents needless renders
           const dataChanged = JSON.stringify(typedData) !== JSON.stringify(data);
           if (dataChanged) {
-            setData(typedData);
+            // Merge with existing data to preserve student positions
+            if (tableName === 'session_participants') {
+              setData(prevData => {
+                // Create a map of existing data by user_id
+                const existingDataMap = new Map(
+                  prevData.map(item => [(item as any).user_id, item])
+                );
+                
+                // Always use the new data for session participants
+                typedData.forEach(newItem => {
+                  existingDataMap.set((newItem as any).user_id, newItem);
+                });
+                
+                // Convert map back to array
+                return Array.from(existingDataMap.values());
+              });
+            } else {
+              setData(typedData);
+            }
           }
         } else {
           // If we get empty results, only increment counter but don't change UI
@@ -289,25 +309,31 @@ export function useRealTimeCollection<T extends Record<string, any>>(
           filter: `${filterColumn}=eq.${filterValue}`
         },
         (payload) => {
-          // More selective about which events trigger refreshes
-          if (payload.eventType === 'INSERT') {
-            // For inserts, we could just add the new record without a full refresh
-            // But for now, just debounce to limit API calls
-            debouncedRefresh();
-          } else if (payload.eventType === 'UPDATE') {
-            // For updates, we could update just the specific record
-            // But for now, just debounce to limit API calls
-            debouncedRefresh();
-          } else if (payload.eventType === 'DELETE') {
-            // For deletes, we could remove just the specific record
-            // But for now, just debounce to limit API calls
+          if (tableName === 'session_participants') {
+            // For session participants, handle updates immediately
+            if (payload.eventType === 'UPDATE') {
+              setData(prevData => {
+                return prevData.map(item => {
+                  if ((item as any).user_id === (payload.new as any).user_id) {
+                    // Always apply updates for session participants
+                    return { ...item, ...payload.new };
+                  }
+                  return item;
+                });
+              });
+            } else {
+              // For other events, use the debounced refresh
+              debouncedRefresh();
+            }
+          } else {
+            // For other tables, use the default behavior
             debouncedRefresh();
           }
         }
       )
       .subscribe();
 
-    // Set up a very conservative polling interval (significantly longer)
+    // Set up a very conservative polling interval
     const pollingInterval = setInterval(() => {
       // Only poll if we're not already refreshing and it's been at least 10 seconds
       const now = Date.now();

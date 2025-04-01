@@ -165,7 +165,7 @@ export interface StudentProgress {
   studentName: string;
   studentClass?: string; // Add student class information
   lessonId: string;
-  currentSlide: string;
+  currentSlide: number;  // Explicitly typed as number
   completedBlocks: string[];
   responses: StudentResponse[];
 }

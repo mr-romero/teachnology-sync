@@ -392,12 +392,18 @@ const LessonPresentation: React.FC = () => {
         const studentName = userData?.full_name || `Student ${participant.user_id.substring(0, 5)}`;
         const studentClass = userData?.class;
         
+        console.log(`Processing student ${studentName}:`, {
+          current_slide: participant.current_slide,
+          participant_data: participant
+        });
+        
         return {
           studentId: participant.user_id,
           studentName: studentName,
           studentClass: studentClass,
           lessonId: lessonId || '',
-          currentSlide: participant.current_slide.toString(),
+          // Fix: Ensure we're using the correct slide number from participant data
+          currentSlide: Number(participant.current_slide),
           completedBlocks: studentAnswers.map(answer => answer.content_id),
           responses: studentAnswers.map(answer => ({
             studentId: answer.user_id,
@@ -1016,7 +1022,7 @@ const LessonPresentation: React.FC = () => {
                           {anonymousMode ? `Student ${index + 1}` : student.studentName}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          Slide {parseInt(student.currentSlide) + 1}
+                          Slide {student.currentSlide + 1}
                         </span>
                       </div>
                     ))}
