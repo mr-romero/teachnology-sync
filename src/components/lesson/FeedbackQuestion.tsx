@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FeedbackQuestionBlock, QuestionBlock } from '@/types/lesson';
+import { FeedbackQuestionBlock } from '@/types/lesson';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,12 +12,7 @@ import ReactMarkdown from 'react-markdown';
 import ImageViewer from './ImageViewer';
 import AIChat from './AIChat';  // Add AIChat import
 import { cn } from '@/lib/utils';
-
-// Re-enable LaTeX-related imports
-import remarkMath from 'remark-math';
-import rehypeKatex from 'rehype-katex';
-import 'katex/dist/katex.min.css';
-import './katex-custom.css'; // Import our custom KaTeX styles
+import MathDisplay from './MathDisplay';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -35,6 +30,76 @@ const preprocessContent = (content: string): string => {
     // This makes the delimiters more explicit and less prone to misinterpretation
     .replace(/\$\$(.*?)\$\$/g, '\\[$1\\]')
     .replace(/\$(.*?)\$/g, '\\($1\\)');
+};
+
+// Helper function to parse latex expressions from markdown
+const parseLatexExpressions = (text: string): { text: string, isLatex: boolean }[] => {
+  const parts: { text: string, isLatex: boolean }[] = [];
+  let currentText = '';
+  let isInLatex = false;
+  let i = 0;
+
+  while (i < text.length) {
+    if (text.slice(i, i + 2) === '\\[' || text.slice(i, i + 2) === '\\(') {
+      if (currentText) {
+        parts.push({ text: currentText, isLatex: false });
+        currentText = '';
+      }
+      const closer = text.slice(i, i + 2) === '\\[' ? '\\]' : '\\)';
+      const display = text.slice(i, i + 2) === '\\[';
+      i += 2;
+      let latex = '';
+      while (i < text.length && text.slice(i, i + 2) !== closer) {
+        latex += text[i];
+        i++;
+      }
+      if (i < text.length) {
+        parts.push({ text: latex, isLatex: true });
+        i += 2;
+      }
+    } else {
+      currentText += text[i];
+      i++;
+    }
+  }
+  
+  if (currentText) {
+    parts.push({ text: currentText, isLatex: false });
+  }
+  
+  return parts;
+};
+
+// Custom renderer for ReactMarkdown that uses MathDisplay for math content
+const MarkdownWithMath = ({ content }: { content: string }) => {
+  const parts = parseLatexExpressions(content);
+  
+  return (
+    <div className="space-y-2">
+      {parts.map((part, index) => 
+        part.isLatex ? (
+          <MathDisplay key={index} latex={part.text} className="inline-block" />
+        ) : (
+          <ReactMarkdown key={index} components={{
+            p: ({node, ...props}) => <p className="mb-2" {...props} />,
+            h3: ({node, ...props}) => <h3 className="text-base font-bold mt-3 mb-1" {...props} />,
+            h4: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1" {...props} />,
+            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
+            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
+            li: ({node, ...props}) => <li className="ml-2" {...props} />,
+            a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} />,
+            blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-gray-300 pl-2 italic my-2" {...props} />,
+            code: ({className, ...props}: any) => 
+              className?.includes('inline') 
+                ? <code className="bg-gray-100 rounded px-1 py-0.5" {...props} /> 
+                : <pre className="bg-gray-100 p-2 rounded overflow-x-auto my-2"><code {...props} /></pre>
+          }}>
+            {part.text}
+          </ReactMarkdown>
+        )
+      )}
+    </div>
+  );
 };
 
 interface FeedbackQuestionProps {
@@ -598,43 +663,7 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
                   >
                     {message.role === 'assistant' ? (
                       <div className="text-sm markdown-content">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkMath]}
-                          rehypePlugins={[
-                            [
-                              rehypeKatex, 
-                              {
-                                trust: true,
-                                strict: false,
-                                output: 'html',
-                                throwOnError: false,
-                                errorColor: '#cc0000',
-                                delimiters: [
-                                  { left: '\\(', right: '\\)', display: false },
-                                  { left: '\\[', right: '\\]', display: true },
-                                  { left: '\\boxed{', right: '}', display: false }
-                                ]
-                              }
-                            ]
-                          ]}
-                          components={{
-                            p: ({node, ...props}) => <p className="mb-2" {...props} />,
-                            h3: ({node, ...props}) => <h3 className="text-base font-bold mt-3 mb-1" {...props} />,
-                            h4: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1" {...props} />,
-                            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
-                            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
-                            li: ({node, ...props}) => <li className="ml-2" {...props} />,
-                            a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} />,
-                            blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-gray-300 pl-2 italic my-2" {...props} />,
-                            code: ({node, className, ...props}: any) => 
-                              className?.includes('inline') 
-                                ? <code className="bg-gray-100 rounded px-1 py-0.5" {...props} /> 
-                                : <pre className="bg-gray-100 p-2 rounded overflow-x-auto my-2"><code {...props} /></pre>
-                          }}
-                        >
-                          {/* Preprocess content for proper LaTeX rendering */}
-                          {preprocessContent(message.content)}
-                        </ReactMarkdown>
+                        <MarkdownWithMath content={preprocessContent(message.content)} />
                       </div>
                     ) : (
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>

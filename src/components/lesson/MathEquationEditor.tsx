@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Trash, GripVertical, Plus, Check, X } from 'lucide-react';
+import { Trash, GripVertical, Plus } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -13,158 +13,182 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { addStyles, EditableMathField } from 'react-mathquill';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-interface MathFieldOptions {
-  spaceBehavesLikeTab?: boolean;
-  leftRightIntoCmdGoes?: string;
-  restrictMismatchedBrackets?: boolean;
-  sumStartsWithNEquals?: boolean;
-  supSubsRequireOperand?: boolean;
-  charsThatBreakOutOfSupSub?: string;
-  autoSubscriptNumerals?: boolean;
-  autoCommands?: string;
-  autoOperatorNames?: string;
-  maxDepth?: number;
-  handlers?: any;
-}
+// Initialize MathQuill styles
+addStyles();
 
 interface MathEquationEditorProps {
-  initialLatex?: string;
-  onChange: (latex: string) => void;
-  placeholder?: string;
+  initialValue?: string;
+  onChange?: (latex: string) => void;
   className?: string;
-  autofocus?: boolean;
-  mathFieldOptions?: MathFieldOptions;
+  label?: string;
+  placeholder?: string;
 }
 
 const MathEquationEditor: React.FC<MathEquationEditorProps> = ({
-  initialLatex = '',
+  initialValue = '',
   onChange,
-  placeholder = 'Enter equation',
   className,
-  autofocus = false,
-  mathFieldOptions = {}
+  label,
+  placeholder = 'Click here to edit equation...'
 }) => {
-  const [isSetup, setIsSetup] = useState(false);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const mathFieldRef = useRef<any>(null);
-  const latexRef = useRef<string>(initialLatex);
-  const onChangeRef = useRef<(latex: string) => void>(onChange);
+  const [latex, setLatex] = useState(initialValue);
+  const mathFieldRef = useRef(null);
 
-  // Update refs when props change
-  useEffect(() => {
-    latexRef.current = initialLatex;
-    onChangeRef.current = onChange;
-  }, [initialLatex, onChange]);
+  const handleChange = (mathField: any) => {
+    const newLatex = mathField.latex();
+    setLatex(newLatex);
+    onChange?.(newLatex);
+  };
 
-  useEffect(() => {
-    const loadMathQuill = async () => {
-      if (!window.MathQuill) {
-        // Load MathQuill CSS
-        if (!document.querySelector('link[href*="mathquill.css"]')) {
-          const mathquillCss = document.createElement('link');
-          mathquillCss.rel = 'stylesheet';
-          mathquillCss.href = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css';
-          document.head.appendChild(mathquillCss);
-        }
-
-        // Load jQuery (required by MathQuill)
-        if (!window.jQuery) {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js';
-          script.async = true;
-          await new Promise((resolve) => {
-            script.onload = resolve;
-            document.body.appendChild(script);
-          });
-        }
-
-        // Load MathQuill
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.min.js';
-        script.async = true;
-        await new Promise((resolve) => {
-          script.onload = resolve;
-          document.body.appendChild(script);
-        });
-      }
-
-      setupMathField();
-    };
-
-    const setupMathField = () => {
-      if (!editorRef.current || !window.MathQuill) return;
-
-      const MQ = window.MathQuill.getInterface(2);
-      
-      // Merge default options with provided options
-      const options = {
-        spaceBehavesLikeTab: true,
-        leftRightIntoCmdGoes: 'up',
-        restrictMismatchedBrackets: true,
-        sumStartsWithNEquals: true,
-        supSubsRequireOperand: true,
-        autoCommands: 'pi theta sqrt sum int',
-        autoOperatorNames: 'sin cos tan',
-        ...mathFieldOptions,
-        handlers: {
-          edit: (mathField: any) => {
-            const latex = mathField.latex();
-            // Use ref to avoid dependency on onChange
-            if (latex !== latexRef.current) {
-              latexRef.current = latex;
-              onChangeRef.current(latex);
-            }
-          },
-          ...(mathFieldOptions.handlers || {})
-        }
-      };
-
-      // Create the math field
-      mathFieldRef.current = MQ.MathField(editorRef.current, options);
-      
-      // Set initial value
-      if (latexRef.current) {
-        mathFieldRef.current.latex(latexRef.current);
-      }
-
-      // Focus if specified
-      if (autofocus) {
-        mathFieldRef.current.focus();
-      }
-
-      setIsSetup(true);
-    };
-
-    loadMathQuill();
-
-    return () => {
-      // Clean up if needed
-      setIsSetup(false);
-    };
-  }, []); // Empty dependency array - only run once on mount
-
-  // Update latex when initialLatex prop changes but don't include it as a dependency
-  useEffect(() => {
-    if (isSetup && mathFieldRef.current && initialLatex !== mathFieldRef.current.latex()) {
-      // Only update if different to avoid loops
-      mathFieldRef.current.latex(initialLatex);
+  const insertSymbol = (symbol: string) => {
+    if (mathFieldRef.current) {
+      const mathField = mathFieldRef.current as any;
+      mathField.cmd(symbol);
+      mathField.focus();
     }
-  }, [initialLatex, isSetup]);
+  };
+
+  const commonSymbols = [
+    { label: '+', cmd: 'plus' },
+    { label: '−', cmd: 'minus' },
+    { label: '×', cmd: 'times' },
+    { label: '÷', cmd: 'div' },
+    { label: '=', cmd: '=' },
+    { label: '≠', cmd: 'neq' },
+    { label: '<', cmd: 'lt' },
+    { label: '>', cmd: 'gt' },
+    { label: '≤', cmd: 'le' },
+    { label: '≥', cmd: 'ge' },
+    { label: '±', cmd: 'pm' },
+    { label: '∞', cmd: 'infinity' },
+  ];
+
+  const functions = [
+    { label: 'sin', cmd: 'sin' },
+    { label: 'cos', cmd: 'cos' },
+    { label: 'tan', cmd: 'tan' },
+    { label: 'log', cmd: 'log' },
+    { label: 'ln', cmd: 'ln' },
+    { label: '√', cmd: 'sqrt' },
+    { label: 'π', cmd: 'pi' },
+    { label: 'θ', cmd: 'theta' },
+  ];
+
+  const structures = [
+    { label: 'x²', cmd: '^2' },
+    { label: 'x³', cmd: '^3' },
+    { label: 'xⁿ', cmd: '^n' },
+    { label: '∫', cmd: 'int' },
+    { label: '∑', cmd: 'sum' },
+    { label: '∏', cmd: 'prod' },
+    { label: 'ⁿ√', cmd: 'nthroot' },
+    { label: 'ᵤ∫ᵥ', cmd: 'defint' },
+  ];
 
   return (
-    <div 
-      className={cn(
-        "p-2 border rounded-md min-h-[38px] focus-within:ring-1 focus-within:ring-ring",
-        className
+    <div className={cn("space-y-2", className)}>
+      {label && (
+        <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          {label}
+        </label>
       )}
-      data-testid="math-equation-editor"
-    >
-      <div 
-        ref={editorRef} 
-        className="w-full"
-        data-placeholder={placeholder}
-      />
+      
+      <div className="flex flex-col space-y-4">
+        {/* Main editor field */}
+        <div className="border rounded-md p-3 bg-white">
+          <EditableMathField
+            mathquillDidMount={field => mathFieldRef.current = field}
+            latex={latex}
+            onChange={handleChange}
+            config={{
+              spaceBehavesLikeTab: true,
+              leftRightIntoCmdGoes: 'up',
+              restrictMismatchedBrackets: true,
+              sumStartsWithNEquals: true,
+              supSubsRequireOperand: true,
+              autoSubscriptNumerals: true,
+              autoCommands: 'pi theta sqrt sum prod int',
+              maxDepth: 10,
+            }}
+            className="w-full min-h-[60px] focus:outline-none"
+          />
+        </div>
+
+        {/* Symbols toolbar */}
+        <ScrollArea className="h-[200px] border rounded-md p-2">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium mb-2">Common Symbols</h3>
+              <div className="grid grid-cols-6 gap-1">
+                {commonSymbols.map((symbol, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertSymbol(symbol.cmd)}
+                    className="h-8"
+                  >
+                    {symbol.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium mb-2">Functions</h3>
+              <div className="grid grid-cols-6 gap-1">
+                {functions.map((func, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertSymbol(func.cmd)}
+                    className="h-8"
+                  >
+                    {func.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-medium mb-2">Structures</h3>
+              <div className="grid grid-cols-6 gap-1">
+                {structures.map((structure, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => insertSymbol(structure.cmd)}
+                    className="h-8"
+                  >
+                    {structure.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+
+        {/* LaTeX preview */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">LaTeX Output</label>
+          <Input
+            value={latex}
+            onChange={(e) => {
+              setLatex(e.target.value);
+              if (mathFieldRef.current) {
+                (mathFieldRef.current as any).latex(e.target.value);
+              }
+            }}
+            placeholder="LaTeX code will appear here"
+            className="font-mono text-sm"
+          />
+        </div>
+      </div>
     </div>
   );
 };
@@ -293,14 +317,10 @@ const EquationList: React.FC<EquationListProps> = ({
               <div className="space-y-2">
                 <MathEquationEditor
                   key={`eq-${equation.id}`}
-                  initialLatex={equation.latex}
+                  initialValue={equation.latex}
                   onChange={(latex) => updateEquation(index, 'latex', latex)}
                   placeholder="Enter equation (e.g., y = x^2 + 2)"
                   className="bg-background"
-                  mathFieldOptions={{
-                    autoCommands: 'pi theta phi sqrt sum prod int',
-                    autoOperatorNames: 'sin cos tan csc sec cot ln log'
-                  }}
                 />
                 
                 <div className="flex gap-2">
