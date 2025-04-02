@@ -1,3 +1,6 @@
+// Import BlockConnection from our new manager
+import { BlockConnection } from '@/components/lesson/BlockConnectionManager';
+
 export type QuestionType = 'multiple-choice' | 'free-response' | 'true-false';
 
 export interface BaseBlock {
@@ -79,7 +82,28 @@ export interface AIChatBlock extends BaseBlock {
   maxTokens?: number;
 }
 
-export type LessonBlock = TextBlock | ImageBlock | QuestionBlock | GraphBlock | AIChatBlock;
+// New combo block type that combines question with AI chat feedback
+export interface FeedbackQuestionBlock extends BaseBlock {
+  type: 'feedback-question';
+  questionText: string;
+  questionType: QuestionType;
+  options?: string[];
+  correctAnswer?: string | number | boolean;
+  optionStyle?: 'A-D' | 'F-J' | 'text'; // Add option style for multiple choice questions
+  imageUrl?: string;
+  imageAlt?: string;
+  imageStoragePath?: string;
+  feedbackInstructions: string;
+  feedbackSystemPrompt: string;
+  feedbackSentenceStarters?: string[];
+  apiEndpoint?: string;
+  apiKey?: string;
+  modelName?: string;
+  repetitionPrevention?: string;
+  maxTokens?: number;
+}
+
+export type LessonBlock = TextBlock | ImageBlock | QuestionBlock | GraphBlock | AIChatBlock | FeedbackQuestionBlock;
 
 // Define a string for formatting guidance that can be appended to prompts
 export const MATH_FORMATTING_GUIDE = `
@@ -119,6 +143,7 @@ export interface LessonSlide {
   title: string;
   blocks: LessonBlock[];
   layout?: SlideLayout; // Optional layout configuration
+  connections?: BlockConnection[];  // Add connections array to store block relationships
 }
 
 // Updated slide layout interface with grid-based positioning

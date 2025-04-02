@@ -12,7 +12,7 @@ interface ImageUploaderProps {
   onImageUploaded: (url: string, path: string) => void;
   existingUrl?: string;
   existingAlt?: string;
-  onUpdateAlt: (alt: string) => void;
+  onUpdateAlt?: (alt: string) => void; // Make this prop optional
 }
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({
@@ -90,7 +90,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
       if (!altText) {
         const suggestedAlt = file.name.split('.')[0].replace(/[_-]/g, ' ');
         setAltText(suggestedAlt);
-        onUpdateAlt(suggestedAlt);
+        onUpdateAlt?.(suggestedAlt);
       }
 
       toast({
@@ -119,7 +119,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
   const handleAltTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAltText(e.target.value);
-    onUpdateAlt(e.target.value);
+    onUpdateAlt?.(e.target.value);
   };
 
   const clearImage = () => {

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LessonSlide, LessonBlock, QuestionBlock, GridSpan, GraphBlock } from '@/types/lesson';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Pause, BookOpen } from 'lucide-react';
+import { Pause, BookOpen, Sparkles } from 'lucide-react';
 import ImageViewer from './ImageViewer';
 import AIChat from './AIChat';
 import GraphRenderer from './GraphRenderer';
@@ -13,6 +13,8 @@ import CalculatorButton from './CalculatorButton';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import FeedbackQuestion from './FeedbackQuestion';
+import { BlockConnection } from './BlockConnectionManager';
 
 // Define a grid position type to match the editor
 interface GridPosition {
@@ -34,6 +36,43 @@ interface LessonSlideViewProps {
   isPreviewMode?: boolean; // Add this prop
 }
 
+const ConnectionLine = ({ sourcePosition, targetPosition }: { 
+  sourcePosition: { left: number, top: number, width: number, height: number },
+  targetPosition: { left: number, top: number, width: number, height: number }
+}) => {
+  // Calculate line points
+  const sourceX = sourcePosition.left + sourcePosition.width;
+  const sourceY = sourcePosition.top + sourcePosition.height / 2;
+  const targetX = targetPosition.left;
+  const targetY = targetPosition.top + targetPosition.height / 2;
+  
+  return (
+    <div 
+      className="absolute z-10 pointer-events-none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: '100%',
+        height: '100%',
+        zIndex: 5,
+      }}
+    >
+      <svg width="100%" height="100%" style={{ position: 'absolute', overflow: 'visible' }}>
+        <path
+          d={`M ${sourceX} ${sourceY} C ${sourceX + 50} ${sourceY}, ${targetX - 50} ${targetY}, ${targetX} ${targetY}`}
+          fill="none"
+          stroke="rgb(124, 58, 237)"
+          strokeWidth="2"
+          strokeDasharray="4,2"
+        />
+        <circle cx={sourceX} cy={sourceY} r="3" fill="rgb(124, 58, 237)" />
+        <circle cx={targetX} cy={targetY} r="3" fill="rgb(124, 58, 237)" />
+      </svg>
+    </div>
+  );
+};
+
 const LessonSlideView: React.FC<LessonSlideViewProps> = ({ 
   slide, 
   isStudentView = false,
@@ -48,6 +87,8 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   isPreviewMode = false // Add default value
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
+  const blockRefsMap = useRef<Record<string, HTMLElement | null>>({});
+  const [connectionLines, setConnectionLines] = useState<React.ReactNode[]>([]);
   
   const studentCanRespond = isStudentView && !answeredBlocks.length && !isPreviewMode;
   
@@ -82,6 +123,10 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   const handleSubmitResponse = (blockId: string) => {
     if (onAnswerSubmit && blockId in responses) {
       onAnswerSubmit(blockId, responses[blockId]);
+      // For preview mode, also update local state to trigger feedback
+      if (isPreviewMode) {
+        setAnsweredBlocks(prev => [...prev, blockId]);
+      }
     } else if (onResponseSubmit && blockId in responses) {
       onResponseSubmit(blockId, responses[blockId]);
     }
@@ -103,13 +148,19 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     switch (block.type) {
       case 'text':
         return (
-          <div className="prose max-w-none">
+          <div 
+            className="prose max-w-none"
+            ref={el => registerBlockRef(block.id, el)}
+          >
             {block.content}
           </div>
         );
       case 'image':
         return (
-          <div className="my-4 flex justify-center">
+          <div 
+            className="my-4 flex justify-center"
+            ref={el => registerBlockRef(block.id, el)}
+          >
             <ImageViewer 
               src={block.url} 
               alt={block.alt} 
@@ -131,6 +182,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               display: 'flex', 
               flexDirection: 'column'
             }}
+            ref={el => registerBlockRef(block.id, el)}
           >
             <GraphRenderer 
               block={block as GraphBlock} 
@@ -142,9 +194,28 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
         );
       case 'ai-chat':
         return (
-          <div className="my-4">
+          <div 
+            className="my-4"
+            ref={el => registerBlockRef(block.id, el)}
+          >
             <AIChat 
               block={block}
+              isStudentView={isStudentView}
+              studentId={studentId}
+              isPaused={isPaused}
+              onAnswerSubmit={onAnswerSubmit}
+              isAnswered={answeredBlocks.includes(block.id)}
+            />
+          </div>
+        );
+      case 'feedback-question':
+        return (
+          <div 
+            className="my-4"
+            ref={el => registerBlockRef(block.id, el)}
+          >
+            <FeedbackQuestion
+              block={block as FeedbackQuestionBlock}
               isStudentView={isStudentView}
               studentId={studentId}
               isPaused={isPaused}
@@ -236,13 +307,54 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
 
   // Rendering for question blocks
   const renderQuestionBlock = (block: QuestionBlock) => {
-    // ... existing code for rendering questions remains unchanged
     const studentCanRespond = isStudentView && studentId;
     const isAnswered = answeredBlocks.includes(block.id);
     
+    // Create a component to render AI Feedback when in preview mode and question is answered
+    const renderAIFeedback = () => {
+      if (isPreviewMode && isAnswered) {
+        return (
+          <div className="mt-4 border-t pt-4">
+            <AIChat 
+              block={{
+                id: `ai-feedback-${block.id}`,
+                type: 'ai-chat',
+                instructions: 'Here is feedback on your answer.',
+                systemPrompt: block.type === 'feedback-question' 
+                  ? (block as FeedbackQuestionBlock).feedbackSystemPrompt 
+                  : 'You are a helpful AI tutor. Provide clear, encouraging feedback.',
+                apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+                modelName: 'openai/gpt-4'  // Using GPT-4 for better image understanding
+              }}
+              isStudentView={true}
+              studentId={studentId}
+              isPaused={isPaused}
+              isAnswered={true}
+              isPreviewMode={true}
+              questionContext={{
+                question: block.type === 'feedback-question' 
+                  ? (block as FeedbackQuestionBlock).questionText 
+                  : block.question,
+                studentAnswer: responses[block.id] as string,
+                correctAnswer: block.correctAnswer as string,
+                questionType: block.questionType,
+                imageUrl: block.type === 'feedback-question' 
+                  ? (block as FeedbackQuestionBlock).imageUrl 
+                  : undefined
+              }}
+            />
+          </div>
+        );
+      }
+      return null;
+    };
+    
     if (block.questionType === 'multiple-choice') {
       return (
-        <div className="my-4 p-4 bg-primary/5 rounded-md relative">
+        <div 
+          className="my-4 p-4 bg-primary/5 rounded-md relative"
+          ref={el => registerBlockRef(block.id, el)}
+        >
           <p className="font-medium mb-3">{block.question}</p>
           
           {studentCanRespond ? (
@@ -290,13 +402,18 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               ))}
             </ul>
           )}
+          
+          {renderAIFeedback()}
         </div>
       );
     }
     
     if (block.questionType === 'true-false') {
       return (
-        <div className="my-4 p-4 bg-primary/5 rounded-md relative">
+        <div 
+          className="my-4 p-4 bg-primary/5 rounded-md relative"
+          ref={el => registerBlockRef(block.id, el)}
+        >
           <p className="font-medium mb-3">{block.question}</p>
           
           {studentCanRespond ? (
@@ -361,13 +478,18 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               </div>
             </div>
           )}
+          
+          {renderAIFeedback()}
         </div>
       );
     }
     
     if (block.questionType === 'free-response') {
       return (
-        <div className="my-4 p-4 bg-primary/5 rounded-md relative">
+        <div 
+          className="my-4 p-4 bg-primary/5 rounded-md relative"
+          ref={el => registerBlockRef(block.id, el)}
+        >
           <p className="font-medium mb-3">{block.question}</p>
           
           {studentCanRespond ? (
@@ -399,6 +521,8 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               )}
             </div>
           )}
+          
+          {renderAIFeedback()}
         </div>
       );
     }
@@ -566,9 +690,115 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     }
     return null;
   };
-  
+
+  // Optimized ref registration to avoid state updates on every render
+  const registerBlockRef = useCallback((blockId: string, element: HTMLElement | null) => {
+    if (element) {
+      blockRefsMap.current[blockId] = element;
+    }
+  }, []);
+
+  // Update connections when slide changes or after rendering is complete
+  useEffect(() => {
+    if (!slide.connections || !slide.connections.length) return;
+    
+    // Use requestAnimationFrame to ensure all blocks are rendered before calculating positions
+    const animationFrameId = requestAnimationFrame(() => {
+      const newConnectionLines: React.ReactNode[] = [];
+      
+      slide.connections.forEach((connection, index) => {
+        const sourceElement = blockRefsMap.current[connection.sourceId];
+        const targetElement = blockRefsMap.current[connection.targetId];
+        
+        if (sourceElement && targetElement) {
+          const sourceRect = sourceElement.getBoundingClientRect();
+          const targetRect = targetElement.getBoundingClientRect();
+          const slideContainer = sourceElement.closest('.slide-container');
+          
+          if (slideContainer) {
+            const containerRect = slideContainer.getBoundingClientRect();
+            
+            // Calculate positions relative to the slide container
+            const sourcePosition = {
+              left: sourceRect.left - containerRect.left,
+              top: sourceRect.top - containerRect.top,
+              width: sourceRect.width,
+              height: sourceRect.height
+            };
+            
+            const targetPosition = {
+              left: targetRect.left - containerRect.left,
+              top: targetRect.top - containerRect.top,
+              width: targetRect.width,
+              height: targetRect.height
+            };
+            
+            newConnectionLines.push(
+              <ConnectionLine 
+                key={`connection-${connection.sourceId}-${connection.targetId}`}
+                sourcePosition={sourcePosition}
+                targetPosition={targetPosition}
+              />
+            );
+          }
+        }
+      });
+      
+      setConnectionLines(newConnectionLines);
+    });
+    
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [slide.connections, slide.id]); // Only depend on connections and slide ID, not blockRefs
+
+  function renderAssistantBlock(lesson: Lesson, currentSlideIndex: number) {
+    if (!lesson.settings?.enableLearningAssistant) return null;
+    
+    // Create a unique block ID for the assistant
+    const assistantBlockId = `assistant-${lesson.id}-${lesson.slides[currentSlideIndex].id}`;
+    
+    // Create an AI chat block for the assistant
+    const assistantBlock: AIChatBlock = {
+      id: assistantBlockId,
+      type: 'ai-chat',
+      instructions: "Ask any questions about this lesson or topic to get personalized help.",
+      systemPrompt: `You are a helpful learning assistant for this educational lesson. 
+      The student is currently viewing slide ${currentSlideIndex + 1} of the lesson titled "${lesson.title}".
+      Your job is to help them understand the content, answer their questions, and provide additional examples if needed.
+      Be supportive, encouraging, and explain concepts at an appropriate level. Use LaTeX for mathematical notation.`,
+      sentenceStarters: [
+        "Can you explain this concept?",
+        "I don't understand...",
+        "Can you give another example?",
+        "How is this used in real life?"
+      ],
+      modelName: "openai/gpt-4",
+      repetitionPrevention: "Avoid repeating the same explanations. If the student asks similar questions, provide new examples or different approaches to explain the concept."
+    };
+    
+    return (
+      <div className="bg-white border rounded-md overflow-hidden shadow-sm">
+        <div className="border-b bg-primary/5 px-4 py-2">
+          <h3 className="font-medium text-sm flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            Learning Assistant
+          </h3>
+        </div>
+        <div className="p-0">
+          <AIChat 
+            block={assistantBlock}
+            isStudentView={true}
+            isPaused={false}
+            isPreviewMode={false}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="relative">
+    <div className="relative slide-container">
       {/* Student info badge */}
       {renderStudentInfo()}
       
@@ -597,6 +827,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
             minHeight: gridSize.rows * 200 + 'px'
           }}
         >
+          {connectionLines}
           {slide.blocks.map((block) => {
             const position = getBlockPosition(block.id);
             const blockSpan = getBlockSpan(block.id);

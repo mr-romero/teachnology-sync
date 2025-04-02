@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getImageAsBase64 } from "./imageService";
 
 /**
  * Interface for OpenRouter.ai request parameters
@@ -157,13 +158,25 @@ export const saveAPIKey = async (
   }
 };
 
+// Define types for content items in messages
+type ContentItem = 
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+// Define message types that can have either string or array content
+type Message = {
+  role: 'system' | 'user' | 'assistant';
+  content: string | ContentItem[];
+};
+
 interface FetchChatCompletionParams {
-  messages: { role: string; content: string }[];
+  messages: Message[];
   model?: string;
   temperature?: number;
   endpoint?: string;
   apiKey?: string;
   maxTokens?: number;
+  imageUrl?: string;  // Add imageUrl parameter
 }
 
 /**
@@ -171,14 +184,14 @@ interface FetchChatCompletionParams {
  */
 export async function fetchChatCompletion({
   messages,
-  model = 'openai/gpt-3.5-turbo',
+  model = 'openai/gpt-4',  // Default to GPT-4 for better image understanding
   temperature = 0.7,
   endpoint = 'https://openrouter.ai/api/v1/chat/completions',
   apiKey,
-  maxTokens = 1000
+  maxTokens = 1000,
+  imageUrl
 }: FetchChatCompletionParams): Promise<string | null> {
   try {
-    // Get API key from environment if not provided
     const key = apiKey || process.env.REACT_APP_OPENROUTER_API_KEY || '';
     
     if (!key) {
@@ -188,12 +201,130 @@ export async function fetchChatCompletion({
     
     console.log(`Making request to ${endpoint} with model ${model}, max tokens: ${maxTokens}`);
     
-    const requestBody = {
+    // Process messages to include image if provided
+    let processedMessages = [...messages];
+    let base64Image: string | null = null;
+    
+    if (imageUrl) {
+      console.log('Processing image for LLM:', imageUrl);
+      
+      // Convert image to base64
+      base64Image = await getImageAsBase64(imageUrl);
+      
+      if (!base64Image) {
+        console.error('Failed to convert image to base64');
+      } else {
+        console.log('Successfully converted image to base64');
+        
+        // Create a structured message with the image
+        // Format depends on the model and endpoint
+        if (endpoint.includes('openrouter.ai')) {
+          // For OpenRouter with GPT-4o-mini
+          // Find the first user message to add the image to
+          const userMessageIndex = processedMessages.findIndex(msg => msg.role === 'user');
+          
+          if (userMessageIndex !== -1) {
+            // Add image to the first user message
+            const userMsg = processedMessages[userMessageIndex];
+            
+            // Create a content array with text and image
+            processedMessages[userMessageIndex] = {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `This is a math problem shown in the image. ${userMsg.content}`
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: base64Image
+                  }
+                }
+              ]
+            };
+          } else {
+            // If no user message found, add a new one with the image
+            processedMessages.push({
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Please analyze this math problem shown in the image:'
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: base64Image
+                  }
+                }
+              ]
+            });
+          }
+          
+          // Add image analysis instructions to system message
+          const systemInstructions = `
+You are analyzing a math problem shown in an image. 
+When providing feedback:
+1. First describe what you see in the image (the math problem)
+2. Analyze if the student's answer is correct
+3. Provide a detailed explanation of the solution
+4. Format your response as a JSON object with these fields:
+   - image_content: description of the math problem in the image
+   - question: the question that was asked
+   - student_answer: what the student answered
+   - correct_answer: the correct answer
+   - explanation: detailed explanation of how to solve it
+   - is_correct: boolean indicating if student was correct
+5. After the JSON, provide helpful feedback to the student
+6. Offer to create a similar practice problem if they want more practice`;
+          
+          // Find system message or add one
+          const sysIndex = processedMessages.findIndex(msg => msg.role === 'system');
+          if (sysIndex !== -1) {
+            processedMessages[sysIndex].content += `\n\n${systemInstructions}`;
+          } else {
+            processedMessages.unshift({
+              role: 'system',
+              content: systemInstructions
+            });
+          }
+        }
+      }
+    }
+    
+    // Prepare the request body
+    const requestBody: any = {
       model: model,
-      messages: messages,
+      messages: processedMessages,
       temperature: temperature,
       max_tokens: maxTokens
     };
+    
+    // For OpenRouter, add response format for structured output
+    if (endpoint.includes('openrouter.ai') && imageUrl) {
+      requestBody.response_format = { type: "text" };
+    }
+    
+    // Log the request for debugging (without the full base64 string)
+    const debugRequestBody = { ...requestBody };
+    if (base64Image && debugRequestBody.messages) {
+      debugRequestBody.messages = debugRequestBody.messages.map((msg: any) => {
+        if (Array.isArray(msg.content)) {
+          return {
+            ...msg,
+            content: msg.content.map((item: any) => {
+              if (item.type === 'image_url') {
+                return { ...item, image_url: { url: '[BASE64_IMAGE]' } };
+              }
+              return item;
+            })
+          };
+        }
+        return msg;
+      });
+    }
+    console.log('Request body:', JSON.stringify(debugRequestBody, null, 2));
     
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -216,19 +347,15 @@ export async function fetchChatCompletion({
     const data = await response.json();
     console.log('API Response data:', data);
     
-    // Handle different API response formats
     let content = null;
     
     if (endpoint.includes('openrouter.ai')) {
-      // OpenRouter.ai format
       content = data.choices[0]?.message?.content;
       console.log('Extracted content from OpenRouter format:', content);
     } else if (endpoint.includes('openai.com')) {
-      // OpenAI format
       content = data.choices[0]?.message?.content;
       console.log('Extracted content from OpenAI format:', content);
     } else {
-      // Generic format - try to extract content from first choice
       content = data.choices?.[0]?.message?.content || 
                data.choices?.[0]?.text || 
                data.response || 

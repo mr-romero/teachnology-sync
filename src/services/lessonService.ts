@@ -256,7 +256,6 @@ export const startPresentationSession = async (lessonId: string, classroomId?: s
       }
     }
 
-    // Create the session
     const sessionData = {
       presentation_id: lessonId,
       join_code: joinCode,
@@ -265,7 +264,8 @@ export const startPresentationSession = async (lessonId: string, classroomId?: s
       is_paused: false,
       current_slide: 0,
       classroom_id: classroomId || null,
-      classroom_name: classroomName
+      classroom_name: classroomName,
+      paced_slides: [] // Initialize with empty array
     };
 
     // Create session and get its ID

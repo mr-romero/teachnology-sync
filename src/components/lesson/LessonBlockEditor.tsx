@@ -12,6 +12,7 @@ import {
   QuestionBlock, 
   GraphBlock,
   AIChatBlock,
+  FeedbackQuestionBlock,
   QuestionType 
 } from '@/types/lesson';
 import { 
@@ -24,6 +25,7 @@ import {
 import { Label } from '@/components/ui/label';
 import ImageUploader from './ImageUploader';
 import AIChatBlockEditor from './AIChatBlockEditor';
+import FeedbackQuestionBlockEditor from './FeedbackQuestionBlockEditor';
 import { deleteImage } from '@/services/imageService';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -59,6 +61,14 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
         return (
           <AIChatBlockEditor 
             block={block as AIChatBlock} 
+            onUpdate={onUpdate} 
+            onDelete={onDelete}
+          />
+        );
+      case 'feedback-question':
+        return (
+          <FeedbackQuestionBlockEditor 
+            block={block as FeedbackQuestionBlock} 
             onUpdate={onUpdate} 
             onDelete={onDelete}
           />
@@ -654,12 +664,20 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
     );
   };
 
-  // If we're rendering an AI chat block, return the dedicated editor
+  // If we're rendering an AI chat block or feedback question block, return the dedicated editor
   if (block.type === 'ai-chat') {
     return (
       <AIChatBlockEditor 
         block={block as AIChatBlock} 
         onUpdate={onUpdate} 
+        onDelete={onDelete}
+      />
+    );
+  } else if (block.type === 'feedback-question') {
+    return (
+      <FeedbackQuestionBlockEditor
+        block={block as FeedbackQuestionBlock}
+        onUpdate={onUpdate}
         onDelete={onDelete}
       />
     );

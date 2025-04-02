@@ -43,11 +43,13 @@ import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LessonBlockEditor from './LessonBlockEditor';
+import BlockConnectionManager, { BlockConnection } from './BlockConnectionManager';
 
 // Add at the top of the file, after other imports
 declare global {
   interface Window {
     showBlockSettings?: (blockId: string) => void;
+    updateConnectionsFromLayout?: () => void;
   }
 }
 
@@ -930,6 +932,22 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
           systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding. Be encouraging and supportive.'
         };
         break;
+      case 'feedback-question':
+        newBlock = {
+          id: blockId,
+          type: 'feedback-question',
+          questionText: 'Enter your question here',
+          questionType: 'multiple-choice',
+          options: ['Option 1', 'Option 2', 'Option 3'],
+          correctAnswer: 'Option 1',
+          feedbackInstructions: 'Ask me questions about this topic.',
+          feedbackSystemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.',
+          feedbackSentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+          apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+          modelName: 'openai/gpt-3.5-turbo',
+          repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.'
+        };
+        break;
       default:
         return;
     }
@@ -1043,8 +1061,34 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
     setDirectEditingBlock(null);
   };
 
+  const handleConnectionUpdate = (slideId: string, connections: BlockConnection[]) => {
+    if (slideId !== slide.id) return;
+    
+    const updatedSlide = { ...slide, connections };
+    onUpdateSlide(updatedSlide);
+  };
+
+  useEffect(() => {
+    // If we have any blocks with columnSpan > 1, ensure we're tracking the connections
+    let needsConnectionUpdate = false;
+    
+    Object.entries(slide.layout?.blockSpans || {}).forEach(([blockId, span]) => {
+      if (span.columnSpan && span.columnSpan > 1) {
+        needsConnectionUpdate = true;
+      }
+    });
+    
+    if (needsConnectionUpdate && window.updateConnectionsFromLayout) {
+      window.updateConnectionsFromLayout();
+    }
+  }, [slide.layout?.blockSpans]);
+
   return (
     <div className="w-full">
+      <BlockConnectionManager 
+        slide={slide} 
+        onUpdateConnections={handleConnectionUpdate} 
+      />
       <div className="mb-4 flex justify-between items-center">
         <h3 className="text-sm font-medium">Slide Layout</h3>
         <div className="flex items-center space-x-2">
@@ -1074,7 +1118,7 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
           e.preventDefault();
           const blockType = e.dataTransfer.getData('text/plain');
           
-          if (blockType && ['text', 'image', 'question', 'graph'].includes(blockType)) {
+          if (blockType && ['text', 'image', 'question', 'graph', 'ai-chat', 'feedback-question'].includes(blockType)) {
             // Get drop position relative to grid
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -1154,7 +1198,7 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
                       } else {
                         handlePositionBlock(blockId, position);
                       }
-                    } else if (['text', 'image', 'question', 'graph'].includes(blockId)) {
+                    } else if (['text', 'image', 'question', 'graph', 'ai-chat', 'feedback-question'].includes(blockId)) {
                       // This is a block type, create a new block
                       handleDropNewBlockType(blockId, position);
                     }

@@ -17,7 +17,7 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
   // Get current layout or initialize with defaults
   const [layout, setLayout] = useState<SlideLayout>(
     slide.layout || {
-      gridRows: 1,
+      gridRows: 3, // Default to 3 rows instead of 1
       gridColumns: 1,
       blockPositions: {},
       blockSpans: {}
@@ -31,12 +31,43 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
   // Update layout when slide changes
   useEffect(() => {
     setLayout(slide.layout || {
-      gridRows: 1,
+      gridRows: 3, // Default to 3 rows instead of 1
       gridColumns: 1,
       blockPositions: {},
       blockSpans: {}
     });
   }, [slide.id]);
+  
+  // Set default spans for blocks based on type when they're assigned to the grid
+  useEffect(() => {
+    // Check if there are any newly positioned blocks that need default spans
+    const newBlockSpans = { ...layout.blockSpans };
+    let spanUpdated = false;
+
+    slide.blocks.forEach(block => {
+      // Check if block has a position but no span set yet
+      if (layout.blockPositions?.[block.id] && !layout.blockSpans?.[block.id]) {
+        // Set default span based on block type
+        if (block.type === 'feedback-question') {
+          // Feedback question blocks should span 3 rows by default
+          newBlockSpans[block.id] = { rowSpan: 3, columnSpan: 1 };
+          spanUpdated = true;
+        }
+      }
+    });
+
+    // Only update if we made changes and avoid unnecessary rerenders
+    if (spanUpdated) {
+      const newLayout = {
+        ...layout,
+        blockSpans: newBlockSpans
+      };
+      setLayout(newLayout);
+      onLayoutChange(slide.id, newLayout);
+    }
+  // Adding slide.id to dependencies to prevent the effect from running on every render
+  // and properly handle when the slide changes
+  }, [layout.blockPositions, slide.blocks, slide.id, onLayoutChange]);
 
   // Handle grid dimensions change
   const handleGridDimensionsChange = (rows: number, columns: number) => {
@@ -104,6 +135,9 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
   const handleBlockAssigned = (blockId: string, row: number, column: number) => {
     console.log(`Assigning block ${blockId} to position (${row}, ${column})`);
     
+    // Find the block to check its type
+    const block = slide.blocks.find(b => b.id === blockId);
+    
     // Check if any block already occupies this cell
     const existingBlock = Object.entries(layout.blockPositions || {}).find(
       ([id, pos]) => id !== blockId && pos.row === row && pos.column === column
@@ -124,6 +158,9 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
       ...layout,
       blockPositions: newPositions
     };
+    
+    // If it's a feedback question block, we'll set the default span in the useEffect
+    // This allows us to automatically apply the span without duplicating logic
     
     console.log('Updated layout:', newLayout);
     setLayout(newLayout);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -116,53 +117,19 @@ const PresentationDialog: React.FC<PresentationDialogProps> = ({
         return;
       }
       
-      // Debug logs
-      console.log("Creating session with classroom:", classroomId);
-      console.log("Create assignment setting:", createAssignment);
+      // Call onCreateNewSession which will handle the redirect
+      await onCreateNewSession({ classroomId });
       
-      // Indicate that assignment creation is in progress
-      if (classroomId && createAssignment) {
-        setCreatingAssignment(true);
-      }
-      
-      // Create the presentation session
-      const { sessionId, joinCode } = await onCreateNewSession({ 
-        classroomId: classroomId 
-      });
-      
-      console.log("Session created:", sessionId, joinCode);
-      
-      // If a Google Classroom was selected and assignment creation is enabled
-      if (classroomId && createAssignment) {
-        try {
-          // Generate the join URL
-          const baseUrl = window.location.origin;
-          const joinUrl = `${baseUrl}/join?code=${joinCode}`;
-          
-          console.log("Creating assignment with URL:", joinUrl);
-          
-          // Create the assignment in Google Classroom
-          await classroomService.createAssignment(
-            classroomId,
-            `${lessonTitle} - Interactive Session`,
-            `Join our interactive lesson session using the link below or with join code: ${joinCode}`,
-            joinUrl
-          );
-          
-          toast.success('Google Classroom assignment created successfully');
-        } catch (error) {
-          console.error('Error creating Google Classroom assignment:', error);
-          toast.error('Failed to create Google Classroom assignment');
-        }
-      }
-    } catch (error) {
+      // The page will be redirected by onCreateNewSession
+    } catch (error: any) {
       console.error('Error starting presentation session:', error);
-      toast.error('Failed to start presentation session');
-    } finally {
-      setCreatingAssignment(false);
+      // Handle re-authentication if needed
+      if (!useAuth().handleClassroomAuthError(error)) {
+        toast.error('Failed to start presentation session');
+      }
     }
   };
-  
+
   // When a classroom is selected from the dropdown
   const handleClassroomSelect = (classroomId: string) => {
     setSelectedClassroomId(classroomId);

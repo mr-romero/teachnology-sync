@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -36,6 +37,7 @@ const GoogleClassroomImport: React.FC<GoogleClassroomImportProps> = ({
   lessonId,
   onImportComplete 
 }) => {
+  const { handleClassroomAuthError } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [classrooms, setClassrooms] = useState<GoogleClassroom[]>([]);
@@ -58,7 +60,10 @@ const GoogleClassroomImport: React.FC<GoogleClassroomImportProps> = ({
       const data = await classroomService.getClassrooms();
       setClassrooms(data);
     } catch (error: any) {
-      toast.error(error.message || "Failed to load Google Classrooms");
+      // Handle re-authentication if needed
+      if (!handleClassroomAuthError(error)) {
+        toast.error(error.message || "Failed to load Google Classrooms");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -76,7 +81,10 @@ const GoogleClassroomImport: React.FC<GoogleClassroomImportProps> = ({
       const data = await classroomService.getClassroomStudents(classroomId);
       setStudents(prev => ({ ...prev, [classroomId]: data }));
     } catch (error: any) {
-      toast.error(error.message || "Failed to load students");
+      // Handle re-authentication if needed
+      if (!handleClassroomAuthError(error)) {
+        toast.error(error.message || "Failed to load students");
+      }
     } finally {
       setLoadingClassroomId(null);
     }

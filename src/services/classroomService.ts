@@ -1,36 +1,51 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-interface GoogleClassroom {
+export interface GoogleClassroom {
   id: string;
   name: string;
   section?: string;
   description?: string;
 }
 
-interface GoogleClassroomStudent {
+export interface GoogleClassroomStudent {
   id: string;
   name: string;
   email: string;
   profileId: string;
 }
 
-interface GoogleClassroomAssignment {
+export interface GoogleClassroomAssignment {
   id: string;
   title: string;
   description?: string;
-  dueDate?: Date;
   url?: string;
 }
 
-interface ImportedClassroom {
-  id: number;
-  classroom_id: string;
-  classroom_name: string;
-  teacher_id: string;
-  student_count: number;
-  created_at: string;
-  updated_at: string;
-  last_used_at: string | null;
+export type ImportedClassroom = Database['Tables']['imported_classrooms']['Row'];
+
+// Add this helper function at the top level of the service
+async function getValidAccessToken(): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  
+  if (!sessionData.session) {
+    throw new Error("No active session found");
+  }
+  
+  let providerToken = sessionData.session.provider_token;
+  
+  if (!providerToken) {
+    // If no provider token, try to refresh the session
+    const { data: { session }, error } = await supabase.auth.refreshSession();
+    
+    if (error || !session?.provider_token) {
+      throw new Error("Please re-authenticate with Google");
+    }
+    
+    providerToken = session.provider_token;
+  }
+  
+  return providerToken;
 }
 
 /**
@@ -43,19 +58,7 @@ export const classroomService = {
    */
   async getClassrooms(): Promise<GoogleClassroom[]> {
     try {
-      // Get the current session to access the provider token
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (!sessionData.session) {
-        throw new Error("No active session found");
-      }
-      
-      // Get provider token from Supabase session
-      const providerToken = sessionData.session.provider_token;
-      
-      if (!providerToken) {
-        throw new Error("No provider token available. Please re-authenticate with Google.");
-      }
+      const providerToken = await getValidAccessToken();
       
       // Fetch classrooms from Google Classroom API
       const response = await fetch('https://classroom.googleapis.com/v1/courses?teacherId=me', {
@@ -90,19 +93,7 @@ export const classroomService = {
    */
   async getClassroomStudents(classroomId: string): Promise<GoogleClassroomStudent[]> {
     try {
-      // Get the current session to access the provider token
-      const { data: sessionData } = await supabase.auth.getSession();
-      
-      if (!sessionData.session) {
-        throw new Error("No active session found");
-      }
-      
-      // Get provider token from Supabase session
-      const providerToken = sessionData.session.provider_token;
-      
-      if (!providerToken) {
-        throw new Error("No provider token available. Please re-authenticate with Google.");
-      }
+      const providerToken = await getValidAccessToken();
       
       // Fetch students from Google Classroom API
       const response = await fetch(`https://classroom.googleapis.com/v1/courses/${classroomId}/students`, {
@@ -251,21 +242,8 @@ export const classroomService = {
     joinUrl: string
   ): Promise<GoogleClassroomAssignment> {
     try {
-      // Get the current session to access the provider token
-      const { data: sessionData } = await supabase.auth.getSession();
+      const providerToken = await getValidAccessToken();
       
-      if (!sessionData.session) {
-        throw new Error("No active session found");
-      }
-      
-      // Get provider token from Supabase session
-      const providerToken = sessionData.session.provider_token;
-      
-      if (!providerToken) {
-        throw new Error("No provider token available. Please re-authenticate with Google.");
-      }
-      
-      // Create assignment in Google Classroom
       const response = await fetch(`https://classroom.googleapis.com/v1/courses/${classroomId}/courseWork`, {
         method: 'POST',
         headers: {
@@ -273,8 +251,8 @@ export const classroomService = {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          title: title,
-          description: description,
+          title,
+          description,
           workType: 'ASSIGNMENT',
           state: 'PUBLISHED',
           materials: [
@@ -310,5 +288,3 @@ export const classroomService = {
     }
   }
 };
-
-export type { GoogleClassroom, GoogleClassroomStudent, GoogleClassroomAssignment, ImportedClassroom };

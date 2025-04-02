@@ -235,6 +235,23 @@ const LessonEditor: React.FC = () => {
             systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding. Be encouraging and supportive.'
           };
           break;
+        case 'feedback-question':
+          newBlock = {
+            id: `block-${Date.now()}`,
+            type: 'feedback-question',
+            questionText: 'Enter your question here',
+            questionType: 'multiple-choice',
+            options: ['Option 1', 'Option 2', 'Option 3'],
+            correctAnswer: 'Option 1',
+            imageUrl: '',
+            imageAlt: '',
+            feedbackInstructions: 'Ask for help if you need additional explanation.',
+            feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
+            feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
+            apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+            modelName: 'openai/gpt-3.5-turbo'
+          };
+          break;
         default:
           return;
       }
@@ -761,6 +778,36 @@ const LessonEditor: React.FC = () => {
                   </svg>
                 </div>
                 <span className="text-sm font-medium">AI Chat</span>
+              </div>
+              
+              {/* Feedback Question Block */}
+              <div 
+                className="relative flex flex-col items-center justify-center p-3 border border-gray-200 rounded-md hover:border-primary hover:bg-primary/5 cursor-move transition-colors"
+                onClick={() => handleAddBlock('feedback-question')}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/plain', 'feedback-question');
+                  e.dataTransfer.effectAllowed = 'copy';
+                  // Create ghost effect
+                  const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+                  ghost.style.position = 'absolute';
+                  ghost.style.top = '-1000px';
+                  ghost.style.opacity = '0.5';
+                  document.body.appendChild(ghost);
+                  e.dataTransfer.setDragImage(ghost, 0, 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
+                }}
+              >
+                <div className="h-8 w-8 flex items-center justify-center rounded-md bg-indigo-100 text-indigo-600 mb-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M8 12h8"/>
+                    <path d="M12 16V8"/>
+                    <path d="M8 16h.01"/>
+                    <path d="M16 16h.01"/>
+                  </svg>
+                </div>
+                <span className="text-sm font-medium">Feedback Q</span>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-3 text-center">Drag and drop blocks directly into the editor</p>

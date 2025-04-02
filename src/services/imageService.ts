@@ -64,3 +64,60 @@ export const deleteImage = async (path: string): Promise<boolean> => {
     return false;
   }
 };
+
+/**
+ * Download an image from Supabase Storage and convert it to base64
+ * @param url The public URL of the image
+ * @returns Base64-encoded image string or error
+ */
+export const getImageAsBase64 = async (url: string): Promise<string | null> => {
+  try {
+    console.log('Fetching image from URL:', url);
+    
+    // Extract the path from the URL if it's a Supabase URL
+    let path = '';
+    if (url.includes('supabase')) {
+      // Extract path from Supabase URL format
+      const urlParts = url.split('/');
+      const bucketIndex = urlParts.findIndex(part => part === 'lesson-images');
+      if (bucketIndex !== -1 && bucketIndex < urlParts.length - 1) {
+        path = urlParts.slice(bucketIndex + 1).join('/');
+      }
+    }
+    
+    let imageBlob: Blob;
+    
+    // If we have a valid Supabase path, use the Storage API
+    if (path) {
+      console.log('Downloading from Supabase path:', path);
+      const { data, error } = await supabase.storage
+        .from('lesson-images')
+        .download(path);
+      
+      if (error || !data) {
+        console.error('Error downloading image from Supabase:', error);
+        // Fall back to fetch if Supabase download fails
+        const response = await fetch(url);
+        imageBlob = await response.blob();
+      } else {
+        imageBlob = data;
+      }
+    } else {
+      // For external URLs, use fetch
+      console.log('Downloading from external URL');
+      const response = await fetch(url);
+      imageBlob = await response.blob();
+    }
+    
+    // Convert blob to base64
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(imageBlob);
+    });
+  } catch (error) {
+    console.error('Error converting image to base64:', error);
+    return null;
+  }
+};

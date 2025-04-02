@@ -20,6 +20,7 @@ interface AuthContextType {
   logout: () => void;
   loginWithGoogle: (role: 'teacher' | 'student', className?: string) => void; // Google login only
   updateUserProfile: (updates: Partial<UserWithRole>) => Promise<boolean>;
+  handleClassroomAuthError: (error: Error) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -211,14 +212,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const handleClassroomAuthError = (error: Error) => {
+    if (error.message.includes("re-authenticate") || error.message.includes("provider token")) {
+      // Force refresh of Google OAuth with classroom scopes
+      loginWithGoogle('teacher');
+      return true;
+    }
+    return false;
+  };
+
+  const value = {
+    user,
+    isLoading,
+    logout,
+    loginWithGoogle,
+    updateUserProfile,
+    handleClassroomAuthError
+  };
+
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isLoading, 
-      logout, 
-      loginWithGoogle, 
-      updateUserProfile 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -50,6 +50,7 @@ interface LessonWithSessions extends Lesson {
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();  // Add useNavigate hook
   const [lessons, setLessons] = useState<LessonWithSessions[]>([]);
   const [loading, setLoading] = useState(true);
   const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
@@ -249,14 +250,20 @@ const Dashboard: React.FC = () => {
       return { sessionId: "", joinCode: "" };
     }
     try {
-      // Navigate to the presentation with params to create a new session
-      window.location.href = `/teacher/${presentingLessonId}?forceNew=true${params?.classroomId ? `&classroomId=${params.classroomId}` : ""}`;
+      // Close the dialog before navigation
+      setIsPresentationDialogOpen(false);
       
-      // This is just a placeholder return since we're navigating away
+      // Construct the URL with parameters
+      const url = `/teacher/${presentingLessonId}?forceNew=true${params?.classroomId ? `&classroomId=${params.classroomId}` : ""}`;
+      
+      // Use navigate instead of window.location for better error handling
+      navigate(url);
+      
       return { sessionId: "redirecting", joinCode: "redirecting" };
     } catch (error) {
       console.error("Error starting presentation:", error);
       toast.error("Failed to start presentation");
+      setIsPresentationDialogOpen(false);
       return { sessionId: "", joinCode: "" };
     }
   };
@@ -265,8 +272,9 @@ const Dashboard: React.FC = () => {
   const handleJoinExistingSession = (sessionId: string) => {
     if (!presentingLessonId) return;
     
-    // Navigate to the presentation with the session ID
-    window.location.href = `/teacher/${presentingLessonId}?sessionId=${sessionId}`;
+    // Use navigate instead of window.location.href for better error handling
+    setIsPresentationDialogOpen(false);
+    navigate(`/teacher/${presentingLessonId}?sessionId=${sessionId}`);
   };
 
   // Format date for display

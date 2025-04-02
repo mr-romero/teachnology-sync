@@ -38,9 +38,10 @@ interface PresentationSession {
   join_code: string;
   current_slide: number;
   is_synced: boolean;
-  active_students: number;
+  classroom_id?: string;
+  classroom_name?: string;
   is_paused: boolean;
-  paced_slides?: number[]; // Add paced_slides array
+  paced_slides: number[]; // Added paced_slides as it's used in the component
 }
 
 interface SessionParticipant {
@@ -65,7 +66,7 @@ interface StudentAnswer {
 const LessonPresentation: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, handleClassroomAuthError } = useAuth();
   
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
@@ -218,9 +219,12 @@ const LessonPresentation: React.FC = () => {
                   );
                   
                   toast.success('Google Classroom assignment created successfully');
-                } catch (error) {
+                } catch (error: any) {
                   console.error('Error creating Google Classroom assignment:', error);
-                  toast.error('Failed to create Google Classroom assignment');
+                  // Try to handle the auth error, which will redirect to re-auth if needed
+                  if (!handleClassroomAuthError(error)) {
+                    toast.error('Failed to create Google Classroom assignment');
+                  }
                 } finally {
                   setCreatingAssignment(false);
                 }
@@ -725,7 +729,7 @@ const LessonPresentation: React.FC = () => {
   };
   
   // Function to cancel slide selection
-  const cancelSlideSelection = () => {
+  const cancelSlideSelection = async () => {
     setIsSelectingSlides(false);
     
     // Also disable pacing when canceling selection
@@ -735,18 +739,13 @@ const LessonPresentation: React.FC = () => {
     // Clear paced slides in database
     if (sessionId) {
       try {
-        supabase
+        await supabase
           .from('presentation_sessions')
           .update({ paced_slides: [] })
-          .eq('id', sessionId)
-          .then(() => {
-            console.log("Paced slides cleared after cancellation");
-          })
-          .catch(err => {
-            console.error("Error clearing paced slides:", err);
-          });
+          .eq('id', sessionId);
+        console.log("Paced slides cleared after cancellation");
       } catch (err) {
-        console.error("Exception clearing paced slides:", err);
+        console.error("Error clearing paced slides:", err);
       }
     }
     
