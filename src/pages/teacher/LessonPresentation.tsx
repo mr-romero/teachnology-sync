@@ -952,7 +952,7 @@ const LessonPresentation: React.FC = () => {
                   ) : (
                     <StudentResponseList
                       studentProgress={studentProgressData}
-                      currentSlideId={currentSlide.id}
+                      currentSlideId={currentSlide?.id || ''}
                       anonymousMode={anonymousMode}
                     />
                   )}
@@ -968,7 +968,7 @@ const LessonPresentation: React.FC = () => {
             <Card>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <h2 className="text-sm font-semibold">{currentSlide.title}</h2>
+                  <h2 className="text-sm font-semibold">{currentSlide?.title || 'Loading...'}</h2>
                   <div className="text-xs text-muted-foreground">
                     Slide {currentSlideIndex + 1} of {lesson.slides.length}
                   </div>
@@ -976,7 +976,11 @@ const LessonPresentation: React.FC = () => {
                 
                 <div className="border rounded-md p-2 bg-muted/5">
                   <LessonSlideView 
-                    slide={currentSlide} 
+                    slide={currentSlide || {
+                      id: '',
+                      title: 'Loading...',
+                      blocks: []
+                    }} 
                     isStudentView={true} 
                     isPaused={isPaused} 
                     showCalculator={lesson.settings?.showCalculator ?? false}  // Add this line
@@ -1068,7 +1072,7 @@ const LessonPresentation: React.FC = () => {
                 ) : (
                   <StudentResponseList
                     studentProgress={studentProgressData}
-                    currentSlideId={currentSlide.id}
+                    currentSlideId={currentSlide?.id || ''}
                     anonymousMode={anonymousMode}
                   />
                 )}

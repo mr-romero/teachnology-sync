@@ -166,6 +166,13 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     block.questionType === 'multiple-choice' ? '' :
     block.questionType === 'true-false' ? false : ''
   );
+
+  // Update response when studentResponse prop changes
+  useEffect(() => {
+    if (studentResponse !== undefined) {
+      setResponse(studentResponse);
+    }
+  }, [studentResponse]);
   const [hasAnswered, setHasAnswered] = useState(isAnswered);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [conversationHistory, setConversationHistory] = useState<Message[]>([]);

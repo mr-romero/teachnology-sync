@@ -64,6 +64,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   );
   const [loading, setLoading] = useState<boolean>(false);
   const [answeredBlocks, setAnsweredBlocks] = useState<string[]>([]);
+  const [studentAnswers, setStudentAnswers] = useState<Record<string, string | boolean>>({});
   const [hasActiveSession, setHasActiveSession] = useState<boolean>(false);
   const [activeSessionInfo, setActiveSessionInfo] = useState<ActiveSessionInfo | null>(null);
   const [isPaused, setIsPaused] = useState<boolean>(false);
@@ -225,7 +226,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
       try {
         const { data, error } = await supabase
           .from('student_answers')
-          .select('content_id')
+          .select('content_id, answer')
           .eq('session_id', sessionId)
           .eq('user_id', user.id);
           
@@ -235,7 +236,23 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         }
         
         if (data) {
+          // Set the list of answered block IDs
           setAnsweredBlocks(data.map(item => item.content_id));
+          
+          // Create a map of block ID to answer
+          const answerMap: Record<string, string | boolean> = {};
+          data.forEach(item => {
+            // Convert string "true"/"false" to boolean values for true/false questions
+            if (item.answer === "true") {
+              answerMap[item.content_id] = true;
+            } else if (item.answer === "false") {
+              answerMap[item.content_id] = false;
+            } else {
+              answerMap[item.content_id] = item.answer;
+            }
+          });
+          
+          setStudentAnswers(answerMap);
         }
       } catch (error) {
         console.error('Error in getAnsweredBlocks:', error);
@@ -243,7 +260,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
     };
     
     getAnsweredBlocks();
-  }, [sessionId, user]);
+  }, [sessionId, user, currentSlideIndex]); // Also fetch when slide changes
 
   useEffect(() => {
     if (!sessionId) return;
@@ -640,13 +657,30 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   };
   
   const renderLessonView = () => {
-    if (!lesson) return (
+    if (!lesson || !lesson.slides) return (
       <div className="flex justify-center items-center h-screen">
         <p className="text-lg">Loading {isPreview ? 'preview' : 'session'}...</p>
       </div>
     );
     
-    const currentSlide = lesson.slides[currentSlideIndex];
+    // Ensure currentSlideIndex is within valid bounds
+    const safeSlideIndex = Math.min(Math.max(0, currentSlideIndex), lesson.slides.length - 1);
+    if (safeSlideIndex !== currentSlideIndex) {
+      console.warn(`Corrected slide index from ${currentSlideIndex} to ${safeSlideIndex}`);
+      setCurrentSlideIndex(safeSlideIndex);
+    }
+    
+    const currentSlide = lesson.slides[safeSlideIndex];
+    
+    // Add safety check for currentSlide
+    if (!currentSlide) {
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p className="text-lg">Error: Could not load slide content</p>
+        </div>
+      );
+    }
+    
     const isSynced = sessionData?.is_synced ?? false;
     const isPacedMode = allowedSlides.length > 0 && !isPreview;
     
@@ -725,6 +759,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
                 isPaused={isPaused && !isPreview}
                 showCalculator={lesson.settings?.showCalculator ?? false}
                 isPreviewMode={isPreview}
+                studentAnswers={studentAnswers}
               />
             </div>
           </div>

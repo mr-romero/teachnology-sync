@@ -192,7 +192,7 @@ export async function fetchChatCompletion({
   imageUrl
 }: FetchChatCompletionParams): Promise<string | null> {
   try {
-    const key = apiKey || process.env.REACT_APP_OPENROUTER_API_KEY || '';
+    const key = apiKey || import.meta.env.VITE_OPENROUTER_API_KEY || '';
     
     if (!key) {
       console.error('No API key provided for AI chat');

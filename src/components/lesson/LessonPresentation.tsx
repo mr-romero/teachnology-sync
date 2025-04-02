@@ -183,7 +183,8 @@ export default function LessonPresentation() {
 
   // Sample student responses for the current slide
   const getCurrentSlideResponses = (): StudentResponse[] => {
-    const currentSlideId = lessonData.slides[currentSlideIndex].id;
+    // Add optional chaining and null checks to prevent undefined access
+    const currentSlideId = lessonData?.slides?.[currentSlideIndex]?.id || '';
     const allResponses: StudentResponse[] = [];
     
     studentProgress.forEach(student => {
@@ -241,7 +242,7 @@ export default function LessonPresentation() {
   };
 
   const handleNextSlide = () => {
-    if (currentSlideIndex < lessonData.slides.length - 1) {
+    if (currentSlideIndex < (lessonData?.slides?.length || 0) - 1) {
       // If pacing is enabled, find the next allowed slide
       if (studentPacingEnabled && allowedSlides.length > 0) {
         const currentAllowedIndex = allowedSlides.indexOf(currentSlideIndex);
@@ -312,7 +313,8 @@ export default function LessonPresentation() {
     const interval = setInterval(() => {
       // Simulate a student changing slides or submitting a response
       const randomStudentIndex = Math.floor(Math.random() * studentProgress.length);
-      const randomSlideIndex = Math.floor(Math.random() * lessonData.slides.length);
+      const slidesLength = lessonData?.slides?.length || 0;
+      const randomSlideIndex = slidesLength > 0 ? Math.floor(Math.random() * slidesLength) : 0;
       
       setStudentProgress(prev => {
         const updated = [...prev];
@@ -349,8 +351,8 @@ export default function LessonPresentation() {
       <div className="border-b p-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl font-bold">{lessonData.title}</h1>
-            <p className="text-sm text-gray-500">{lessonData.description}</p>
+            <h1 className="text-xl font-bold">{lessonData?.title || 'Lesson'}</h1>
+            <p className="text-sm text-gray-500">{lessonData?.description || ''}</p>
           </div>
           
           <div className="flex space-x-2">
@@ -386,7 +388,7 @@ export default function LessonPresentation() {
         <div className="border-b p-4 bg-card">
           <LessonMatrix 
             studentProgress={studentProgress}
-            slides={lessonData.slides}
+            slides={lessonData?.slides || []}
             currentSlideIndex={currentSlideIndex}
             joinCode={sampleJoinCode}
             activeStudents={studentProgress.length}
@@ -412,7 +414,7 @@ export default function LessonPresentation() {
       {showCarousel && (
         <div className="border-b p-4 bg-card">
           <SlideCarousel 
-            slides={lessonData.slides}
+            slides={lessonData?.slides || []}
             currentIndex={currentSlideIndex}
             onSlideClick={handleSlideChange}
             allowedSlides={studentPacingEnabled ? allowedSlides : []}
@@ -451,9 +453,13 @@ export default function LessonPresentation() {
           )}
           
           <LessonSlideView
-            slide={lessonData.slides[currentSlideIndex]}
+            slide={lessonData?.slides?.[currentSlideIndex] || {
+              id: '',
+              title: 'Loading...',
+              blocks: []
+            }}
             slideIndex={currentSlideIndex}
-            totalSlides={lessonData.slides.length}
+            totalSlides={lessonData?.slides?.length || 0}
             onNextSlide={handleNextSlide}
             onPrevSlide={handlePrevSlide}
             isEditable={false}
@@ -461,7 +467,7 @@ export default function LessonPresentation() {
           
           <LessonControls
             currentIndex={currentSlideIndex}
-            totalSlides={lessonData.slides.length}
+            totalSlides={lessonData?.slides?.length || 0}
             onPrevSlide={handlePrevSlide}
             onNextSlide={handleNextSlide}
             allowedSlides={studentPacingEnabled ? allowedSlides : []}
