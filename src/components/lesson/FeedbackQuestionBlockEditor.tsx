@@ -13,7 +13,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Trash, Check, X, HelpCircle, Plus, Key, RefreshCw, Loader2 } from 'lucide-react';
+import { Trash, Check, X, HelpCircle, Plus, Key, RefreshCw, Loader2, MoveVertical } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -31,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { Slider } from '@/components/ui/slider';
+import FeedbackBlockSplitter from './FeedbackBlockSplitter';
 
 interface FeedbackQuestionBlockEditorProps {
   block: FeedbackQuestionBlock;
@@ -49,14 +50,15 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   block,
   onUpdate,
   onDelete
-}) => {
+}): JSX.Element => {  // Add explicit return type
   // Question state
   const [questionText, setQuestionText] = useState(block.questionText || 'Enter your question here');
   const [questionType, setQuestionType] = useState<QuestionType>(block.questionType || 'multiple-choice');
   const [options, setOptions] = useState<string[]>(block.options || ['Option 1', 'Option 2', 'Option 3']);
   const [correctAnswer, setCorrectAnswer] = useState<string | number | boolean | undefined>(block.correctAnswer);
   const [optionStyle, setOptionStyle] = useState<'A-D' | 'F-J' | 'text'>(block.optionStyle || 'A-D'); // Add option style state
-  
+  const [allowAnswerChange, setAllowAnswerChange] = useState<boolean>(block.allowAnswerChange || false);
+
   // Image state
   const [imageUrl, setImageUrl] = useState(block.imageUrl || '');
   const [imageAlt, setImageAlt] = useState(block.imageAlt || '');
@@ -88,6 +90,10 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [modelsFetched, setModelsFetched] = useState(false);
   const { toast } = useToast();
+  const [expanded, setExpanded] = useState(true);
+
+  // Don't show split option if this is already a split block
+  const showSplitOption = !block.displayMode && !block.isGrouped;
   
   const handleAddSentenceStarter = () => {
     if (newStarter.trim()) {
@@ -326,6 +332,7 @@ Remember to:
       options: questionType === 'free-response' ? undefined : options,
       correctAnswer,
       optionStyle, // Include option style in the updated block
+      allowAnswerChange,
       imageUrl,
       imageAlt,
       feedbackInstructions,
@@ -345,6 +352,7 @@ Remember to:
     options,
     correctAnswer,
     optionStyle, // Add option style to dependency array
+    allowAnswerChange,
     imageUrl,
     imageAlt,
     feedbackInstructions,
@@ -430,6 +438,18 @@ Remember to:
                       Choose how multiple choice options will be labeled for students.
                     </p>
                   </div>
+
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      id="allowAnswerChange"
+                      checked={allowAnswerChange}
+                      onCheckedChange={setAllowAnswerChange}
+                    />
+                    <Label htmlFor="allowAnswerChange">Allow answer changes after submission</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, students can change their answers after submitting. By default, answers are locked after submission.
+                  </p>
                   
                   <Label>Options</Label>
                   {options.map((option, index) => (

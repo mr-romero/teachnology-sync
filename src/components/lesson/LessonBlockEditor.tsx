@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import ImageUploader from './ImageUploader';
 import AIChatBlockEditor from './AIChatBlockEditor';
 import FeedbackQuestionBlockEditor from './FeedbackQuestionBlockEditor';
+import FeedbackBlockSplitter from './FeedbackBlockSplitter';
 import { deleteImage } from '@/services/imageService';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -47,6 +48,17 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
 }) => {
   const [expanded, setExpanded] = useState(true);
   
+  // Handler for splitting feedback blocks
+  const handleSplitFeedbackBlock = (newBlocks: LessonBlock[]) => {
+    // First delete the original block
+    onDelete();
+    
+    // Then notify parent to add the new blocks
+    if (window.addSplitBlocks) {
+      window.addSplitBlocks(newBlocks);
+    }
+  };
+  
   const renderBlockEditor = () => {
     switch (block.type) {
       case 'text':
@@ -67,11 +79,19 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
         );
       case 'feedback-question':
         return (
-          <FeedbackQuestionBlockEditor 
-            block={block as FeedbackQuestionBlock} 
-            onUpdate={onUpdate} 
-            onDelete={onDelete}
-          />
+          <div className="space-y-4">
+            <FeedbackQuestionBlockEditor
+              block={block as FeedbackQuestionBlock}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+            />
+            <div className="border-t pt-4 mt-4">
+              <FeedbackBlockSplitter
+                block={block as FeedbackQuestionBlock}
+                onSplit={handleSplitFeedbackBlock}
+              />
+            </div>
+          </div>
         );
       default:
         return <p>Unknown block type</p>;

@@ -50,6 +50,7 @@ declare global {
   interface Window {
     showBlockSettings?: (blockId: string) => void;
     updateConnectionsFromLayout?: () => void;
+    addSplitBlocks?: (blocks: LessonBlock[]) => void;
   }
 }
 
@@ -427,7 +428,9 @@ const DraggableBlock = ({
       className={cn(
         "relative mb-4 p-4 border rounded-md group transition-all cursor-move",
         isSelected ? "ring-2 ring-primary" : "",
-        // Add a visual indicator for blocks that span multiple columns
+        // Add visual indicators for split feedback blocks
+        block.type === 'feedback-question' && block.isGrouped ? "border-purple-300 border-2 bg-purple-50/30" : "",
+        // Add visual indicator for blocks that span multiple columns
         span?.columnSpan && span.columnSpan > 1 ? "border-violet-300 border-2 bg-violet-50/30" : ""
       )}
       onClick={(e) => {
@@ -439,6 +442,28 @@ const DraggableBlock = ({
         onDoubleClick(block);
       }}
     >
+      {/* Group indicator badge for split feedback blocks */}
+      {block.type === 'feedback-question' && block.isGrouped && block.groupId && (
+        <Badge 
+          variant="outline" 
+          className="absolute top-2 left-2 z-10 bg-purple-100 text-purple-700 hover:bg-purple-100"
+        >
+          Group: {block.groupId}
+        </Badge>
+      )}
+
+      {/* Display mode badge for split feedback blocks */}
+      {block.type === 'feedback-question' && block.displayMode && (
+        <Badge 
+          variant="outline" 
+          className="absolute top-2 right-2 z-10 bg-purple-100 text-purple-700 hover:bg-purple-100"
+        >
+          {block.displayMode === 'image' ? 'Image' : 
+           block.displayMode === 'question' ? 'Question' : 
+           'Feedback'}
+        </Badge>
+      )}
+
       {/* Span indicator badge - show for blocks that span multiple columns */}
       {span?.columnSpan && span.columnSpan > 1 && (
         <Badge 
@@ -1082,6 +1107,57 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
       window.updateConnectionsFromLayout();
     }
   }, [slide.layout?.blockSpans]);
+
+  // Add handler for split blocks
+  useEffect(() => {
+    window.addSplitBlocks = (newBlocks: LessonBlock[]) => {
+      const updatedSlide = { ...slide };
+      
+      // Add the new blocks to the slide
+      updatedSlide.blocks = [...updatedSlide.blocks, ...newBlocks];
+      
+      // Ensure we have layout information
+      if (!updatedSlide.layout) {
+        updatedSlide.layout = {
+          gridRows: Math.max(3, slide.layout?.gridRows || 1), // Ensure at least 3 rows for split blocks
+          gridColumns: 1,
+          blockPositions: {},
+          blockSpans: {}
+        };
+      }
+      
+      // Position the split blocks in a vertical stack by default
+      if (!updatedSlide.layout.blockPositions) {
+        updatedSlide.layout.blockPositions = {};
+      }
+      
+      // Find the first available row
+      let currentRow = 0;
+      while (Object.values(updatedSlide.layout.blockPositions).some(pos => pos.row === currentRow)) {
+        currentRow++;
+      }
+      
+      // Position each block in its own row
+      newBlocks.forEach((block, index) => {
+        updatedSlide.layout.blockPositions[block.id] = {
+          row: currentRow + index,
+          column: 0
+        };
+      });
+      
+      // Ensure the grid has enough rows
+      updatedSlide.layout.gridRows = Math.max(
+        updatedSlide.layout.gridRows || 1,
+        currentRow + newBlocks.length
+      );
+      
+      onUpdateSlide(updatedSlide);
+    };
+    
+    return () => {
+      delete window.addSplitBlocks;
+    };
+  }, [slide, onUpdateSlide]);
 
   return (
     <div className="w-full">

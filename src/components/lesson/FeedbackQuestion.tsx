@@ -44,6 +44,13 @@ interface FeedbackQuestionProps {
   isPaused?: boolean;
   onAnswerSubmit?: (blockId: string, answer: string | number | boolean) => void;
   isAnswered?: boolean;
+  // New prop to determine whether to show all components or just a specific one
+  displayMode?: 'all' | 'image' | 'question' | 'feedback';
+  // New prop to indicate if this is part of a group
+  isGrouped?: boolean;
+  // Group ID for connected blocks
+  groupId?: string;
+  studentResponse?: string | boolean; // Add this prop to receive stored response
 }
 
 const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
@@ -52,12 +59,51 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
   studentId,
   isPaused = false,
   onAnswerSubmit,
-  isAnswered = false
+  isAnswered = false,
+  displayMode = 'all',
+  isGrouped = false,
+  groupId,
+  studentResponse // Add this prop
 }) => {
-  // Question response state
-  const [response, setResponse] = useState<string | boolean>('');
+  // Add this section at the start of the component to handle visual styles
+  const getComponentStyle = () => {
+    if (!isGrouped) return "";
+    
+    // Base style for grouped components
+    let style = "border-2 relative ";
+    
+    // Different border colors based on display mode
+    switch (displayMode) {
+      case 'image':
+        return style + "border-purple-200 bg-purple-50/30";
+      case 'question':
+        return style + "border-purple-300 bg-purple-50/40";
+      case 'feedback':
+        return style + "border-purple-400 bg-purple-50/50";
+      default:
+        return "";
+    }
+  };
+
+  const renderGroupBadge = () => {
+    if (!isGrouped || !groupId) return null;
+    
+    return (
+      <div className="absolute -top-3 left-4 px-2 py-0.5 text-xs font-medium rounded-md bg-purple-100 text-purple-800">
+        {displayMode ? `${displayMode} - Group ${groupId}` : `Group ${groupId}`}
+      </div>
+    );
+  };
+
+  // Question response state - initialize with studentResponse if provided
+  const [response, setResponse] = useState<string | boolean>(
+    studentResponse !== undefined ? studentResponse :
+    block.questionType === 'multiple-choice' ? '' :
+    block.questionType === 'true-false' ? false : ''
+  );
   const [hasAnswered, setHasAnswered] = useState(isAnswered);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<Message[]>([]);
   
   // AI chat state
   const [inputValue, setInputValue] = useState('');
@@ -77,7 +123,34 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [visibleMessages]);
-  
+
+  // Update response when answer changes externally
+  useEffect(() => {
+    if (isAnswered && !response) {
+      // Handle different types of correct answers based on question type
+      if (block.questionType === 'multiple-choice' || typeof block.correctAnswer === 'string') {
+        setResponse(block.correctAnswer as string || '');
+      } else if (block.questionType === 'true-false') {
+        setResponse(!!block.correctAnswer);
+      }
+    }
+  }, [isAnswered, block.correctAnswer, block.questionType]);
+
+  // Maintain conversation history
+  useEffect(() => {
+    if (visibleMessages.length > 0) {
+      setConversationHistory(visibleMessages);
+    }
+  }, [visibleMessages]);
+
+  // Restore conversation history when component remounts
+  useEffect(() => {
+    if (conversationHistory.length > 0 && visibleMessages.length === 0) {
+      setVisibleMessages(conversationHistory);
+      setHasStarted(true);
+    }
+  }, []);
+
   // Handle response change for the question part
   const handleResponseChange = (value: string | boolean) => {
     setResponse(value);
@@ -117,71 +190,50 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     if (!inputValue.trim() || isLoading || isPaused) return;
     
     const userMessage: Message = { role: 'user', content: inputValue };
-    setVisibleMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...visibleMessages, userMessage];
+    setVisibleMessages(updatedMessages);
     setInputValue('');
     setIsLoading(true);
     setError(null);
     
     try {
-      // Create system prompt that includes information about the question and their answer
+      // Include current answer state in the context
       const questionInfo = `The student was asked: "${block.questionText}"`;
-      const answerInfo = `Their answer was: "${response}"`;
+      const answerInfo = `Their current answer is: "${response}"`;
       const correctnessInfo = `This answer is ${isCorrect ? "correct" : "incorrect"}. The correct answer is: "${block.correctAnswer}".`;
       
       // Enhanced image context information
       const imageInfo = block.imageUrl ? 
-        `This question includes a mathematical or visual problem shown in this image: ${block.imageUrl}
-IMPORTANT INSTRUCTIONS FOR IMAGE:
-- You MUST reference and analyze specific elements from the image when providing feedback
-- When explaining concepts, refer to visual elements from the image to aid understanding
-- If suggesting similar problems, ensure they match the visual style and complexity of the image
-- Use clear mathematical notation (LaTeX) when discussing elements from the image
-Image description: "${block.imageAlt || 'No description provided'}"` 
-        : '';
-      
-      const enhancedSystemPrompt = `You are a helpful mathematics tutor providing feedback on a student's answer.
+        `This question includes a mathematical or visual problem shown in this image: ${block.imageUrl}` : '';
 
+      // Create enhanced system prompt with context
+      const enhancedSystemPrompt = `${block.feedbackSystemPrompt || ''}
+Question Context:
 ${questionInfo}
 ${answerInfo}
 ${correctnessInfo}
-${imageInfo}
+${imageInfo}`;
 
-Your task:
-1. First acknowledge whether the answer is correct or incorrect
-2. For visual/mathematical problems:
-   - Reference specific elements or details shown in the image
-   - Use the image to explain why the answer is correct/incorrect
-   - Help the student understand the underlying concepts using visual references
-3. Use clear mathematical notation (LaTeX) to explain concepts
-4. Be encouraging and supportive in your feedback
-5. If the student needs help, guide them through the solution step-by-step
-
-${block.feedbackSystemPrompt}`;
-      
       const repetitionPrevention = block.repetitionPrevention 
         ? `\n\n${block.repetitionPrevention}`
         : '';
         
       const systemPromptWithPrevention = enhancedSystemPrompt + repetitionPrevention;
       
-      // Create a clean conversation history for the API request
-      // Start with the enhanced system prompt as a separate message
+      // Include full conversation history for context
       const apiMessages: Message[] = [
-        { role: 'system', content: systemPromptWithPrevention }
+        { role: 'system', content: systemPromptWithPrevention },
+        ...updatedMessages
       ];
-      
-      // Add recent user and assistant messages for context
-      // Limit to the last few messages to avoid context overload
-      const recentHistory = visibleMessages.slice(-6);
-      apiMessages.push(...recentHistory, userMessage);
       
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4',  // Default to GPT-4 for better image understanding
+        model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         apiKey: block.apiKey,
         temperature: 0.7,
-        maxTokens: block.maxTokens || 1000
+        maxTokens: block.maxTokens || 1000,
+        imageUrl: block.imageUrl
       });
       
       if (aiResponse) {
@@ -189,7 +241,9 @@ ${block.feedbackSystemPrompt}`;
           role: 'assistant', 
           content: aiResponse 
         };
-        setVisibleMessages(prev => [...prev, assistantMessage]);
+        const newMessages = [...updatedMessages, assistantMessage];
+        setVisibleMessages(newMessages);
+        setConversationHistory(newMessages);
       } else {
         setError('Failed to get a response from the AI.');
       }
@@ -316,63 +370,61 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
     };
     
     return (
-      <div className="p-4 bg-primary/5 rounded-md">
+      <div className={cn(
+        "p-4 bg-primary/5 rounded-md",
+        isGrouped && "border-2 border-purple-200"
+      )}>
+        {isGrouped && groupId && (
+          <div className="text-xs font-medium text-purple-600 mb-2 uppercase tracking-wide">
+            Group: {groupId}
+          </div>
+        )}
         <p className="font-medium mb-3">{block.questionText}</p>
         
         {/* Multiple choice question */}
         {block.questionType === 'multiple-choice' && (
           <div className="space-y-2">
-            {studentCanRespond && !hasAnswered ? (
-              <div className="space-y-2">
-                <RadioGroup 
-                  value={response as string} 
-                  onValueChange={(value) => handleResponseChange(value)}
-                  disabled={isPaused || hasAnswered}
-                >
-                  {block.options?.map((option, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <RadioGroupItem 
-                        value={option} 
-                        id={`${block.id}-option-${index}`}
-                        disabled={isPaused || hasAnswered}
-                      />
-                      <Label 
-                        htmlFor={`${block.id}-option-${index}`}
-                      >
-                        {getOptionLabel(index) && (
-                          <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
-                        )}
-                        {option}
-                      </Label>
-                    </div>
-                  ))}
-                </RadioGroup>
-                
+            <div className="space-y-2">
+              <RadioGroup 
+                value={response as string} 
+                onValueChange={(value) => handleResponseChange(value)}
+                disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+              >
+                {block.options?.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <RadioGroupItem 
+                      value={option} 
+                      id={`${block.id}-option-${index}`}
+                      disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+                    />
+                    <Label 
+                      htmlFor={`${block.id}-option-${index}`}
+                      className={cn(
+                        option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
+                        hasAnswered && option === response && option !== block.correctAnswer && "text-red-600"
+                      )}
+                    >
+                      {getOptionLabel(index) && (
+                        <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
+                      )}
+                      {option}
+                      {!isStudentView && option === block.correctAnswer && " (correct)"}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              
+              {studentCanRespond && (
                 <Button 
                   className="mt-3" 
                   size="sm" 
                   onClick={handleSubmitAnswer}
-                  disabled={!response || isPaused || hasAnswered}
+                  disabled={!response || isPaused || (!block.allowAnswerChange && hasAnswered)}
                 >
-                  {hasAnswered ? "Submitted" : "Submit"}
+                  {hasAnswered ? (block.allowAnswerChange ? "Change Answer" : "Submitted") : "Submit"}
                 </Button>
-              </div>
-            ) : (
-              <ul className="space-y-1 list-disc list-inside">
-                {block.options?.map((option, index) => (
-                  <li 
-                    key={index}
-                    className={option === block.correctAnswer ? "text-green-600 font-medium" : ""}
-                  >
-                    {getOptionLabel(index) && (
-                      <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
-                    )}
-                    {option}
-                    {option === block.correctAnswer && !isStudentView && " (correct)"}
-                  </li>
-                ))}
-              </ul>
-            )}
+              )}
+            </div>
           </div>
         )}
         
@@ -486,7 +538,15 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
   const renderFeedback = () => {
     if (!hasAnswered && isStudentView) {
       return (
-        <div className="p-3 border rounded-md bg-muted/20">
+        <div className={cn(
+          "p-3 border rounded-md bg-muted/20",
+          isGrouped && "border-2 border-purple-200"
+        )}>
+          {isGrouped && groupId && (
+            <div className="text-xs font-medium text-purple-600 mb-2 uppercase tracking-wide">
+              Group: {groupId}
+            </div>
+          )}
           <p className="text-sm text-muted-foreground text-center">
             Answer the question to get AI feedback
           </p>
@@ -495,7 +555,15 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
     }
     
     return (
-      <div className="flex flex-col rounded-md border shadow-sm">
+      <div className={cn(
+        "flex flex-col rounded-md border shadow-sm",
+        isGrouped && "border-2 border-purple-200"
+      )}>
+        {isGrouped && groupId && (
+          <div className="text-xs font-medium text-purple-600 p-2 border-b uppercase tracking-wide">
+            Group: {groupId}
+          </div>
+        )}
         {/* Instructions section */}
         <div className="p-3 border-b bg-muted/20">
           <div className="flex items-start gap-2">
@@ -673,7 +741,15 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
   const renderImage = () => {
     if (block.imageUrl) {
       return (
-        <div className="mb-4 p-4 bg-white rounded-md border shadow-sm">
+        <div className={cn(
+          "mb-4 p-4 bg-white rounded-md border shadow-sm",
+          isGrouped && "border-2 border-purple-200"
+        )}>
+          {isGrouped && groupId && (
+            <div className="text-xs font-medium text-purple-600 mb-2 uppercase tracking-wide">
+              Group: {groupId}
+            </div>
+          )}
           <ImageViewer 
             src={block.imageUrl} 
             alt={block.imageAlt || 'Question image'} 
@@ -687,11 +763,31 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
     return null;
   };
   
+  // Decide what to render based on displayMode
+  if (displayMode === 'image') {
+    return block.imageUrl ? renderImage() : null;
+  }
+  
+  if (displayMode === 'question') {
+    return renderQuestion();
+  }
+  
+  if (displayMode === 'feedback') {
+    return renderFeedback();
+  }
+  
+  // Default: render all components together
   return (
-    <div className="space-y-4">
+    <div className={cn(
+      "space-y-4", 
+      isGrouped && getComponentStyle(),
+      isGrouped && "p-4 rounded-lg"
+    )}>
+      {renderGroupBadge()}
+      
       {/* All three components together in a vertical layout */}
       {/* 1. Image (if present) */}
-      {renderImage()}
+      {block.imageUrl && renderImage()}
       
       {/* 2. Question */}
       {renderQuestion()}

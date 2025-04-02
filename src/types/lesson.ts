@@ -85,22 +85,27 @@ export interface AIChatBlock extends BaseBlock {
 // New combo block type that combines question with AI chat feedback
 export interface FeedbackQuestionBlock extends BaseBlock {
   type: 'feedback-question';
-  questionText: string;
   questionType: QuestionType;
+  questionText: string;
   options?: string[];
+  optionStyle?: 'text' | 'A-D' | 'F-J';
   correctAnswer?: string | number | boolean;
-  optionStyle?: 'A-D' | 'F-J' | 'text'; // Add option style for multiple choice questions
+  allowAnswerChange?: boolean;  // Add this property
   imageUrl?: string;
   imageAlt?: string;
   imageStoragePath?: string;
   feedbackInstructions: string;
   feedbackSystemPrompt: string;
-  feedbackSentenceStarters?: string[];
+  feedbackSentenceStarters: string[];
   apiEndpoint?: string;
   apiKey?: string;
   modelName?: string;
   repetitionPrevention?: string;
   maxTokens?: number;
+  // New properties for split functionality
+  displayMode?: 'all' | 'image' | 'question' | 'feedback';
+  isGrouped?: boolean;
+  groupId?: string;
 }
 
 export type LessonBlock = TextBlock | ImageBlock | QuestionBlock | GraphBlock | AIChatBlock | FeedbackQuestionBlock;
