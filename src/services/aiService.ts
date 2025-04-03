@@ -193,16 +193,36 @@ export async function fetchChatCompletion({
   imageUrl
 }: FetchChatCompletionParams): Promise<string | null> {
   try {
-    // If no API key is provided, try to get the global one from the current user's settings
+    // If no API key is provided, try to get it from user settings
     if (!apiKey) {
-      const userId = (await supabase.auth.getUser()).data.user?.id;
-      if (userId) {
-        apiKey = await getOpenRouterApiKey(userId);
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error('Error getting current user:', userError);
+        throw new Error('Failed to get current user');
       }
+      
+      if (!user?.id) {
+        throw new Error('No user ID found');
+      }
+
+      // Get user settings directly from the database
+      const { data: settings, error: settingsError } = await supabase
+        .from('user_settings')
+        .select('openrouter_api_key')
+        .eq('id', user.id)
+        .single();
+      
+      if (settingsError) {
+        console.error('Error getting user settings:', settingsError);
+        throw new Error('Failed to get API key from user settings');
+      }
+
+      apiKey = settings?.openrouter_api_key;
+      console.log('Retrieved API key from settings:', apiKey ? 'Found' : 'Not found');
     }
 
     if (!apiKey) {
-      throw new Error('No API key provided');
+      throw new Error('No API key provided. Please add your OpenRouter API key in Settings.');
     }
     
     console.log(`Making request to ${endpoint} with model ${model}, max tokens: ${maxTokens}`);

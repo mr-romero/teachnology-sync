@@ -25,6 +25,11 @@ create policy "Users can insert their own settings"
 on public.user_settings for insert
 with check (auth.uid() = id);
 
+-- Create policy that allows service role to access all settings
+create policy "Service role full access"
+on public.user_settings
+using (auth.role() = 'service_role');
+
 -- Create a function to handle new user creation
 create or replace function public.handle_new_user_settings()
 returns trigger as $$
