@@ -327,7 +327,8 @@ ${imageInfo}`;
   };
   
   const generateFeedback = async () => {
-    if (!hasAnswered || isLoading) return;
+    if (isLoading) return;
+    
     setIsLoading(true);
     setError(null);
     
@@ -371,6 +372,7 @@ Your Task:
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        apiKey: block.apiKey, // Make sure we pass the teacher's API key
         maxTokens: block.maxTokens || 1000,
         imageUrl: block.imageUrl
       });

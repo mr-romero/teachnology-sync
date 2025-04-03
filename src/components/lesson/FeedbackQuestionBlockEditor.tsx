@@ -329,40 +329,39 @@ Remember to:
       ...block,
       questionText,
       questionType,
-      options: questionType === 'free-response' ? undefined : options,
+      options,
       correctAnswer,
-      optionStyle, // Include option style in the updated block
+      optionStyle,
       allowAnswerChange,
-      imageUrl,
-      imageAlt,
       feedbackInstructions,
       feedbackSystemPrompt,
-      feedbackSentenceStarters: sentenceStarters,
+      feedbackSentenceStarters,
       apiEndpoint,
-      apiKey,
+      apiKey, // Make sure API key is included in block updates
       modelName,
+      maxTokens,
       repetitionPrevention,
-      maxTokens
+      imageUrl,
+      imageAlt
     };
-    
     onUpdate(updatedBlock);
   }, [
     questionText,
     questionType,
     options,
     correctAnswer,
-    optionStyle, // Add option style to dependency array
+    optionStyle,
     allowAnswerChange,
-    imageUrl,
-    imageAlt,
     feedbackInstructions,
     feedbackSystemPrompt,
-    sentenceStarters,
+    feedbackSentenceStarters,
     apiEndpoint,
-    apiKey,
+    apiKey, // Add to dependency array
     modelName,
+    maxTokens,
     repetitionPrevention,
-    maxTokens
+    imageUrl,
+    imageAlt
   ]);
   
   return (
