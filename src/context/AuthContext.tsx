@@ -127,6 +127,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ? {
             access_type: 'offline',
             prompt: 'consent',
+            // Adding auth.session parameter for longer-lived token (6 months)
+            // Maximum allowed value is 180 days (6 months)
+            authSessionLifetime: 15552000, // 180 days in seconds (6 months)
             scope: [
               'email',
               'profile',
@@ -215,6 +218,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleClassroomAuthError = (error: Error) => {
     if (error.message.includes("re-authenticate") || error.message.includes("provider token")) {
       // Force refresh of Google OAuth with classroom scopes
+      console.log("Re-authenticating with Google due to expired or missing token");
       loginWithGoogle('teacher');
       return true;
     }

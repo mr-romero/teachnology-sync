@@ -1206,9 +1206,43 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
             
             const col = Math.min(Math.floor((x / rect.width) * cols), cols - 1);
             const row = Math.min(Math.floor((y / rect.height) * rows), rows - 1);
-            
-            // Add the new block
-            handleDropNewBlockType(blockType, { row, column: col });
+
+            // If it's a feedback block, automatically split it into three parts
+            if (blockType === 'feedback-question') {
+              const baseId = `block-${Date.now()}`;
+              const groupId = `group-${Date.now()}`;
+
+              // Create three connected blocks
+              const questionBlock = createBlock('feedback-question', {
+                displayMode: 'question',
+                isGrouped: true,
+                groupId,
+                id: `${baseId}-question`
+              });
+              
+              const imageBlock = createBlock('feedback-question', {
+                displayMode: 'image',
+                isGrouped: true,
+                groupId,
+                id: `${baseId}-image`
+              });
+              
+              const feedbackBlock = createBlock('feedback-question', {
+                displayMode: 'feedback',
+                isGrouped: true,
+                groupId,
+                id: `${baseId}-feedback`
+              });
+
+              // Add all three blocks
+              handleDropBlock(questionBlock, { row, column: col });
+              handleDropBlock(imageBlock, { row, column: Math.min(col + 1, cols - 1) });
+              handleDropBlock(feedbackBlock, { row, column: Math.min(col + 2, cols - 1) });
+            } else {
+              const blockId = `block-${Date.now()}`;
+              const newBlock = createBlock(blockType, { id: blockId });
+              handleDropBlock(newBlock, { row, column: col });
+            }
           }
         }}
       >

@@ -16,6 +16,7 @@ import StudentDashboard from "./pages/student/StudentDashboard";
 import JoinSession from "./pages/student/JoinSession";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
+import Settings from "./pages/teacher/Settings";
 
 const queryClient = new QueryClient();
 
@@ -81,6 +82,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRole="teacher">
                   <LessonPresentation />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/settings" 
+              element={
+                <ProtectedRoute requiredRole="teacher">
+                  <Settings />
                 </ProtectedRoute>
               } 
             />

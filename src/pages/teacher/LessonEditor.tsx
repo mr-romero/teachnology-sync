@@ -110,13 +110,23 @@ const LessonEditor: React.FC = () => {
     }
   }, [lessonId, activeSlide]);
 
-  const handleLessonTitleChange = (title: string) => {
+  const handleLessonTitleChange = async (title: string) => {
     if (lesson) {
-      setLesson({
+      const updatedLesson = {
         ...lesson,
         title,
         updatedAt: new Date().toISOString()
-      });
+      };
+      setLesson(updatedLesson);
+      
+      // Immediately save the title change
+      try {
+        await saveLesson(updatedLesson);
+        toast.success('Lesson title updated');
+      } catch (error) {
+        console.error('Error saving lesson title:', error);
+        toast.error('Failed to update lesson title');
+      }
     }
   };
 
@@ -569,7 +579,7 @@ const LessonEditor: React.FC = () => {
   return (
     <div className="container py-6">
       <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center">
+        <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -579,7 +589,12 @@ const LessonEditor: React.FC = () => {
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold">Lesson Editor</h1>
+          <Input
+            value={lesson?.title || ''}
+            onChange={(e) => handleLessonTitleChange(e.target.value)}
+            className="text-2xl font-bold bg-transparent border-0 border-b border-dashed focus-visible:ring-0 px-0 py-1 w-[300px]"
+            placeholder="Enter lesson title"
+          />
         </div>
         
         <div className="flex items-center space-x-2">

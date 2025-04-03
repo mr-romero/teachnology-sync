@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getImageAsBase64 } from "./imageService";
+import { getOpenRouterApiKey } from './userSettingsService';
 
 /**
  * Interface for OpenRouter.ai request parameters
@@ -192,11 +193,16 @@ export async function fetchChatCompletion({
   imageUrl
 }: FetchChatCompletionParams): Promise<string | null> {
   try {
-    const key = apiKey || import.meta.env.VITE_OPENROUTER_API_KEY || '';
-    
-    if (!key) {
-      console.error('No API key provided for AI chat');
-      return null;
+    // If no API key is provided, try to get the global one from the current user's settings
+    if (!apiKey) {
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (userId) {
+        apiKey = await getOpenRouterApiKey(userId);
+      }
+    }
+
+    if (!apiKey) {
+      throw new Error('No API key provided');
     }
     
     console.log(`Making request to ${endpoint} with model ${model}, max tokens: ${maxTokens}`);
@@ -330,7 +336,7 @@ When providing feedback:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
+        'Authorization': `Bearer ${apiKey}`,
         'HTTP-Referer': window.location.origin, // Required for OpenRouter.ai
         'X-Title': 'Teachnology' // Application name for OpenRouter.ai
       },

@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, Settings } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -31,6 +30,14 @@ const Navbar: React.FC = () => {
                 </span>
                 <span className="font-medium">{user.name}</span>
               </div>
+
+              {user.role === 'teacher' && (
+                <Link to="/settings">
+                  <Button variant="ghost" size="sm" className="w-9 px-0">
+                    <Settings className="h-5 w-5" />
+                  </Button>
+                </Link>
+              )}
 
               <Button 
                 variant="outline" 
