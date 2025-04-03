@@ -186,50 +186,75 @@ export const getLessonById = async (lessonId: string): Promise<Lesson | null> =>
 
 // Save a lesson (update existing)
 export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
-  const now = new Date().toISOString();
-  const updatedLesson = { ...lesson, updatedAt: now };
-  
-  // Convert to database format
-  const dbData = convertAppLessonToDbFormat(updatedLesson);
-  
-  // Update the presentation
-  const { error: presentationError } = await supabase
-    .from('presentations')
-    .update({ 
-      title: dbData.presentation.title,
-      updated_at: now
-      // Removing settings field as it doesn't exist in the database schema
-    })
-    .eq('id', lesson.id);
-    
-  if (presentationError) {
-    console.error('Error updating presentation:', presentationError);
+  try {
+    // 1. Update the lesson metadata
+    const { error: lessonError } = await supabase
+      .from('presentations')
+      .update({
+        title: lesson.title,
+        updated_at: new Date().toISOString(),
+        settings: lesson.settings || {}
+      })
+      .eq('id', lesson.id);
+
+    if (lessonError) {
+      console.error('Error updating lesson:', lessonError);
+      return false;
+    }
+
+    // 2. Get existing slides to determine what needs to be updated/deleted
+    const { data: existingSlides, error: existingSlidesError } = await supabase
+      .from('slides')
+      .select('id')
+      .eq('presentation_id', lesson.id);
+
+    if (existingSlidesError) {
+      console.error('Error getting existing slides:', existingSlidesError);
+      return false;
+    }
+
+    const existingSlideIds = new Set(existingSlides.map(slide => slide.id));
+    const currentSlideIds = new Set(lesson.slides.map(slide => slide.id));
+
+    // 3. Delete slides that no longer exist
+    const slidesToDelete = [...existingSlideIds].filter(id => !currentSlideIds.has(id));
+    if (slidesToDelete.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('slides')
+        .delete()
+        .in('id', slidesToDelete);
+
+      if (deleteError) {
+        console.error('Error deleting slides:', deleteError);
+        return false;
+      }
+    }
+
+    // 4. Upsert current slides
+    const slideData = lesson.slides.map((slide, index) => ({
+      id: slide.id,
+      presentation_id: lesson.id,
+      slide_order: index,
+      content: slide
+    }));
+
+    const { error: upsertError } = await supabase
+      .from('slides')
+      .upsert(slideData, { 
+        onConflict: 'id',
+        ignoreDuplicates: false 
+      });
+
+    if (upsertError) {
+      console.error('Error upserting slides:', upsertError);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Exception in saveLesson:', error);
     return false;
   }
-  
-  // Delete all existing slides and insert the new ones
-  // This is simpler than trying to figure out which ones to update/insert/delete
-  const { error: deleteError } = await supabase
-    .from('slides')
-    .delete()
-    .eq('presentation_id', lesson.id);
-    
-  if (deleteError) {
-    console.error('Error deleting slides:', deleteError);
-    return false;
-  }
-  
-  // Insert all slides
-  const { error: insertError } = await supabase
-    .from('slides')
-    .insert(dbData.slides);
-    
-  if (insertError) {
-    console.error('Error inserting slides:', insertError);
-    return false;
-  }
-  
-  return true;
 };
 
 // Start a new presentation session
