@@ -324,7 +324,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
   };
 
   return (
-    <div className="flex flex-col space-y-3">
+    <div className="flex flex-col space-y-3" style={{ transform: 'scale(0.75)', transformOrigin: 'top left' }}>
       {/* Selection Mode Information Banner */}
       {isSelectingSlides && (
         <div className="bg-blue-50 border border-blue-200 rounded-md p-2 text-sm text-blue-700 flex justify-between items-center">
@@ -358,7 +358,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
         {/* Scroll controls - keep these */}
-        <div className="absolute top-0 bottom-0 left-[204px] z-10 flex items-center">
+        <div className="absolute top-1/2 left-2 transform -translate-y-1/2 z-10 flex items-center">
           <Button 
             onClick={() => scrollMatrix('left')} 
             size="sm"
@@ -369,7 +369,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
           </Button>
         </div>
         
-        <div className="absolute top-0 bottom-0 right-1 z-10 flex items-center">
+        <div className="absolute top-1/2 right-2 transform -translate-y-1/2 z-10 flex items-center">
           <Button 
             onClick={() => scrollMatrix('right')} 
             size="sm"
