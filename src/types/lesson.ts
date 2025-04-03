@@ -98,7 +98,6 @@ export interface FeedbackQuestionBlock extends BaseBlock {
   feedbackSystemPrompt: string;
   feedbackSentenceStarters: string[];
   apiEndpoint?: string;
-  apiKey?: string;
   modelName?: string;
   repetitionPrevention?: string;
   maxTokens?: number;
