@@ -195,6 +195,8 @@ export async function fetchChatCompletion({
   try {
     // If no API key is provided, try to get it from user settings
     if (!apiKey) {
+      console.log('No API key provided in request, attempting to get from user settings');
+      
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) {
         console.error('Error getting current user:', userError);
@@ -202,10 +204,13 @@ export async function fetchChatCompletion({
       }
       
       if (!user?.id) {
+        console.error('No user ID found in auth context');
         throw new Error('No user ID found');
       }
 
-      // Get user settings directly from the database
+      console.log('Fetching API key for user:', user.id);
+      
+      // Try to get settings directly first
       const { data: settings, error: settingsError } = await supabase
         .from('user_settings')
         .select('openrouter_api_key')
@@ -214,7 +219,20 @@ export async function fetchChatCompletion({
       
       if (settingsError) {
         console.error('Error getting user settings:', settingsError);
-        throw new Error('Failed to get API key from user settings');
+        // If settings don't exist, create them
+        if (settingsError.code === 'PGRST116') {
+          console.log('No settings found, creating new settings record');
+          const { error: createError } = await supabase
+            .from('user_settings')
+            .insert({ id: user.id });
+            
+          if (createError) {
+            console.error('Error creating user settings:', createError);
+            throw new Error('Failed to create user settings');
+          }
+        } else {
+          throw new Error('Failed to get API key from user settings');
+        }
       }
 
       apiKey = settings?.openrouter_api_key;
@@ -222,7 +240,7 @@ export async function fetchChatCompletion({
     }
 
     if (!apiKey) {
-      throw new Error('No API key provided. Please add your OpenRouter API key in Settings.');
+      throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
     }
     
     console.log(`Making request to ${endpoint} with model ${model}, max tokens: ${maxTokens}`);

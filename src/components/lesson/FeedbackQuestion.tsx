@@ -239,10 +239,9 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     const isResponseCorrect = response === block.correctAnswer;
     setIsCorrect(isResponseCorrect);
     
-    // Generate automatic feedback after submission
-    setTimeout(() => {
-      generateAutomaticFeedback();
-    }, 500);
+    // Don't auto-generate feedback immediately to allow state updates to complete
+    // and give a better UX by showing the submit confirmation first
+    setShowPracticeSimilar(true);
   };
   
   // Start the feedback chat with an initial AI message
@@ -327,9 +326,8 @@ ${imageInfo}`;
     }
   };
   
-  const generateAutomaticFeedback = async () => {
-    if (!block || isLoading) return;
-    
+  const generateFeedback = async () => {
+    if (!hasAnswered || isLoading) return;
     setIsLoading(true);
     setError(null);
     
@@ -356,47 +354,36 @@ Your Task:
    - Be encouraging and supportive
    - Help them understand where they went wrong
    - Guide them through the correct solution step-by-step
-   - Use clear mathematical notation (LaTeX) to explain concepts
-5. Format your initial response as a JSON object with these fields:
-   - image_content: description of what you see in the image (the math problem)
-   - question: the question that was asked
-   - student_answer: what the student answered
-   - correct_answer: the correct answer
-   - explanation: detailed explanation of how to solve it
-   - is_correct: boolean indicating if student was correct
-6. After the JSON, provide helpful feedback to the student
-7. Conclude by asking if they'd like a similar practice problem
+   - Use clear mathematical notation (LaTeX) to explain concepts`;
 
-Remember to use proper LaTeX notation for mathematical expressions (\\( inline \\) and \\[ display \\] mode).`;
+      // Add repetition prevention if available
+      const systemPromptWithPrevention = block.repetitionPrevention 
+        ? `${feedbackPrompt}\n\n${block.repetitionPrevention}`
+        : feedbackPrompt;
 
-      // Create the system message for the API request
+      // Set up messages for the API request
       const apiMessages: Message[] = [
-        { role: 'system', content: feedbackPrompt }
+        { role: 'system', content: systemPromptWithPrevention },
+        { role: 'user', content: `I've answered the question "${block.questionText}" with "${response}". Please analyze my answer and provide feedback.` }
       ];
-
-      // Add a user message to provide context
-      apiMessages.push({
-        role: 'user',
-        content: `I've answered the question "${block.questionText}" with "${response}". Please analyze my answer and provide feedback.`
-      });
 
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4o-mini',  // Use GPT-4o-mini for better image understanding
+        model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        apiKey: block.apiKey,
+        apiKey: block.apiKey,  // Will fallback to user settings if not provided
         temperature: 0.7,
         maxTokens: block.maxTokens || 1000,
-        imageUrl: block.imageUrl  // Pass the image URL to include the actual image
+        imageUrl: block.imageUrl
       });
       
       if (aiResponse) {
-        // Add the AI response to visible messages
-        setVisibleMessages([
-          { role: 'assistant', content: aiResponse }
-        ]);
+        const assistantMessage: Message = { 
+          role: 'assistant', 
+          content: aiResponse 
+        };
+        setVisibleMessages([assistantMessage]);
         setHasStarted(true);
-        setShowPracticeSimilar(true);
       } else {
         setError('Failed to get feedback from the AI.');
       }
@@ -827,6 +814,25 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
       
       {/* 2. Question */}
       {renderQuestion()}
+      
+      {/* Show Get Feedback button after submitting */}
+      {hasAnswered && !visibleMessages.length && (
+        <div className="flex justify-center">
+          <Button
+            onClick={generateFeedback}
+            disabled={isLoading}
+            size="sm"
+            className="flex items-center gap-2"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            Get Feedback
+          </Button>
+        </div>
+      )}
       
       {/* 3. AI Feedback chat */}
       {renderFeedback()}
