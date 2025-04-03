@@ -208,24 +208,31 @@ export async function fetchChatCompletion({
     
     // If no API key found, try to get teacher's API key from the presentation settings
     if (!apiKey) {
-      // Get session ID from URL
-      const sessionId = window.location.pathname.split('/').pop();
+      // Get session ID from URL, handling both full URLs and path segments
+      const pathSegments = window.location.pathname.split('/');
+      const sessionId = pathSegments[pathSegments.length - 1];
       
-      if (sessionId) {
+      if (sessionId && sessionId.length > 0) {
+        console.log('Looking up presentation settings for session:', sessionId);
         const { data: presentationSettings, error: settingsError } = await supabase
           .from('presentation_settings')
           .select('openrouter_api_key')
           .eq('session_id', sessionId)
-          .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
+          .maybeSingle();
           
         if (settingsError && settingsError.code !== 'PGRST116') {
           // Only log error if it's not the "no rows" error
           console.error('Error getting presentation settings:', settingsError);
+        } else {
+          console.log('Found presentation settings:', presentationSettings);
         }
         
         if (presentationSettings?.openrouter_api_key) {
           apiKey = presentationSettings.openrouter_api_key;
+          console.log('Using API key from presentation settings');
         }
+      } else {
+        console.log('No session ID found in URL:', window.location.pathname);
       }
     }
     
