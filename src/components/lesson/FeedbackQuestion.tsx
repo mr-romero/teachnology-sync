@@ -25,6 +25,9 @@ const preprocessContent = (content: string): string => {
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
   content = content.replace(jsonRegex, '');
 
+  // Ensure proper escaping for MathQuill rendering
+  content = content.replace(/\\text\{(.*?)\}/g, '\\mathrm{$1}');
+
   // Preserve currency symbols by escaping dollar signs intended as currency
   return content
     // Handle currency notation: $X.XX (ensure it's not interpreted as LaTeX)
@@ -634,7 +637,7 @@ Your Task:
         </div>
         
         {/* Chat messages area */}
-        <ScrollArea className="h-[200px] p-4 flex-grow">
+        <ScrollArea className="h-[200px] p-4 flex-grow bg-white">
           {visibleMessages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
               <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
