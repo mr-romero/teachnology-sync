@@ -220,7 +220,7 @@ export async function fetchChatCompletion({
           // Query the presentation_settings table directly using session_id
           const { data: settings, error: settingsError } = await supabase
             .from('presentation_settings')
-            .select('openrouter_api_key')
+            .select('openrouter_api_key', { headers: { 'Accept': 'application/json' } })
             .eq('session_id', sessionId)
             .single();
 

@@ -52,6 +52,7 @@ USING (auth.role() = 'service_role');
 CREATE OR REPLACE FUNCTION public.handle_new_presentation_settings()
 RETURNS trigger AS $$
 BEGIN
+    RAISE NOTICE 'Trigger fired for session_id: %', NEW.id;
     INSERT INTO public.presentation_settings (session_id)
     VALUES (NEW.id);
     RETURN NEW;
