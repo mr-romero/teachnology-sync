@@ -203,7 +203,29 @@ export async function fetchChatCompletion({
       throw new Error('No user found');
     }
 
-    const apiKey = await getOpenRouterApiKey(user.id);
+    // First try to get API key from user settings
+    let apiKey = await getOpenRouterApiKey(user.id);
+    
+    // If no API key found, try to get teacher's API key from the presentation settings
+    if (!apiKey) {
+      // Get session ID from URL
+      const sessionId = window.location.pathname.split('/').pop();
+      
+      if (sessionId) {
+        const { data: presentationSettings, error: settingsError } = await supabase
+          .from('presentation_settings')
+          .select('openrouter_api_key')
+          .eq('session_id', sessionId)
+          .single();
+          
+        if (settingsError) {
+          console.error('Error getting presentation settings:', settingsError);
+        } else if (presentationSettings?.openrouter_api_key) {
+          apiKey = presentationSettings.openrouter_api_key;
+        }
+      }
+    }
+    
     if (!apiKey) {
       throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
     }
