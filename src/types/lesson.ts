@@ -88,7 +88,8 @@ export interface FeedbackQuestionBlock extends BaseBlock {
   questionText: string;
   options?: string[];
   optionStyle?: 'text' | 'A-D' | 'F-J';
-  correctAnswer?: string | number | boolean;
+  correctAnswer?: string | number | boolean | string[]; // Modified to allow array of strings for multiple correct answers
+  allowMultipleAnswers?: boolean; // New property to enable multiple selections
   allowAnswerChange?: boolean;  // Add this property
   imageUrl?: string;
   imageAlt?: string;

@@ -58,6 +58,7 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   const [correctAnswer, setCorrectAnswer] = useState<string | number | boolean | undefined>(block.correctAnswer);
   const [optionStyle, setOptionStyle] = useState<'A-D' | 'F-J' | 'text'>(block.optionStyle || 'A-D'); // Add option style state
   const [allowAnswerChange, setAllowAnswerChange] = useState<boolean>(block.allowAnswerChange || false);
+  const [allowMultipleAnswers, setAllowMultipleAnswers] = useState<boolean>(block.allowMultipleAnswers || false);
 
   // Image state
   const [imageUrl, setImageUrl] = useState(block.imageUrl || '');
@@ -321,6 +322,7 @@ Remember to:
       correctAnswer,
       optionStyle,
       allowAnswerChange,
+      allowMultipleAnswers,
       feedbackInstructions,
       feedbackSystemPrompt,
       feedbackSentenceStarters,
@@ -339,6 +341,7 @@ Remember to:
     correctAnswer,
     optionStyle,
     allowAnswerChange,
+    allowMultipleAnswers,
     feedbackInstructions,
     feedbackSystemPrompt,
     feedbackSentenceStarters,
@@ -423,7 +426,21 @@ Remember to:
                       Choose how multiple choice options will be labeled for students.
                     </p>
                   </div>
-
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Switch
+                        id="allowMultipleAnswers"
+                        checked={allowMultipleAnswers}
+                        onCheckedChange={setAllowMultipleAnswers}
+                      />
+                      <Label htmlFor="allowMultipleAnswers">Allow multiple correct answers</Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      When enabled, students can select multiple options and you can mark multiple answers as correct.
+                    </p>
+                  </div>
+                  
                   <div className="flex items-center space-x-2 pt-2">
                     <Switch
                       id="allowAnswerChange"
@@ -440,19 +457,41 @@ Remember to:
                   {options.map((option, index) => (
                     <div key={index} className="flex items-center space-x-2">
                       <div className="flex-grow flex items-center space-x-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 rounded-full"
-                          onClick={() => setCorrectAnswer(option)}
-                        >
-                          {correctAnswer === option ? (
-                            <Check className="h-3 w-3 text-primary" />
-                          ) : (
-                            <div className="h-3 w-3 rounded-full border-2" />
-                          )}
-                        </Button>
+                        {allowMultipleAnswers ? (
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 focus:ring-primary"
+                            checked={Array.isArray(correctAnswer) ? correctAnswer.includes(option) : correctAnswer === option}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                // Add to correct answers array
+                                const newCorrectAnswers = Array.isArray(correctAnswer) 
+                                  ? [...correctAnswer, option]
+                                  : [option];
+                                setCorrectAnswer(newCorrectAnswers);
+                              } else {
+                                // Remove from correct answers array
+                                if (Array.isArray(correctAnswer)) {
+                                  setCorrectAnswer(correctAnswer.filter(answer => answer !== option));
+                                }
+                              }
+                            }}
+                          />
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-full"
+                            onClick={() => setCorrectAnswer(option)}
+                          >
+                            {correctAnswer === option ? (
+                              <Check className="h-3 w-3 text-primary" />
+                            ) : (
+                              <div className="h-3 w-3 rounded-full border-2" />
+                            )}
+                          </Button>
+                        )}
                         <span className="w-6 text-muted-foreground text-sm">
                           {optionStyle === 'A-D' 
                             ? String.fromCharCode(65 + index) 

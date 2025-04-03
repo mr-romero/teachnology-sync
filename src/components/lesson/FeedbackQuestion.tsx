@@ -250,7 +250,22 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     setHasAnswered(true);
     
     // Check if the answer is correct
-    const isResponseCorrect = response === block.correctAnswer;
+    let isResponseCorrect = false;
+    
+    if (Array.isArray(block.correctAnswer) && Array.isArray(response)) {
+      // For multiple correct answers, check if all selected answers are correct
+      // and if all correct answers have been selected
+      const allSelectedAreCorrect = response.every(r => block.correctAnswer.includes(r));
+      const allCorrectAreSelected = block.correctAnswer.every(c => response.includes(c));
+      
+      // For strict matching, both conditions must be true
+      // For lenient matching, we could change this to just allSelectedAreCorrect
+      isResponseCorrect = allSelectedAreCorrect && allCorrectAreSelected;
+    } else {
+      // For single answer questions
+      isResponseCorrect = response === block.correctAnswer;
+    }
+    
     setIsCorrect(isResponseCorrect);
     
     // Don't auto-generate feedback immediately to allow state updates to complete
@@ -345,17 +360,42 @@ ${imageInfo}`;
     setError(null);
     
     try {
+      // Format the student's answer and correct answer based on whether multiple answers are allowed
+      let studentAnswerText = "";
+      let correctAnswerText = "";
+      
+      if (Array.isArray(response)) {
+        // For multiple selection questions
+        studentAnswerText = response.length > 0 
+          ? `"${response.join('", "')}"` 
+          : "No options selected";
+      } else {
+        // For single selection questions
+        studentAnswerText = `"${response}"`;
+      }
+      
+      if (Array.isArray(block.correctAnswer)) {
+        // For multiple correct answers
+        correctAnswerText = block.correctAnswer.length > 0 
+          ? `"${block.correctAnswer.join('", "')}"` 
+          : "No correct answers specified";
+      } else {
+        // For single correct answer
+        correctAnswerText = `"${block.correctAnswer}"`;
+      }
+      
       // Create a system prompt that includes structured output instructions
       const feedbackPrompt = `You are a helpful mathematics tutor providing feedback on a student's answer.
 
 Question Context:
-- Question Type: ${block.questionType}
+- Question Type: ${block.questionType}${block.allowMultipleAnswers ? ' (multiple selection allowed)' : ''}
 - Question Asked: "${block.questionText || "Unknown question"}"
-- Student's Answer: "${response || "No answer provided"}"
-- Correct Answer: "${block.correctAnswer || "Unknown"}"
+- Student's Answer: ${studentAnswerText}
+- Correct Answer: ${correctAnswerText}
 
 Your Task:
 1. First analyze if the answer is correct or incorrect
+   ${block.allowMultipleAnswers ? '- For multiple selection questions, the answer is fully correct only if all correct answers were selected and no incorrect answers were selected' : ''}
 2. For problems with images:
    - Reference specific elements from the image when explaining
    - Help the student understand the underlying concepts using visual references
@@ -367,7 +407,8 @@ Your Task:
    - Be encouraging and supportive
    - Help them understand where they went wrong
    - Guide them through the correct solution step-by-step
-   - Use clear mathematical notation (LaTeX) to explain concepts`;
+   - Use clear mathematical notation (LaTeX) to explain concepts
+   ${block.allowMultipleAnswers ? '- For partially correct answers (some correct options selected), acknowledge what they got right before explaining what they missed' : ''}`;
 
       // Add repetition prevention if available
       const systemPromptWithPrevention = block.repetitionPrevention 
@@ -377,14 +418,13 @@ Your Task:
       // Set up messages for the API request
       const apiMessages: Message[] = [
         { role: 'system', content: systemPromptWithPrevention },
-        { role: 'user', content: `I've answered the question "${block.questionText}" with "${response}". Please analyze my answer and provide feedback.` }
+        { role: 'user', content: `I've answered the question "${block.questionText}" with ${studentAnswerText}. Please analyze my answer and provide feedback.` }
       ];
 
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        maxTokens: block.maxTokens || 1000,
         imageUrl: block.imageUrl
       });
       
@@ -455,41 +495,92 @@ Your Task:
         {block.questionType === 'multiple-choice' && (
           <div className="space-y-2">
             <div className="space-y-2">
-              <RadioGroup 
-                value={response as string} 
-                onValueChange={(value) => handleResponseChange(value)}
-                disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
-              >
-                {block.options?.map((option, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <RadioGroupItem 
-                      value={option} 
-                      id={`${block.id}-option-${index}`}
-                      disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
-                    />
-                    <Label 
-                      htmlFor={`${block.id}-option-${index}`}
-                      className={cn(
-                        option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
-                        hasAnswered && option === response && option !== block.correctAnswer && "text-red-600"
-                      )}
-                    >
-                      {getOptionLabel(index) && (
-                        <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
-                      )}
-                      {option}
-                      {!isStudentView && option === block.correctAnswer && " (correct)"}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              {block.allowMultipleAnswers ? (
+                // Multiple selection with checkboxes
+                <div className="space-y-2">
+                  {block.options?.map((option, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <input 
+                        type="checkbox" 
+                        id={`${block.id}-option-${index}`}
+                        checked={Array.isArray(response) ? response.includes(option) : response === option}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            // Add option to selected options
+                            const newResponse = Array.isArray(response) 
+                              ? [...response, option] 
+                              : [option];
+                            handleResponseChange(newResponse);
+                          } else {
+                            // Remove option from selected options
+                            const newResponse = Array.isArray(response) 
+                              ? response.filter(item => item !== option) 
+                              : [];
+                            handleResponseChange(newResponse);
+                          }
+                        }}
+                        disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+                        className="h-4 w-4 rounded border-gray-300 focus:ring-primary"
+                      />
+                      <Label 
+                        htmlFor={`${block.id}-option-${index}`}
+                        className={cn(
+                          Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && !isStudentView && "text-green-600 font-medium",
+                          hasAnswered && Array.isArray(response) && response.includes(option) && 
+                          Array.isArray(block.correctAnswer) && !block.correctAnswer.includes(option) && "text-red-600"
+                        )}
+                      >
+                        {getOptionLabel(index) && (
+                          <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
+                        )}
+                        {option}
+                        {!isStudentView && Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && " (correct)"}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                // Single selection with radio buttons - original implementation
+                <RadioGroup 
+                  value={Array.isArray(response) ? response[0] : response as string} 
+                  onValueChange={(value) => handleResponseChange(value)}
+                  disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+                >
+                  {block.options?.map((option, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <RadioGroupItem 
+                        value={option} 
+                        id={`${block.id}-option-${index}`}
+                        disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+                      />
+                      <Label 
+                        htmlFor={`${block.id}-option-${index}`}
+                        className={cn(
+                          option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
+                          hasAnswered && option === response && option !== block.correctAnswer && "text-red-600"
+                        )}
+                      >
+                        {getOptionLabel(index) && (
+                          <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
+                        )}
+                        {option}
+                        {!isStudentView && option === block.correctAnswer && " (correct)"}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              )}
               
               {studentCanRespond && (
                 <Button 
                   className="mt-3" 
                   size="sm" 
                   onClick={handleSubmitAnswer}
-                  disabled={!response || isPaused || (!block.allowAnswerChange && hasAnswered)}
+                  disabled={
+                    (Array.isArray(response) ? response.length === 0 : !response) || 
+                    isPaused || 
+                    (!block.allowAnswerChange && hasAnswered)
+                  }
                 >
                   {hasAnswered ? (block.allowAnswerChange ? "Change Answer" : "Submitted") : "Submit"}
                 </Button>
