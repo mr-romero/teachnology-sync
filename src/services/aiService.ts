@@ -214,22 +214,34 @@ export async function fetchChatCompletion({
       
       if (sessionId && sessionId.length > 0) {
         console.log('Looking up presentation settings for session:', sessionId);
-        const { data: presentationSettings, error: settingsError } = await supabase
-          .from('presentation_settings')
-          .select('openrouter_api_key')
-          .eq('session_id', sessionId)
+        // First try to get the presentation session to verify it exists
+        const { data: session, error: sessionError } = await supabase
+          .from('presentation_sessions')
+          .select('id')
+          .eq('id', sessionId)
           .maybeSingle();
+
+        if (session) {
+          // If session exists, get its settings
+          const { data: presentationSettings, error: settingsError } = await supabase
+            .from('presentation_settings')
+            .select('openrouter_api_key')
+            .eq('session_id', sessionId)
+            .maybeSingle();
+            
+          if (settingsError && settingsError.code !== 'PGRST116') {
+            // Only log error if it's not the "no rows" error
+            console.error('Error getting presentation settings:', settingsError);
+          } else {
+            console.log('Found presentation settings:', presentationSettings);
+          }
           
-        if (settingsError && settingsError.code !== 'PGRST116') {
-          // Only log error if it's not the "no rows" error
-          console.error('Error getting presentation settings:', settingsError);
+          if (presentationSettings?.openrouter_api_key) {
+            apiKey = presentationSettings.openrouter_api_key;
+            console.log('Using API key from presentation settings');
+          }
         } else {
-          console.log('Found presentation settings:', presentationSettings);
-        }
-        
-        if (presentationSettings?.openrouter_api_key) {
-          apiKey = presentationSettings.openrouter_api_key;
-          console.log('Using API key from presentation settings');
+          console.log('Session not found:', sessionId);
         }
       } else {
         console.log('No session ID found in URL:', window.location.pathname);
