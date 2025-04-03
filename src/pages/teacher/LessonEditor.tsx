@@ -32,6 +32,7 @@ const LessonEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isPresentationDialogOpen, setIsPresentationDialogOpen] = useState(false);
   const [isBlocksCollapsed, setIsBlocksCollapsed] = useState(false);
+  const [copiedSlide, setCopiedSlide] = useState<LessonSlide | null>(null);
   
   // Initialize lesson data
   useEffect(() => {
@@ -557,6 +558,63 @@ const LessonEditor: React.FC = () => {
       });
     }
   };
+
+  // Add keyboard shortcut handler
+  useEffect(() => {
+    const handleKeyboardShortcuts = (e: KeyboardEvent) => {
+      // Only handle if we have a lesson loaded
+      if (!lesson) return;
+      
+      // Check if Command (Mac) or Control (Windows) is pressed
+      const isModifierKey = e.metaKey || e.ctrlKey;
+      
+      if (isModifierKey && e.key === 'c') {
+        // Copy current slide
+        const currentSlide = lesson.slides.find(slide => slide.id === activeSlide);
+        if (currentSlide) {
+          setCopiedSlide(currentSlide);
+          // Optional: Show toast to indicate copy
+          toast.success('Slide copied to clipboard');
+        }
+      } else if (isModifierKey && e.key === 'v' && copiedSlide) {
+        // Paste slide
+        const newSlide: LessonSlide = {
+          ...copiedSlide,
+          id: uuidv4(), // Generate new ID for the copy
+          title: `${copiedSlide.title} (Copy)`,
+          blocks: copiedSlide.blocks.map(block => ({
+            ...block,
+            id: `block-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+          }))
+        };
+        
+        // Insert the new slide after the current slide
+        const currentSlideIndex = lesson.slides.findIndex(slide => slide.id === activeSlide);
+        const updatedSlides = [...lesson.slides];
+        updatedSlides.splice(currentSlideIndex + 1, 0, newSlide);
+        
+        setLesson({
+          ...lesson,
+          slides: updatedSlides,
+          updatedAt: new Date().toISOString()
+        });
+        
+        // Set the new slide as active
+        setActiveSlide(newSlide.id);
+        
+        // Optional: Show toast to indicate paste
+        toast.success('Slide pasted');
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyboardShortcuts);
+
+    // Clean up
+    return () => {
+      window.removeEventListener('keydown', handleKeyboardShortcuts);
+    };
+  }, [lesson, activeSlide, copiedSlide]);
 
   if (loading) {
     return (

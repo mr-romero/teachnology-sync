@@ -317,29 +317,25 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         : systemPrompt;
       
       // Create a clean conversation history for the API request
-      // Start with the enhanced system prompt as a separate message
       const apiMessages: Message[] = [
         { role: 'system', content: enhancedSystemPrompt }
       ];
       
       // Add recent user and assistant messages for context
-      // Limit to the last few messages to avoid context overload
       const recentHistory = visibleMessages.slice(-6);
       apiMessages.push(...recentHistory, userMessage);
-      
-      console.log('Sending messages to API:', JSON.stringify(apiMessages, null, 2));
-      
+
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-3.5-turbo',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        // apiKey is optional now, will use global if not provided
         apiKey: block.apiKey,
         temperature: 0.7,
         maxTokens: block.maxTokens || 1000
       });
       
       if (aiResponse) {
-        console.log('Received AI response:', aiResponse);
         const assistantMessage: Message = { 
           role: 'assistant', 
           content: aiResponse 
