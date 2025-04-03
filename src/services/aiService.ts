@@ -216,11 +216,14 @@ export async function fetchChatCompletion({
           .from('presentation_settings')
           .select('openrouter_api_key')
           .eq('session_id', sessionId)
-          .single();
+          .maybeSingle(); // Use maybeSingle() instead of single() to handle no rows gracefully
           
-        if (settingsError) {
+        if (settingsError && settingsError.code !== 'PGRST116') {
+          // Only log error if it's not the "no rows" error
           console.error('Error getting presentation settings:', settingsError);
-        } else if (presentationSettings?.openrouter_api_key) {
+        }
+        
+        if (presentationSettings?.openrouter_api_key) {
           apiKey = presentationSettings.openrouter_api_key;
         }
       }
