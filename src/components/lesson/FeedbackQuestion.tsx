@@ -367,13 +367,14 @@ Your Task:
         { role: 'user', content: `I've answered the question "${block.questionText}" with "${response}". Please analyze my answer and provide feedback.` }
       ];
 
-      const aiResponse = await fetchChatCompletion({
-        messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        maxTokens: block.maxTokens || 1000,
-        imageUrl: block.imageUrl
-      });
+        const aiResponse = await fetchChatCompletion({
+          messages: apiMessages,
+          model: block.modelName || 'openai/gpt-4',
+          endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+          apiKey: block.apiKey, // Pass the block's API key
+          maxTokens: block.maxTokens || 1000,
+          imageUrl: block.imageUrl
+        });
       
       if (aiResponse) {
         const assistantMessage: Message = { 

@@ -101,6 +101,7 @@ export interface FeedbackQuestionBlock extends BaseBlock {
   modelName?: string;
   repetitionPrevention?: string;
   maxTokens?: number;
+  apiKey?: string;  // Add API key property
   // New properties for split functionality
   displayMode?: 'all' | 'image' | 'question' | 'feedback';
   isGrouped?: boolean;
