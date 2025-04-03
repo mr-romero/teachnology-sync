@@ -212,6 +212,8 @@ export async function fetchChatCompletion({
       const pathSegments = window.location.pathname.split('/');
       const sessionId = pathSegments[pathSegments.length - 1];
       
+      console.log('Extracted session ID from URL:', sessionId);
+
       if (sessionId && sessionId.length > 0) {
         console.log('Looking up presentation settings for session:', sessionId);
         try {
@@ -227,6 +229,8 @@ export async function fetchChatCompletion({
             throw new Error('Could not verify presentation session');
           }
 
+          console.log('Retrieved session data:', session);
+
           if (session?.settings_id) {
             // Now get the settings using the settings_id
             const { data: settings, error: settingsError } = await supabase
@@ -239,6 +243,8 @@ export async function fetchChatCompletion({
               console.error('Error getting presentation settings:', settingsError);
               throw new Error('Could not retrieve presentation settings');
             }
+
+            console.log('Retrieved presentation settings:', settings);
 
             if (settings?.openrouter_api_key) {
               apiKey = settings.openrouter_api_key;
