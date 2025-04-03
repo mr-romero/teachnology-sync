@@ -70,7 +70,7 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   const [feedbackSystemPrompt, setFeedbackSystemPrompt] = useState(
     block.feedbackSystemPrompt || 'You are a helpful AI tutor. Provide encouraging feedback based on the student\'s answer. Explain why the answer is correct or incorrect, and provide additional context to enhance learning.'
   );
-  const [sentenceStarters, setSentenceStarters] = useState<string[]>(
+  const [feedbackSentenceStarters, setFeedbackSentenceStarters] = useState<string[]>(
     block.feedbackSentenceStarters || ['Can you explain...?', 'Why is that...?', 'What about...?']
   );
   const [newStarter, setNewStarter] = useState('');
@@ -96,15 +96,13 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   
   const handleAddSentenceStarter = () => {
     if (newStarter.trim()) {
-      setSentenceStarters([...sentenceStarters, newStarter.trim()]);
+      setFeedbackSentenceStarters(prev => [...prev, newStarter.trim()]);
       setNewStarter('');
     }
   };
   
   const handleRemoveSentenceStarter = (index: number) => {
-    const updatedStarters = [...sentenceStarters];
-    updatedStarters.splice(index, 1);
-    setSentenceStarters(updatedStarters);
+    setFeedbackSentenceStarters(prev => prev.filter((_, i) => i !== index));
   };
   
   const updateQuestionType = (type: QuestionType) => {
@@ -622,7 +620,7 @@ Remember to:
                   <div>
                     <Label>Sentence Starters</Label>
                     <div className="flex flex-wrap gap-2 mt-2 mb-3">
-                      {sentenceStarters.map((starter, index) => (
+                      {feedbackSentenceStarters.map((starter, index) => (
                         <Badge key={index} variant="secondary" className="px-2 py-1 flex items-center gap-1">
                           {starter}
                           <Button
