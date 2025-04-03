@@ -214,34 +214,43 @@ export async function fetchChatCompletion({
       
       if (sessionId && sessionId.length > 0) {
         console.log('Looking up presentation settings for session:', sessionId);
-        // First try to get the presentation session to verify it exists
-        const { data: session, error: sessionError } = await supabase
-          .from('presentation_sessions')
-          .select('id')
-          .eq('id', sessionId)
-          .maybeSingle();
+        try {
+          // First verify the session exists
+          const { data: session, error: sessionError } = await supabase
+            .from('presentation_sessions')
+            .select('settings_id')
+            .eq('id', sessionId)
+            .single();
 
-        if (session) {
-          // If session exists, get its settings
-          const { data: presentationSettings, error: settingsError } = await supabase
-            .from('presentation_settings')
-            .select('openrouter_api_key')
-            .eq('session_id', sessionId)
-            .maybeSingle();
-            
-          if (settingsError && settingsError.code !== 'PGRST116') {
-            // Only log error if it's not the "no rows" error
-            console.error('Error getting presentation settings:', settingsError);
+          if (sessionError) {
+            console.error('Error verifying session:', sessionError);
+            throw new Error('Could not verify presentation session');
+          }
+
+          if (session?.settings_id) {
+            // Now get the settings using the settings_id
+            const { data: settings, error: settingsError } = await supabase
+              .from('presentation_settings')
+              .select('openrouter_api_key')
+              .eq('id', session.settings_id)
+              .single();
+
+            if (settingsError) {
+              console.error('Error getting presentation settings:', settingsError);
+              throw new Error('Could not retrieve presentation settings');
+            }
+
+            if (settings?.openrouter_api_key) {
+              apiKey = settings.openrouter_api_key;
+              console.log('Successfully retrieved API key from presentation settings');
+            } else {
+              console.log('No API key found in presentation settings');
+            }
           } else {
-            console.log('Found presentation settings:', presentationSettings);
+            console.log('No settings associated with this session');
           }
-          
-          if (presentationSettings?.openrouter_api_key) {
-            apiKey = presentationSettings.openrouter_api_key;
-            console.log('Using API key from presentation settings');
-          }
-        } else {
-          console.log('Session not found:', sessionId);
+        } catch (err) {
+          console.error('Error in presentation settings lookup:', err);
         }
       } else {
         console.log('No session ID found in URL:', window.location.pathname);
