@@ -633,7 +633,7 @@ Your Task:
         </div>
         
         {/* Chat messages area */}
-        <ScrollArea className="h-[250px] p-4 flex-grow">
+        <ScrollArea className="h-[200px] p-4 flex-grow">
           {visibleMessages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
               <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
@@ -763,20 +763,23 @@ Your Task:
     if (block.imageUrl) {
       return (
         <div className={cn(
-          "mb-4 p-4 bg-white rounded-md border shadow-sm",
+          "h-full flex flex-col justify-center bg-white rounded-md border shadow-sm",
           isGrouped && "border-2 border-purple-200"
         )}>
           {isGrouped && groupId && (
-            <div className="text-xs font-medium text-purple-600 mb-2 uppercase tracking-wide">
+            <div className="text-xs font-medium text-purple-600 p-2 uppercase tracking-wide">
               Group: {groupId}
             </div>
           )}
-          <ImageViewer 
-            src={block.imageUrl} 
-            alt={block.imageAlt || 'Question image'} 
-          />
+          <div className="relative w-full h-full min-h-[300px] p-4">
+            <ImageViewer 
+              src={block.imageUrl} 
+              alt={block.imageAlt || 'Question image'} 
+              className="object-contain w-full h-full"
+            />
+          </div>
           {block.imageAlt && (
-            <p className="text-sm text-center text-muted-foreground mt-2">{block.imageAlt}</p>
+            <p className="text-sm text-center text-muted-foreground p-2 border-t">{block.imageAlt}</p>
           )}
         </div>
       );
@@ -797,43 +800,48 @@ Your Task:
     return renderFeedback();
   }
   
-  // Default: render all components together
+  // Default: render all components in two-column layout
   return (
     <div className={cn(
-      "space-y-4", 
       isGrouped && getComponentStyle(),
       isGrouped && "p-4 rounded-lg"
     )}>
       {renderGroupBadge()}
       
-      {/* All three components together in a vertical layout */}
-      {/* 1. Image (if present) */}
-      {block.imageUrl && renderImage()}
-      
-      {/* 2. Question */}
-      {renderQuestion()}
-      
-      {/* Show Get Feedback button after submitting */}
-      {hasAnswered && !visibleMessages.length && (
-        <div className="flex justify-center">
-          <Button
-            onClick={generateFeedback}
-            disabled={isLoading}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Get Feedback
-          </Button>
+      <div className="grid grid-cols-2 gap-6">
+        {/* Column 1: Image */}
+        <div className="h-full">
+          {block.imageUrl && renderImage()}
         </div>
-      )}
-      
-      {/* 3. AI Feedback chat */}
-      {renderFeedback()}
+        
+        {/* Column 2: Question and Feedback */}
+        <div className="space-y-6">
+          {/* Question */}
+          {renderQuestion()}
+          
+          {/* Show Get Feedback button after submitting */}
+          {hasAnswered && !visibleMessages.length && (
+            <div className="flex justify-center py-2">
+              <Button
+                onClick={generateFeedback}
+                disabled={isLoading}
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Get Feedback
+              </Button>
+            </div>
+          )}
+          
+          {/* AI Feedback chat */}
+          {renderFeedback()}
+        </div>
+      </div>
     </div>
   );
 };
