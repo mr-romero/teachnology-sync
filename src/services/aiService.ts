@@ -175,7 +175,6 @@ interface FetchChatCompletionParams {
   model?: string;
   temperature?: number;
   endpoint?: string;
-  maxTokens?: number;
   imageUrl?: string;  // Add imageUrl parameter
 }
 
@@ -187,7 +186,6 @@ export async function fetchChatCompletion({
   model = 'openai/gpt-4',
   temperature = 0.7,
   endpoint = 'https://openrouter.ai/api/v1/chat/completions',
-  maxTokens = 1000,
   imageUrl
 }: FetchChatCompletionParams): Promise<string | null> {
   try {
@@ -249,7 +247,7 @@ export async function fetchChatCompletion({
       throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
     }
 
-    console.log(`Making request to ${endpoint} with model ${model}, max tokens: ${maxTokens}`);
+    console.log(`Making request to ${endpoint} with model ${model}`);
     
     // Process messages to include image if provided
     let processedMessages = [...messages];
@@ -347,8 +345,7 @@ When providing feedback:
     const requestBody: any = {
       model: model,
       messages: processedMessages,
-      temperature: temperature,
-      max_tokens: maxTokens
+      temperature: temperature
     };
     
     // For OpenRouter, add response format for structured output
