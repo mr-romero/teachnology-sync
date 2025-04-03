@@ -25,16 +25,25 @@ const preprocessContent = (content: string): string => {
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
   content = content.replace(jsonRegex, '');
 
-  // Ensure proper escaping for MathQuill rendering
-  content = content.replace(/\\text\{(.*?)\}/g, '\\mathrm{$1}');
-
-  // Preserve currency symbols by escaping dollar signs intended as currency
-  return content
-    // Handle currency notation: $X.XX (ensure it's not interpreted as LaTeX)
-    .replace(/\$(\d+(\.\d+)?)/g, '\\\$$1')
+  // Better handling of dollar signs in currency amounts
+  content = content
+    // First, handle dollar signs used in currency with a space before a numerical value
+    .replace(/\$\s*(\d+(\.\d+)?)/g, '\\\\$$1')
+    // Then, handle dollar signs immediately before numbers without spaces
+    .replace(/\$(\d+(\.\d+)?)/g, '\\\\$$1')
+    // Handle money values with dollar signs before mathematical operations
+    .replace(/\$(\d+(\.\d+)?)\s*([+\-*/])\s*\$?(\d+(\.\d+)?)/g, '\\\\$$1 $3 \\\\$$4')
+    // Handle division calculations with dollar signs
+    .replace(/\$(\d+(\.\d+)?)\s*\/\s*\$?(\d+(\.\d+)?)/g, '\\\\$$1 / \\\\$$3')
+    
+    // Ensure proper escaping for MathQuill rendering
+    .replace(/\\text\{(.*?)\}/g, '\\mathrm{$1}')
+    
     // Convert standard LaTeX dollar delimiters to explicit \(...\) notation
     .replace(/\$\$(.*?)\$\$/g, '\\[$1\\]')
     .replace(/\$(.*?)\$/g, '\\($1\\)');
+    
+  return content;
 };
 
 // Helper function to parse latex expressions from markdown

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
+import { isEqual } from 'lodash'; // Import isEqual for deep comparison
 
 // Define valid table names to ensure type safety with Supabase client
 type TableNames = keyof Database['public']['Tables'];
@@ -37,6 +38,7 @@ export function useRealTimeSync<T extends Record<string, any>>(
   const [error, setError] = useState<Error | null>(null);
   const isRefreshing = useRef(false);
   const lastRefreshTimestamp = useRef(0);
+  const previousData = useRef<T | null>(null); // Store previous data for comparison
 
   const fetchData = async () => {
     // Prevent concurrent calls and rate limit (minimum 2 seconds between refreshes)
@@ -99,8 +101,12 @@ export function useRealTimeSync<T extends Record<string, any>>(
         throw fetchError;
       }
       
-      // Safe type conversion with explicit cast
-      setData(fetchedData as unknown as T);
+      // Only update state if data has actually changed
+      const newData = fetchedData as unknown as T;
+      if (!isEqual(previousData.current, newData)) {
+        previousData.current = newData;
+        setData(newData);
+      }
     } catch (err) {
       console.error(`Error fetching ${tableName}:`, err);
       setError(err instanceof Error ? err : new Error(String(err)));
@@ -136,10 +142,15 @@ export function useRealTimeSync<T extends Record<string, any>>(
       }, (payload) => {
         console.log('Real-time update received:', payload);
         if (payload.eventType === 'DELETE') {
+          previousData.current = null;
           setData(null);
         } else {
-          // Safe type conversion
-          setData(payload.new as unknown as T);
+          // Only update if data has changed
+          const newData = payload.new as unknown as T;
+          if (!isEqual(previousData.current, newData)) {
+            previousData.current = newData;
+            setData(newData);
+          }
         }
       })
       .subscribe();
