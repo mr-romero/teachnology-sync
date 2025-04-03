@@ -175,7 +175,6 @@ interface FetchChatCompletionParams {
   model?: string;
   temperature?: number;
   endpoint?: string;
-  apiKey?: string;
   maxTokens?: number;
   imageUrl?: string;  // Add imageUrl parameter
 }
@@ -185,15 +184,26 @@ interface FetchChatCompletionParams {
  */
 export async function fetchChatCompletion({
   messages,
-  model = 'openai/gpt-4o-mini',  // Default to GPT-4 for better image understanding
+  model = 'openai/gpt-4',
   temperature = 0.7,
   endpoint = 'https://openrouter.ai/api/v1/chat/completions',
-  apiKey,
   maxTokens = 1000,
   imageUrl
 }: FetchChatCompletionParams): Promise<string | null> {
   try {
-    // Validate API key exists
+    // Get the API key from user settings
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Error getting current user:', userError);
+      throw new Error('Failed to get current user');
+    }
+    
+    if (!user?.id) {
+      console.error('No user ID found');
+      throw new Error('No user found');
+    }
+
+    const apiKey = await getOpenRouterApiKey(user.id);
     if (!apiKey) {
       throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
     }
@@ -455,8 +465,25 @@ export async function getChatHistory({
 /**
  * Fetches available models from OpenRouter API
  */
-export async function fetchAvailableModels(apiKey: string): Promise<{ id: string; name: string }[] | null> {
+export async function fetchAvailableModels(): Promise<{ id: string; name: string }[] | null> {
   try {
+    // Get the API key from user settings
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) {
+      console.error('Error getting current user:', userError);
+      throw new Error('Failed to get current user');
+    }
+    
+    if (!user?.id) {
+      console.error('No user ID found');
+      throw new Error('No user found');
+    }
+
+    const apiKey = await getOpenRouterApiKey(user.id);
+    if (!apiKey) {
+      throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
+    }
+
     const response = await fetch('https://openrouter.ai/api/v1/models', {
       method: 'GET',
       headers: {

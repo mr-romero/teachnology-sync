@@ -75,7 +75,6 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   );
   const [newStarter, setNewStarter] = useState('');
   const [apiEndpoint, setApiEndpoint] = useState(block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions');
-  const [apiKey, setApiKey] = useState(block.apiKey || '');
   const [modelName, setModelName] = useState(block.modelName || 'openai/gpt-3.5-turbo');
   const [repetitionPrevention, setRepetitionPrevention] = useState(
     block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights."
@@ -209,26 +208,17 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   
   // Load available models when API key is provided
   useEffect(() => {
-    if (apiKey && apiKey.length > 20 && !modelsFetched) {
+    if (!modelsFetched) {
       loadAvailableModels();
     }
-  }, [apiKey]);
+  }, []);
   
   // Function to load available models
   const loadAvailableModels = async () => {
-    if (!apiKey || apiKey.length < 20) {
-      toast({
-        title: "API Key Required",
-        description: "Please enter a valid API key to fetch available models",
-        variant: "destructive"
-      });
-      return;
-    }
-    
     setIsLoadingModels(true);
     
     try {
-      const models = await fetchAvailableModels(apiKey);
+      const models = await fetchAvailableModels();
       
       if (models && models.length > 0) {
         setAvailableModels(models);
@@ -337,7 +327,6 @@ Remember to:
       feedbackSystemPrompt,
       feedbackSentenceStarters,
       apiEndpoint,
-      apiKey, // Make sure API key is included in block updates
       modelName,
       maxTokens,
       repetitionPrevention,
@@ -356,7 +345,6 @@ Remember to:
     feedbackSystemPrompt,
     feedbackSentenceStarters,
     apiEndpoint,
-    apiKey, // Add to dependency array
     modelName,
     maxTokens,
     repetitionPrevention,
@@ -690,60 +678,6 @@ Remember to:
                   </div>
                   
                   <div>
-                    <Label htmlFor="apiKey">API Key</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="apiKey"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        type="password"
-                        placeholder="Enter your API key..."
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        onClick={loadAvailableModels}
-                        disabled={isLoadingModels || !apiKey || apiKey.length < 20}
-                      >
-                        {isLoadingModels ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <RefreshCw className="h-4 w-4" />
-                        )}
-                      </Button>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="outline" size="icon">
-                              <Key className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-md">
-                            <div className="space-y-2">
-                              <p className="font-semibold text-destructive">Security Warning</p>
-                              <p>This API key will be stored with the lesson and sent to students when they access this AI Chat block.</p>
-                              <p>Consider using a restricted API key with usage limits.</p>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <Alert variant="destructive" className="mt-3">
-                      <AlertTitle>Security Notice</AlertTitle>
-                      <AlertDescription>
-                        <p className="mb-1">The API key will be visible to students using this lesson. This is not using localStorage, but will be stored in the lesson data.</p>
-                        <p>For security, consider:</p>
-                        <ul className="list-disc list-inside text-sm space-y-1 mt-1">
-                          <li>Using a restricted API key with rate and usage limits</li>
-                          <li>Rotating the API key periodically</li>
-                          <li>Setting spending caps in your API provider dashboard</li>
-                        </ul>
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                  
-                  <div>
                     <Label htmlFor="modelName">Model Name</Label>
                     {availableModels.length > 0 ? (
                       <Select
@@ -774,7 +708,7 @@ Remember to:
                           variant="outline" 
                           className="w-full" 
                           onClick={loadAvailableModels}
-                          disabled={isLoadingModels || !apiKey || apiKey.length < 20}
+                          disabled={isLoadingModels}
                         >
                           {isLoadingModels ? (
                             <>
@@ -789,7 +723,7 @@ Remember to:
                           )}
                         </Button>
                         <p className="text-xs text-muted-foreground mt-2">
-                          Enter your API key above and click this button to fetch available models.
+                          Click to fetch available models. Make sure you have set your API key in Settings.
                         </p>
                       </div>
                     )}

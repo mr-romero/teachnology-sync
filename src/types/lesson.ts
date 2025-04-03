@@ -76,7 +76,6 @@ export interface AIChatBlock extends BaseBlock {
   sentenceStarters?: string[];
   targetConclusion?: string;
   apiEndpoint?: string;
-  apiKey?: string;
   modelName?: string;
   repetitionPrevention?: string;
   maxTokens?: number;
