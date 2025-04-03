@@ -21,13 +21,15 @@ interface Message {
 
 // Helper function to preprocess content for proper LaTeX rendering
 const preprocessContent = (content: string): string => {
+  // Remove JSON blocks from the content
+  const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
+  content = content.replace(jsonRegex, '');
+
   // Preserve currency symbols by escaping dollar signs intended as currency
-  // This regex looks for dollar signs that appear to be used as currency
   return content
     // Handle currency notation: $X.XX (ensure it's not interpreted as LaTeX)
-    .replace(/\$(\d+(\.\d+)?)/g, '\\$$1')
+    .replace(/\$(\d+(\.\d+)?)/g, '\\\$$1')
     // Convert standard LaTeX dollar delimiters to explicit \(...\) notation
-    // This makes the delimiters more explicit and less prone to misinterpretation
     .replace(/\$\$(.*?)\$\$/g, '\\[$1\\]')
     .replace(/\$(.*?)\$/g, '\\($1\\)');
 };
@@ -626,7 +628,7 @@ Your Task:
             <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div>
               <h4 className="text-sm font-medium mb-1">Feedback</h4>
-              <p className="text-sm text-muted-foreground">{block.feedbackInstructions}</p>
+              <p className="text-xs text-muted-foreground">Ask for help if you need additional explanation.</p>
             </div>
           </div>
         </div>
