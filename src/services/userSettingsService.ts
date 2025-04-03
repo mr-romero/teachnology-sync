@@ -107,21 +107,22 @@ export const ensureUserSettings = async (userId: string) => {
 
 export const getOpenRouterApiKey = async (userId: string): Promise<string | null> => {
   try {
+    console.log('Fetching OpenRouter API key for user:', userId);
     // First ensure settings exist
     await ensureUserSettings(userId);
-
     // Then get the API key
     const { data: settings, error } = await supabase
       .from('user_settings')
       .select('openrouter_api_key')
       .eq('id', userId)
       .single();
-      
+
     if (error) {
       console.error('Error getting OpenRouter API key:', error);
       return null;
     }
-    
+
+    console.log('Retrieved OpenRouter API key:', settings?.openrouter_api_key);
     return settings?.openrouter_api_key || null;
   } catch (error) {
     console.error('Error in getOpenRouterApiKey:', error);
@@ -131,20 +132,21 @@ export const getOpenRouterApiKey = async (userId: string): Promise<string | null
 
 export const saveOpenRouterApiKey = async (userId: string, apiKey: string): Promise<boolean> => {
   try {
+    console.log('Saving OpenRouter API key for user:', userId, 'API Key:', apiKey);
     // First ensure settings exist
     await ensureUserSettings(userId);
-
     // Then update the API key
     const { error } = await supabase
       .from('user_settings')
       .update({ openrouter_api_key: apiKey })
       .eq('id', userId);
-      
+
     if (error) {
       console.error('Error saving OpenRouter API key:', error);
       return false;
     }
-    
+
+    console.log('Successfully saved OpenRouter API key for user:', userId);
     return true;
   } catch (error) {
     console.error('Error in saveOpenRouterApiKey:', error);
