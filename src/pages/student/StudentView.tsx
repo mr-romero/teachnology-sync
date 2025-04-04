@@ -66,7 +66,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   const [sessionId, setSessionId] = useState<string>(locationState.sessionId || '');
   const [presentationId, setPresentationId] = useState<string>(locationState.presentationId || '');
   const [lesson, setLesson] = useState<{ title: string; slides: LessonSlide[]; settings?: any } | null>(null);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState<number | null>(null);
   // Set isJoined to true initially if we have valid auto-join data
   const [isJoined, setIsJoined] = useState<boolean>(
     !!(locationState.autoJoin && locationState.sessionId && locationState.presentationId)
@@ -130,17 +130,45 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   
   useEffect(() => {
     if (sessionData && !sessionLoading) {
-      // First, update current slide based on sync mode
+      // Get stored slide from localStorage first
+      const storedData = localStorage.getItem(`student_session_${sessionId}`);
+      let storedPosition = null;
+
+      if (storedData) {
+        try {
+          const { currentSlideIndex: stored } = JSON.parse(storedData);
+          storedPosition = Number(stored);
+          console.log('Found stored slide position:', storedPosition);
+        } catch (e) {
+          console.error('Error parsing stored slide data:', e);
+        }
+      }
+
+      // First check if it's in sync mode
       if (sessionData.is_synced) {
-        // When in sync mode, always use the session's current slide
+        console.log('Sync mode active, using teacher slide:', sessionData.current_slide);
         setCurrentSlideIndex(Number(sessionData.current_slide));
         setAllowedSlides([]);
       } else {
-        // When not in sync mode, check if we have paced slides
+        // In non-sync mode, prioritize student's stored position
+        console.log('Non-sync mode active');
+        
         if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
           setAllowedSlides(sessionData.paced_slides);
           
-          if (!sessionData.paced_slides.includes(Number(sessionData.current_slide))) {
+          // If we have a valid stored position AND it's in allowed slides, use it
+          if (storedPosition !== null && 
+              !isNaN(storedPosition) && 
+              sessionData.paced_slides.includes(storedPosition) &&
+              lesson && storedPosition < lesson.slides.length) {
+            console.log('Using stored slide position:', storedPosition);
+            setCurrentSlideIndex(storedPosition);
+            // Update the student's position in the database
+            if (user) {
+              updateStudentSlide(sessionId, user.id, storedPosition);
+            }
+          } else {
+            // Find nearest allowed slide
             const nextSlides = sessionData.paced_slides.filter(index => index >= Number(sessionData.current_slide));
             const prevSlides = sessionData.paced_slides.filter(index => index < Number(sessionData.current_slide));
             
@@ -153,28 +181,43 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
               targetSlide = sessionData.paced_slides[0];
             }
             
+            console.log('Using calculated paced slide position:', targetSlide);
             setCurrentSlideIndex(targetSlide);
             if (user) {
               updateStudentSlide(sessionId, user.id, targetSlide);
             }
-          } else {
-            // Current slide is allowed, update to stay in sync with session
-            setCurrentSlideIndex(Number(sessionData.current_slide));
           }
         } else {
-          // No paced slides, free navigation
+          // No paced slides - free navigation
+          console.log('Free navigation mode');
           setAllowedSlides([]);
-          // Update to stay in sync with session
-          setCurrentSlideIndex(Number(sessionData.current_slide));
+          
+          // Use stored position if valid
+          if (storedPosition !== null && 
+              !isNaN(storedPosition) && 
+              lesson && 
+              storedPosition >= 0 && 
+              storedPosition < lesson.slides.length) {
+            console.log('Using stored slide position:', storedPosition);
+            setCurrentSlideIndex(storedPosition);
+            // Update the database to match localStorage
+            if (user) {
+              updateStudentSlide(sessionId, user.id, storedPosition);
+            }
+          } else {
+            // Fallback to session's current_slide
+            console.log('Using session current slide:', sessionData.current_slide);
+            setCurrentSlideIndex(Number(sessionData.current_slide));
+          }
         }
       }
-      
+
       // Update pause state
       if (sessionData.is_paused !== undefined) {
         setIsPaused(!!sessionData.is_paused);
       }
     }
-  }, [sessionData, sessionLoading, sessionId, user]);
+  }, [sessionData, sessionLoading, sessionId, lesson, user]);
   
   useEffect(() => {
     // Only check for active sessions if we don't have a URL join code or auto-join state

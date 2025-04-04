@@ -426,17 +426,27 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
       // Get session data - only request fields we know exist
       const { data: sessionData, error: sessionError } = await supabase
         .from('presentation_sessions')
-        .select('is_synced')
+        .select('is_synced, paced_slides')
         .eq('id', sessionId)
         .single();
         
       if (sessionError) {
         console.error('Error fetching session sync status:', sessionError);
         // Continue anyway to support older database versions
-      } else if (sessionData && sessionData.is_synced) {
-        // If in sync mode, students shouldn't update their position at all
-        console.log('Student attempted to navigate while in sync mode');
-        return false;
+      } else if (sessionData) {
+        if (sessionData.is_synced) {
+          // If in sync mode, students shouldn't update their position at all
+          console.log('Student attempted to navigate while in sync mode');
+          return false;
+        }
+        
+        // If paced slides are enabled, verify this is an allowed slide
+        if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
+          if (!sessionData.paced_slides.includes(slideIndex)) {
+            console.log('Student attempted to navigate to non-allowed slide');
+            return false;
+          }
+        }
       }
     } catch (checkError) {
       // If any error happens during restriction checks, log it but still
@@ -444,12 +454,28 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
       console.warn('Error checking navigation restrictions:', checkError);
     }
     
-    // Update the student's current slide
+    // Update the student's current slide in the database
     const { error } = await supabase
       .from('session_participants')
-      .update({ current_slide: slideIndex, last_active_at: new Date().toISOString() })
+      .update({ 
+        current_slide: slideIndex, 
+        last_active_at: new Date().toISOString() 
+      })
       .eq('session_id', sessionId)
       .eq('user_id', userId);
+
+    if (!error) {
+      // Also update localStorage to keep local state in sync
+      try {
+        localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
+          currentSlideIndex: slideIndex,
+          timestamp: new Date().toISOString()
+        }));
+      } catch (storageError) {
+        console.warn('Error updating localStorage:', storageError);
+        // Continue anyway as database update was successful
+      }
+    }
       
     return !error;
   } catch (error) {
