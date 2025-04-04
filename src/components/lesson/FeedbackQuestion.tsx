@@ -486,7 +486,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
           endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
           imageUrl: block.imageUrl || undefined
         },
-        sessionId // Add sessionId here
+        sessionId  // Add the sessionId parameter here
       );
 
       if (!feedbackContent) {
