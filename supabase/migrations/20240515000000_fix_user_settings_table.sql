@@ -1,5 +1,7 @@
--- Create user_settings table
-CREATE TABLE IF NOT EXISTS user_settings (
+-- Drop and recreate user_settings table to ensure correct structure
+DROP TABLE IF EXISTS user_settings CASCADE;
+
+CREATE TABLE user_settings (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     created_at timestamptz DEFAULT NOW(),
@@ -38,7 +40,7 @@ CREATE POLICY "Users can insert their own settings"
     WITH CHECK (auth.uid() = user_id);
 
 -- Create index for faster lookups
-CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
+CREATE INDEX idx_user_settings_user_id ON user_settings(user_id);
 
 -- Function to handle updated_at
 CREATE OR REPLACE FUNCTION handle_updated_at()
@@ -55,29 +57,7 @@ CREATE TRIGGER set_timestamp
     FOR EACH ROW
     EXECUTE FUNCTION handle_updated_at();
 
--- Create a function to handle new user creation
-create or replace function public.handle_new_user_settings()
-returns trigger as $$
-begin
-    insert into public.user_settings (id)
-    values (new.id);
-    return new;
-end;
-$$ language plpgsql security definer;
-
--- Create a trigger to add settings when a user is created
-create trigger on_auth_user_created_settings
-    after insert on auth.users
-    for each row execute procedure public.handle_new_user_settings();
-
--- Create a function to get OpenRouter API key
-create or replace function get_openrouter_api_key(user_id uuid)
-returns text as $$
-begin
-    return (
-        select openrouter_api_key
-        from public.user_settings
-        where id = user_id
-    );
-end;
-$$ language plpgsql security definer;
+-- Migrate any existing data if needed
+INSERT INTO user_settings (user_id)
+SELECT id FROM auth.users
+ON CONFLICT (user_id) DO NOTHING;

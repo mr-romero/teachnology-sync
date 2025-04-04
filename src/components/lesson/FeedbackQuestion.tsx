@@ -436,93 +436,67 @@ ${imageInfo}`;
   };
   
   const generateFeedback = async () => {
-    if (isLoading) return;
-    
-    setIsLoading(true);
-    setError(null);
-    
+    if (!response) {
+      setError('Please provide an answer first.');
+      return;
+    }
+
     try {
-      // Format the student's answer and correct answer based on whether multiple answers are allowed
-      let studentAnswerText = "";
-      let correctAnswerText = "";
+      setIsLoading(true);
+      setError(null);
       
-      if (Array.isArray(response)) {
-        // For multiple selection questions
-        studentAnswerText = response.length > 0 
-          ? `"${response.join('", "')}"` 
-          : "No options selected";
-      } else {
-        // For single selection questions
-        studentAnswerText = `"${response}"`;
-      }
-      
-      if (Array.isArray(block.correctAnswer)) {
-        // For multiple correct answers
-        correctAnswerText = block.correctAnswer.length > 0 
-          ? `"${block.correctAnswer.join('", "')}"` 
-          : "No correct answers specified";
-      } else {
-        // For single correct answer
-        correctAnswerText = `"${block.correctAnswer}"`;
-      }
-      
-      // Create a system prompt that includes structured output instructions
-      const feedbackPrompt = `You are a helpful mathematics tutor providing feedback on a student's answer.
-
-Question Context:
-- Question Type: ${block.questionType}${block.allowMultipleAnswers ? ' (multiple selection allowed)' : ''}
-- Question Asked: "${block.questionText || "Unknown question"}"
-- Student's Answer: ${studentAnswerText}
-- Correct Answer: ${correctAnswerText}
-
-Your Task:
-1. First analyze if the answer is correct or incorrect
-   ${block.allowMultipleAnswers ? '- For multiple selection questions, the answer is fully correct only if all correct answers were selected and no incorrect answers were selected' : ''}
-2. For problems with images:
-   - Reference specific elements from the image when explaining
-   - Help the student understand the underlying concepts using visual references
-3. If correct:
-   - Congratulate the student
-   - Explain why their answer is correct using clear mathematical reasoning
-   - Point out any good problem-solving strategies they used
-4. If incorrect:
-   - Be encouraging and supportive
-   - Help them understand where they went wrong
-   - Guide them through the correct solution step-by-step
-   - Use clear mathematical notation (LaTeX) to explain concepts
-   ${block.allowMultipleAnswers ? '- For partially correct answers (some correct options selected), acknowledge what they got right before explaining what they missed' : ''}`;
-
-      // Add repetition prevention if available
-      const systemPromptWithPrevention = block.repetitionPrevention 
-        ? `${feedbackPrompt}\n\n${block.repetitionPrevention}`
-        : feedbackPrompt;
-
-      // Set up messages for the API request
-      const apiMessages: Message[] = [
-        { role: 'system', content: systemPromptWithPrevention },
-        { role: 'user', content: `I've answered the question "${block.questionText}" with ${studentAnswerText}. Please analyze my answer and provide feedback.` }
+      // Prepare the messages array for the chat completion
+      const messages = [
+        {
+          role: 'system',
+          content: block.feedbackSystemPrompt || `You are a helpful AI tutor providing feedback on student answers.`
+        }
       ];
-
-      const aiResponse = await fetchChatCompletion({
-        messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        imageUrl: block.imageUrl
+      
+      // Add image context if available
+      if (block.imageUrl) {
+        messages.push({
+          role: 'user',
+          content: `The question includes this image: ${block.imageUrl}
+Image description: ${block.imageAlt || 'No description provided'}`
+        });
+      }
+      
+      // Add the question and student's answer
+      messages.push({
+        role: 'user',
+        content: `Question: ${block.questionText}\n${block.questionType === 'multiple-choice' ? `Options: ${block.options?.join(', ')}\n` : ''}Student's answer: ${response}`
       });
       
-      if (aiResponse) {
-        const assistantMessage: Message = { 
-          role: 'assistant', 
-          content: aiResponse 
-        };
-        setVisibleMessages([assistantMessage]);
+      // Add evaluation instructions
+      messages.push({
+        role: 'user',
+        content: `Please evaluate the student's answer and provide helpful feedback. ${block.correctAnswer ? `The correct answer is: ${block.correctAnswer}` : ''}`
+      });
+      
+      try {
+        const feedbackContent = await fetchChatCompletion({
+          messages,
+          model: block.modelName,
+          endpoint: block.apiEndpoint,
+          imageUrl: block.imageUrl || undefined
+        });
+        
+        if (!feedbackContent) {
+          throw new Error('No feedback content received from AI');
+        }
+        
+        setVisibleMessages([{ role: 'assistant', content: feedbackContent }]);
         setHasStarted(true);
-      } else {
-        setError('Failed to get feedback from the AI.');
+      } catch (error) {
+        console.error('Error generating feedback:', error);
+        setError(error instanceof Error ? error.message : 'Failed to generate feedback');
+        setVisibleMessages([]);
       }
-    } catch (err) {
-      console.error('Error generating feedback:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred while generating feedback.');
+    } catch (error) {
+      console.error('Error in feedback generation:', error);
+      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      setVisibleMessages([]);
     } finally {
       setIsLoading(false);
     }

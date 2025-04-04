@@ -69,25 +69,52 @@ export const sendLLMRequest = async (
     }
 
     const data = await response.json();
+    let content: string | null = null;
     
     // Handle different response formats
     if (endpoint.includes('openrouter.ai')) {
-      // OpenRouter format
-      return { text: data.choices[0]?.message?.content || "" };
-    } else if (endpoint.includes('openai.com')) {
-      // OpenAI format
-      return { text: data.choices[0]?.message?.content || "" };
-    } else {
-      // Generic format - try to extract text from the response
-      if (data.choices && data.choices[0]?.message?.content) {
-        return { text: data.choices[0].message.content };
-      } else if (data.response) {
-        return { text: data.response };
-      } else {
-        console.warn("Unknown API response format:", data);
-        return { text: JSON.stringify(data) };
+      // Add more robust error handling and logging
+      if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+        console.error('Invalid response format from OpenRouter:', data);
+        throw new Error('Invalid response format: missing choices array');
       }
+      
+      const choice = data.choices[0];
+      if (!choice || !choice.message) {
+        console.error('Invalid choice format:', choice);
+        throw new Error('Invalid choice format: missing message');
+      }
+      
+      content = choice.message.content;
+      if (!content) {
+        console.error('No content in message:', choice.message);
+        throw new Error('No content found in message');
+      }
+      
+      console.log('Extracted content from OpenRouter format:', content);
+    } else if (endpoint.includes('openai.com')) {
+      if (!data.choices?.[0]?.message?.content) {
+        console.error('Invalid OpenAI response format:', data);
+        throw new Error('Invalid OpenAI response format');
+      }
+      content = data.choices[0].message.content;
+      console.log('Extracted content from OpenAI format:', content);
+    } else {
+      // Generic fallback for other APIs
+      content = data.choices?.[0]?.message?.content || 
+                data.choices?.[0]?.text || 
+                data.response || 
+                data.output;
+      
+      if (!content) {
+        console.error('No valid content found in response:', data);
+        throw new Error('No valid content found in API response');
+      }
+      
+      console.log('Extracted content from generic format:', content);
     }
+    
+    return { text: content };
   } catch (error) {
     console.error("Exception in sendLLMRequest:", error);
     return { error: error instanceof Error ? error.message : "Failed to communicate with AI model" };
@@ -393,25 +420,64 @@ You are a helpful AI tutor. Provide clear, encouraging feedback.`;
     
     let content = null;
     
-    if (endpoint.includes('openrouter.ai')) {
-      content = data.choices[0]?.message?.content;
-      console.log('Extracted content from OpenRouter format:', content);
-    } else if (endpoint.includes('openai.com')) {
-      content = data.choices[0]?.message?.content;
-      console.log('Extracted content from OpenAI format:', content);
-    } else {
-      content = data.choices?.[0]?.message?.content || 
-               data.choices?.[0]?.text || 
-               data.response || 
-               data.output;
-      console.log('Extracted content from generic format:', content);
+    if (!data || typeof data !== 'object') {
+      console.error('Invalid API response:', data);
+      throw new Error('Invalid API response format');
     }
     
-    if (!content) {
-      console.error('No content found in response:', data);
+    try {
+      if (endpoint.includes('openrouter.ai')) {
+        if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
+          console.error('Invalid response format from OpenRouter:', data);
+          throw new Error('Invalid OpenRouter response format - missing or empty choices array');
+        }
+        
+        const choice = data.choices[0];
+        if (!choice || !choice.message) {
+          console.error('Invalid choice format:', choice);
+          throw new Error('Invalid choice format: missing message');
+        }
+        
+        if (Array.isArray(choice.message.content)) {
+          const textContent = choice.message.content.find(item => item.type === 'text');
+          content = textContent?.text;
+        } else {
+          content = choice.message.content;
+        }
+        
+        if (content === null || content === undefined) {
+          console.error('No content in message:', choice.message);
+          throw new Error('No content found in message');
+        }
+        
+        console.log('Extracted content from OpenRouter format:', content);
+      } else if (endpoint.includes('openai.com')) {
+        if (!data.choices?.[0]?.message?.content) {
+          console.error('Invalid OpenAI response format:', data);
+          throw new Error('Invalid OpenAI response format');
+        }
+        content = data.choices[0].message.content;
+        console.log('Extracted content from OpenAI format:', content);
+      } else {
+        // Generic fallback for other APIs
+        content = data.choices?.[0]?.message?.content || 
+                 data.choices?.[0]?.text || 
+                 data.response || 
+                 data.output;
+                  
+        if (content === null || content === undefined) {
+          console.error('No valid content found in response:', data);
+          throw new Error('No valid content found in API response');
+        }
+        
+        console.log('Extracted content from generic format:', content);
+      }
+      
+      return content;
+    } catch (error) {
+      console.error('Error extracting content from response:', error);
+      throw new Error(`Failed to extract content from API response: ${error.message}`);
     }
-    
-    return content;
   } catch (error) {
     console.error('Error in fetchChatCompletion:', error);
     throw error;
