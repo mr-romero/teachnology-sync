@@ -86,50 +86,53 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
   try {
     console.log('Getting settings for user:', userId);
     // First try to get existing settings
-    const { data, error } = await supabase
+    const { data: existingSettings, error: checkError } = await supabase
       .from('user_settings')
       .select('*')
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
-    if (error) {
-      console.error('Error getting user settings:', error);
-      // If no settings exist, create new ones
-      if (error.code === 'PGRST116') {
-        console.log('No settings found, creating new settings...');
-        const newId = crypto.randomUUID(); // Generate a new UUID for the settings
-        const { data: newSettings, error: insertError } = await supabase
-          .from('user_settings')
-          .insert({ 
-            id: newId,
-            user_id: userId,
-            settings: {},
-            celebration_settings: {
-              type: 'default',
-              effects: {
-                confetti: true,
-                sound: true,
-                screenEffect: 'gold'
-              }
-            }
-          })
-          .select()
-          .single();
-          
-        if (insertError) {
-          console.error('Error creating user settings:', insertError);
-          return null;
-        }
-        
-        console.log('Created new settings:', newSettings);
-        return newSettings;
-      }
-      
+    // Properly handle the case where settings don't exist
+    if (checkError) {
+      console.error('Error checking user settings:', checkError);
       return null;
     }
 
-    console.log('Retrieved settings:', data);
-    return data;
+    // If settings exist, return the first one
+    if (existingSettings && existingSettings.length > 0) {
+      console.log('Retrieved settings:', existingSettings[0]);
+      return existingSettings[0];
+    }
+
+    // If no settings exist, create new ones
+    console.log('No settings found, creating new settings...');
+    const newId = crypto.randomUUID();
+    const defaultSettings = {
+      id: newId,
+      user_id: userId,
+      settings: {},
+      celebration_settings: {
+        type: 'default',
+        effects: {
+          confetti: true,
+          sound: true,
+          screenEffect: 'gold'
+        }
+      }
+    };
+
+    const { data: newSettings, error: insertError } = await supabase
+      .from('user_settings')
+      .insert(defaultSettings)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating user settings:', insertError);
+      return null;
+    }
+
+    console.log('Created new settings:', newSettings);
+    return newSettings;
   } catch (error) {
     console.error('Exception in getUserSettings:', error);
     return null;
@@ -150,14 +153,18 @@ export const updateUserSettings = async (
       return false;
     }
 
+    // Always include the id when updating
+    const updateData = {
+      ...settings,
+      id: currentSettings.id,
+      user_id: userId,
+      updated_at: new Date().toISOString()
+    };
+
     const { error } = await supabase
       .from('user_settings')
-      .upsert({
-        user_id: userId,
-        ...settings,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'user_id'
+      .upsert(updateData, {
+        onConflict: 'id'
       });
 
     if (error) {
@@ -175,40 +182,8 @@ export const updateUserSettings = async (
 
 export const ensureUserSettings = async (userId: string) => {
   try {
-    // Check if settings exist
-    const { data: existingSettings, error: checkError } = await supabase
-      .from('user_settings')
-      .select('user_id')
-      .eq('user_id', userId)
-      .single();
-    
-    if (checkError && checkError.code === 'PGRST116') {
-      // Settings don't exist, create them
-      const newId = crypto.randomUUID();
-      const { error: createError } = await supabase
-        .from('user_settings')
-        .insert({ 
-          id: newId,
-          user_id: userId,
-          settings: {},
-          celebration_settings: {
-            type: 'default',
-            effects: {
-              confetti: true,
-              sound: true,
-              screenEffect: 'gold'
-            }
-          }
-        });
-        
-      if (createError) {
-        console.error('Error creating user settings:', createError);
-        return false;
-      }
-      return true;
-    }
-    
-    return true;
+    const settings = await getUserSettings(userId);
+    return settings !== null;
   } catch (error) {
     console.error('Error in ensureUserSettings:', error);
     return false;
