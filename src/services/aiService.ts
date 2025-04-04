@@ -596,18 +596,18 @@ Your response must be a single valid JSON object without any additional text.`;
 // Function to get API key, prioritizing session settings for students
 const getApiKey = async (sessionId?: string) => {
   try {
-    // First check session settings if we have a session ID
+    // First check presentation settings if we have a session ID
     if (sessionId) {
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('presentation_sessions')
-        .select('settings')
-        .eq('id', sessionId)
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('presentation_settings')
+        .select('openrouter_api_key')
+        .eq('session_id', sessionId)
         .single();
 
-      if (sessionError) {
-        console.error('Error getting session settings:', sessionError);
-      } else if (sessionData?.settings?.openrouterApiKey) {
-        return sessionData.settings.openrouterApiKey;
+      if (settingsError) {
+        console.error('Error getting presentation settings:', settingsError);
+      } else if (settingsData?.openrouter_api_key) {
+        return settingsData.openrouter_api_key;
       }
     }
 
