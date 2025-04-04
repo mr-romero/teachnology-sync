@@ -175,9 +175,9 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
   };
 
   // Question response state - initialize with studentResponse if provided
-  const [response, setResponse] = useState<string | boolean>(
+  const [response, setResponse] = useState<string | boolean | string[]>(
     studentResponse !== undefined ? studentResponse :
-    block.questionType === 'multiple-choice' ? '' :
+    block.questionType === 'multiple-choice' ? (block.allowMultipleAnswers ? [] : '') :
     block.questionType === 'true-false' ? false : ''
   );
 
@@ -238,7 +238,7 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
   }, []);
 
   // Handle response change for the question part
-  const handleResponseChange = (value: string | boolean) => {
+  const handleResponseChange = (value: string | boolean | string[]) => {
     setResponse(value);
   };
   
@@ -255,11 +255,11 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     if (Array.isArray(block.correctAnswer) && Array.isArray(response)) {
       // For multiple correct answers, check if all selected answers are correct
       // and if all correct answers have been selected
-      const allSelectedAreCorrect = response.every(r => block.correctAnswer.includes(r));
-      const allCorrectAreSelected = block.correctAnswer.every(c => response.includes(c));
+      const correctAnswerArray = block.correctAnswer as string[];
+      const allSelectedAreCorrect = (response as string[]).every(r => correctAnswerArray.includes(r));
+      const allCorrectAreSelected = correctAnswerArray.every(c => (response as string[]).includes(c));
       
       // For strict matching, both conditions must be true
-      // For lenient matching, we could change this to just allSelectedAreCorrect
       isResponseCorrect = allSelectedAreCorrect && allCorrectAreSelected;
     } else {
       // For single answer questions
@@ -330,7 +330,7 @@ ${imageInfo}`;
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        maxTokens: block.maxTokens || 1000,
+        max_tokens: block.maxTokens || 1000,
         imageUrl: block.imageUrl
       });
       
@@ -425,6 +425,7 @@ Your Task:
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        max_tokens: block.maxTokens || 1000,
         imageUrl: block.imageUrl
       });
       
@@ -510,13 +511,13 @@ Your Task:
                             const newResponse = Array.isArray(response) 
                               ? [...response, option] 
                               : [option];
-                            handleResponseChange(newResponse);
+                            handleResponseChange(newResponse as string[]);
                           } else {
                             // Remove option from selected options
                             const newResponse = Array.isArray(response) 
                               ? response.filter(item => item !== option) 
                               : [];
-                            handleResponseChange(newResponse);
+                            handleResponseChange(newResponse as string[]);
                           }
                         }}
                         disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
@@ -913,16 +914,30 @@ Your Task:
       {renderGroupBadge()}
       
       <div className="grid grid-cols-2 gap-6">
-        {/* Column 1: Image */}
-        <div className="h-full">
-          {block.imageUrl && renderImage()}
-        </div>
-        
-        {/* Column 2: Question and Feedback */}
+        {/* Column 1: Image and Question stacked vertically */}
         <div className="space-y-6">
+          {/* Image */}
+          {block.imageUrl && (
+            <div className="w-full bg-white rounded-md border shadow-sm">
+              <div className="relative w-full">
+                <ImageViewer 
+                  src={block.imageUrl} 
+                  alt={block.imageAlt || 'Question image'} 
+                  className="object-contain w-full"
+                />
+              </div>
+              {block.imageAlt && (
+                <p className="text-sm text-center text-muted-foreground p-2 border-t">{block.imageAlt}</p>
+              )}
+            </div>
+          )}
+          
           {/* Question */}
           {renderQuestion()}
-          
+        </div>
+        
+        {/* Column 2: Chat feedback at full height */}
+        <div className="h-full flex flex-col">
           {/* Show Get Feedback button after submitting */}
           {hasAnswered && !visibleMessages.length && (
             <div className="flex justify-center py-2">
