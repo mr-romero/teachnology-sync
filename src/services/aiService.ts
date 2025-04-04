@@ -618,9 +618,40 @@ export async function fetchAvailableModels(): Promise<{ id: string; name: string
       throw new Error('No user found');
     }
 
-    const apiKey = await getOpenRouterApiKey(user.id);
+    // First try to get API key from user settings
+    let apiKey = await getOpenRouterApiKey(user.id);
+    
+    // If no API key found, try to get teacher's API key from the presentation settings
     if (!apiKey) {
-      throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
+      // Get session ID from URL, handling both full URLs and path segments
+      const pathSegments = window.location.pathname.split('/');
+      const sessionId = pathSegments[pathSegments.length - 1];
+      
+      console.log('No user API key found, checking presentation settings for session:', sessionId);
+
+      if (sessionId && sessionId.length > 0) {
+        try {
+          // Query the presentation_settings table directly using session_id
+          const { data: settings, error: settingsError } = await supabase
+            .from('presentation_settings')
+            .select('openrouter_api_key')
+            .eq('session_id', sessionId)
+            .single();
+
+          if (settingsError) {
+            console.error('Error getting presentation settings:', settingsError);
+          } else if (settings?.openrouter_api_key) {
+            apiKey = settings.openrouter_api_key;
+            console.log('Successfully retrieved API key from presentation settings');
+          }
+        } catch (err) {
+          console.error('Error in presentation settings lookup:', err);
+        }
+      }
+    }
+
+    if (!apiKey) {
+      throw new Error('No API key found. Please add your OpenRouter API key in Settings or use a presentation with an API key configured.');
     }
 
     const response = await fetch('https://openrouter.ai/api/v1/models', {
