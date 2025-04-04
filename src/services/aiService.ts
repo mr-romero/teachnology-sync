@@ -85,10 +85,21 @@ export const sendLLMRequest = async (
         throw new Error('Invalid choice format: missing message');
       }
       
-      content = choice.message.content;
-      if (!content) {
-        console.error('No content in message:', choice.message);
-        throw new Error('No content found in message');
+      // Handle both string and array content formats
+      if (Array.isArray(choice.message.content)) {
+        // If content is an array, find text content
+        const textContent = choice.message.content.find(item => 
+          item.type === 'text' && item.text
+        );
+        content = textContent?.text || null;
+      } else {
+        // If content is a string, use it directly
+        content = choice.message.content;
+      }
+      
+      if (content === null || content === undefined) {
+        console.error('No valid content found in message:', choice.message);
+        throw new Error('No valid content found in OpenRouter response');
       }
       
       console.log('Extracted content from OpenRouter format:', content);
@@ -438,16 +449,21 @@ You are a helpful AI tutor. Provide clear, encouraging feedback.`;
           throw new Error('Invalid choice format: missing message');
         }
         
+        // Handle both string and array content formats
         if (Array.isArray(choice.message.content)) {
-          const textContent = choice.message.content.find(item => item.type === 'text');
-          content = textContent?.text;
+          // If content is an array, find text content
+          const textContent = choice.message.content.find(item => 
+            item.type === 'text' && item.text
+          );
+          content = textContent?.text || null;
         } else {
+          // If content is a string, use it directly
           content = choice.message.content;
         }
         
         if (content === null || content === undefined) {
-          console.error('No content in message:', choice.message);
-          throw new Error('No content found in message');
+          console.error('No valid content found in message:', choice.message);
+          throw new Error('No valid content found in OpenRouter response');
         }
         
         console.log('Extracted content from OpenRouter format:', content);
