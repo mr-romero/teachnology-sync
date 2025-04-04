@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -58,8 +58,10 @@ interface SessionInfo {
   ended_at: string | null;
 }
 
-const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
+const StudentView: React.FC<StudentViewProps> = () => {
   const { joinCode: urlJoinCode, lessonId: urlLessonId } = useParams<{ joinCode?: string; lessonId?: string }>();
+  const [searchParams] = useSearchParams();
+  const isPreview = searchParams.get('preview') === 'true';
   const location = useLocation();
   const locationState = location.state as LocationState || {};
   const { user } = useAuth();

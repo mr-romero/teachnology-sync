@@ -126,11 +126,7 @@ const App = () => (
             />
             <Route 
               path="/student/view/:lessonId" 
-              element={
-                <ProtectedRoute requiredRole="student">
-                  <StudentView />
-                </ProtectedRoute>
-              } 
+              element={<StudentView />}
             />
             <Route 
               path="/student/session/:sessionId" 
