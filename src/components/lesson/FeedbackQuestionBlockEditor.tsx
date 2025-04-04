@@ -13,7 +13,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Trash, Check, X, HelpCircle, Plus, Key, RefreshCw, Loader2, MoveVertical } from 'lucide-react';
+import { Trash, Check, X, HelpCircle, Plus, Key, RefreshCw, Loader2, MoveVertical, Wand2 } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -32,6 +32,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { Slider } from '@/components/ui/slider';
 import FeedbackBlockSplitter from './FeedbackBlockSplitter';
+import SlideWizard from './SlideWizard';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface FeedbackQuestionBlockEditorProps {
   block: FeedbackQuestionBlock;
@@ -76,7 +78,8 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   );
   const [newStarter, setNewStarter] = useState('');
   const [apiEndpoint, setApiEndpoint] = useState(block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions');
-  const [modelName, setModelName] = useState(block.modelName || 'openai/gpt-3.5-turbo');
+  const [modelSearch, setModelSearch] = useState('');
+  const [modelName, setModelName] = useState(block.modelName || 'openai/gpt-4o-mini');
   const [repetitionPrevention, setRepetitionPrevention] = useState(
     block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights."
   );
@@ -352,515 +355,576 @@ Remember to:
     imageUrl,
     imageAlt
   ]);
-  
+
+  // Add new state for wizard dialog
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const handleWizardComplete = (result: {
+    questionText: string;
+    options?: string[];
+    correctAnswer?: string;
+    optionStyle?: 'A-D' | 'F-J' | 'text';
+    imageUrl: string;
+    imageAlt: string;
+  }) => {
+    // Update all relevant state
+    setQuestionText(result.questionText);
+    if (result.options && result.options.length > 0) {
+      setQuestionType('multiple-choice');
+      setOptions(result.options);
+      if (result.optionStyle) {
+        setOptionStyle(result.optionStyle);
+      }
+      if (result.correctAnswer) {
+        setCorrectAnswer(result.correctAnswer);
+      }
+    }
+    setImageUrl(result.imageUrl);
+    setImageAlt(result.imageAlt);
+    setWizardOpen(false);
+  };
+
   return (
-    <Card className="border shadow-sm">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium text-lg">Feedback Question Block</h3>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            onClick={onDelete}
-          >
-            <Trash className="h-4 w-4 mr-1" />
-            Delete
-          </Button>
-        </div>
-        
-        <Tabs defaultValue="question">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="question">Question</TabsTrigger>
-            <TabsTrigger value="image">Image (Optional)</TabsTrigger>
-            <TabsTrigger value="feedback">AI Feedback</TabsTrigger>
-          </TabsList>
+    <>
+      <Card className="border shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-medium text-lg">Feedback Question Block</h3>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setWizardOpen(true)}
+                className="gap-2"
+              >
+                <Wand2 className="h-4 w-4" />
+                Wizard
+              </Button>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={onDelete}
+              >
+                <Trash className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            </div>
+          </div>
           
-          {/* Question Tab */}
-          <TabsContent value="question" className="space-y-4 py-4">
-            <div className="space-y-4">
-              <div>
-                <Label>Question Type</Label>
-                <Select
-                  value={questionType}
-                  onValueChange={(value) => updateQuestionType(value as QuestionType)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select question type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
-                    <SelectItem value="free-response">Free Response</SelectItem>
-                    <SelectItem value="true-false">True/False</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div>
-                <Label>Question Text</Label>
-                <Textarea
-                  value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
-                  placeholder="Enter your question here"
-                  className="min-h-[100px] mt-1"
-                />
-              </div>
-              
-              {questionType === 'multiple-choice' && (
-                <div className="space-y-3">
-                  <div>
-                    <Label>Option Style</Label>
-                    <Select
-                      value={optionStyle}
-                      onValueChange={(value: 'A-D' | 'F-J' | 'text') => setOptionStyle(value)}
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select option style" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="A-D">A, B, C, D</SelectItem>
-                        <SelectItem value="F-J">F, G, H, I, J</SelectItem>
-                        <SelectItem value="text">Plain Text</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Choose how multiple choice options will be labeled for students.
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
+          <Tabs defaultValue="question">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="question">Question</TabsTrigger>
+              <TabsTrigger value="image">Image (Optional)</TabsTrigger>
+              <TabsTrigger value="feedback">AI Feedback</TabsTrigger>
+            </TabsList>
+            
+            {/* Question Tab */}
+            <TabsContent value="question" className="space-y-4 py-4">
+              <div className="space-y-4">
+                <div>
+                  <Label>Question Type</Label>
+                  <Select
+                    value={questionType}
+                    onValueChange={(value) => updateQuestionType(value as QuestionType)}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Select question type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
+                      <SelectItem value="free-response">Free Response</SelectItem>
+                      <SelectItem value="true-false">True/False</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div>
+                  <Label>Question Text</Label>
+                  <Textarea
+                    value={questionText}
+                    onChange={(e) => setQuestionText(e.target.value)}
+                    placeholder="Enter your question here"
+                    className="min-h-[100px] mt-1"
+                  />
+                </div>
+                
+                {questionType === 'multiple-choice' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Option Style</Label>
+                      <Select
+                        value={optionStyle}
+                        onValueChange={(value: 'A-D' | 'F-J' | 'text') => setOptionStyle(value)}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Select option style" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A-D">A, B, C, D</SelectItem>
+                          <SelectItem value="F-J">F, G, H, I, J</SelectItem>
+                          <SelectItem value="text">Plain Text</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choose how multiple choice options will be labeled for students.
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 pt-2">
+                        <Switch
+                          id="allowMultipleAnswers"
+                          checked={allowMultipleAnswers}
+                          onCheckedChange={setAllowMultipleAnswers}
+                        />
+                        <Label htmlFor="allowMultipleAnswers">Allow multiple correct answers</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        When enabled, students can select multiple options and you can mark multiple answers as correct.
+                      </p>
+                    </div>
+                    
                     <div className="flex items-center space-x-2 pt-2">
                       <Switch
-                        id="allowMultipleAnswers"
-                        checked={allowMultipleAnswers}
-                        onCheckedChange={setAllowMultipleAnswers}
+                        id="allowAnswerChange"
+                        checked={allowAnswerChange}
+                        onCheckedChange={setAllowAnswerChange}
                       />
-                      <Label htmlFor="allowMultipleAnswers">Allow multiple correct answers</Label>
+                      <Label htmlFor="allowAnswerChange">Allow answer changes after submission</Label>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      When enabled, students can select multiple options and you can mark multiple answers as correct.
+                      When enabled, students can change their answers after submitting. By default, answers are locked after submission.
                     </p>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Switch
-                      id="allowAnswerChange"
-                      checked={allowAnswerChange}
-                      onCheckedChange={setAllowAnswerChange}
-                    />
-                    <Label htmlFor="allowAnswerChange">Allow answer changes after submission</Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    When enabled, students can change their answers after submitting. By default, answers are locked after submission.
-                  </p>
-                  
-                  <Label>Options</Label>
-                  {options.map((option, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <div className="flex-grow flex items-center space-x-2">
-                        {allowMultipleAnswers ? (
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-gray-300 focus:ring-primary"
-                            checked={Array.isArray(correctAnswer) ? correctAnswer.includes(option) : correctAnswer === option}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                // Add to correct answers array
-                                const newCorrectAnswers = Array.isArray(correctAnswer) 
-                                  ? [...correctAnswer, option]
-                                  : [option];
-                                setCorrectAnswer(newCorrectAnswers);
-                              } else {
-                                // Remove from correct answers array
-                                if (Array.isArray(correctAnswer)) {
-                                  setCorrectAnswer(correctAnswer.filter(answer => answer !== option));
+                    
+                    <Label>Options</Label>
+                    {options.map((option, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <div className="flex-grow flex items-center space-x-2">
+                          {allowMultipleAnswers ? (
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 focus:ring-primary"
+                              checked={Array.isArray(correctAnswer) ? correctAnswer.includes(option) : correctAnswer === option}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  // Add to correct answers array
+                                  const newCorrectAnswers = Array.isArray(correctAnswer) 
+                                    ? [...correctAnswer, option]
+                                    : [option];
+                                  setCorrectAnswer(newCorrectAnswers);
+                                } else {
+                                  // Remove from correct answers array
+                                  if (Array.isArray(correctAnswer)) {
+                                    setCorrectAnswer(correctAnswer.filter(answer => answer !== option));
+                                  }
                                 }
-                              }
-                            }}
+                              }}
+                            />
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-full"
+                              onClick={() => setCorrectAnswer(option)}
+                            >
+                              {correctAnswer === option ? (
+                                <Check className="h-3 w-3 text-primary" />
+                              ) : (
+                                <div className="h-3 w-3 rounded-full border-2" />
+                              )}
+                            </Button>
+                          )}
+                          <span className="w-6 text-muted-foreground text-sm">
+                            {optionStyle === 'A-D' 
+                              ? String.fromCharCode(65 + index) 
+                              : optionStyle === 'F-J' 
+                                ? String.fromCharCode(70 + index)
+                                : ''}
+                          </span>
+                          <Input
+                            value={option}
+                            onChange={(e) => updateOption(index, e.target.value)}
+                            className="flex-grow"
                           />
-                        ) : (
+                        </div>
+                        {options.length > 2 && (
                           <Button
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 rounded-full"
-                            onClick={() => setCorrectAnswer(option)}
+                            onClick={() => removeOption(index)}
                           >
-                            {correctAnswer === option ? (
-                              <Check className="h-3 w-3 text-primary" />
-                            ) : (
-                              <div className="h-3 w-3 rounded-full border-2" />
-                            )}
+                            <X className="h-4 w-4" />
                           </Button>
                         )}
-                        <span className="w-6 text-muted-foreground text-sm">
-                          {optionStyle === 'A-D' 
-                            ? String.fromCharCode(65 + index) 
-                            : optionStyle === 'F-J' 
-                              ? String.fromCharCode(70 + index)
-                              : ''}
-                        </span>
-                        <Input
-                          value={option}
-                          onChange={(e) => updateOption(index, e.target.value)}
-                          className="flex-grow"
-                        />
                       </div>
-                      {options.length > 2 && (
+                    ))}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addOption}
+                      className="mt-2"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Option
+                    </Button>
+                  </div>
+                )}
+                
+                {questionType === 'true-false' && (
+                  <div className="space-y-3">
+                    <Label>Correct Answer</Label>
+                    <div className="flex space-x-4">
+                      <div className="flex items-center space-x-2">
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => removeOption(index)}
+                          className="h-6 w-6 rounded-full"
+                          onClick={() => setCorrectAnswer(true)}
                         >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addOption}
-                    className="mt-2"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Option
-                  </Button>
-                </div>
-              )}
-              
-              {questionType === 'true-false' && (
-                <div className="space-y-3">
-                  <Label>Correct Answer</Label>
-                  <div className="flex space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 rounded-full"
-                        onClick={() => setCorrectAnswer(true)}
-                      >
-                        {correctAnswer === true ? (
-                          <Check className="h-3 w-3 text-primary" />
-                        ) : (
-                          <div className="h-3 w-3 rounded-full border-2" />
-                        )}
-                      </Button>
-                      <span>True</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 rounded-full"
-                        onClick={() => setCorrectAnswer(false)}
-                      >
-                        {correctAnswer === false ? (
-                          <Check className="h-3 w-3 text-primary" />
-                        ) : (
-                          <div className="h-3 w-3 rounded-full border-2" />
-                        )}
-                      </Button>
-                      <span>False</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {questionType === 'free-response' && (
-                <div className="space-y-3">
-                  <div>
-                    <Label>Sample Answer (for reference)</Label>
-                    <Textarea
-                      value={typeof correctAnswer === 'string' ? correctAnswer : ''}
-                      onChange={(e) => setCorrectAnswer(e.target.value)}
-                      placeholder="Enter a sample answer"
-                      className="min-h-[100px] mt-1"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          {/* Image Tab */}
-          <TabsContent value="image" className="space-y-4 py-4">
-            <div className="space-y-4">
-              <div>
-                <Label>Image (Optional)</Label>
-                <div className="mt-2">
-                  <ImageUploader 
-                    onImageUploaded={handleImageUploaded}
-                    existingUrl={imageUrl}
-                    existingAlt={imageAlt}
-                    onUpdateAlt={handleUpdateAlt}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <Label htmlFor="imageAlt">Alt Text (for accessibility)</Label>
-                <Input
-                  id="imageAlt"
-                  value={imageAlt}
-                  onChange={(e) => setImageAlt(e.target.value)}
-                  placeholder="Describe the image for screen readers"
-                  className="mt-1"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Describe what's in the image to make it accessible to users with visual impairments.
-                </p>
-              </div>
-
-              {imageUrl && (
-                <div className="mt-4">
-                  <Label>Image Preview</Label>
-                  <div className="mt-2 border rounded-md p-4 flex justify-center">
-                    <img 
-                      src={imageUrl} 
-                      alt={imageAlt || "Preview"} 
-                      className="max-h-48 object-contain"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-          
-          {/* Feedback Tab */}
-          <TabsContent value="feedback" className="space-y-4 py-4">
-            <Tabs defaultValue="content">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="content">Content</TabsTrigger>
-                <TabsTrigger value="api">API Settings</TabsTrigger>
-                <TabsTrigger value="advanced">Advanced</TabsTrigger>
-              </TabsList>
-              
-              {/* Content Tab */}
-              <TabsContent value="content" className="space-y-4 py-4">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="feedbackInstructions">Instructions for Students</Label>
-                    <Textarea
-                      id="feedbackInstructions"
-                      value={feedbackInstructions}
-                      onChange={(e) => setFeedbackInstructions(e.target.value)}
-                      placeholder="Enter instructions for students..."
-                      className="min-h-[100px]"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      These instructions will be shown to students above the feedback chat interface.
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label>Sentence Starters</Label>
-                    <div className="flex flex-wrap gap-2 mt-2 mb-3">
-                      {feedbackSentenceStarters.map((starter, index) => (
-                        <Badge key={index} variant="secondary" className="px-2 py-1 flex items-center gap-1">
-                          {starter}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-4 w-4 rounded-full"
-                            onClick={() => handleRemoveSentenceStarter(index)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        value={newStarter}
-                        onChange={(e) => setNewStarter(e.target.value)}
-                        placeholder="Add a sentence starter..."
-                        className="flex-1"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddSentenceStarter();
-                          }
-                        }}
-                      />
-                      <Button onClick={handleAddSentenceStarter} size="sm">
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add
-                      </Button>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      These will appear as buttons that students can click to start their message.
-                    </p>
-                  </div>
-                </div>
-              </TabsContent>
-              
-              {/* API Settings Tab */}
-              <TabsContent value="api" className="space-y-4 py-4">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="apiEndpoint">API Endpoint</Label>
-                    <Input
-                      id="apiEndpoint"
-                      value={apiEndpoint}
-                      onChange={(e) => setApiEndpoint(e.target.value)}
-                      placeholder="https://openrouter.ai/api/v1/chat/completions"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Default: OpenRouter.ai. Change to use a different provider like OpenAI.
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="modelName">Model Name</Label>
-                    {availableModels.length > 0 ? (
-                      <Select
-                        value={modelName}
-                        onValueChange={setModelName}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a model" />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-80">
-                          {availableModels.map((model) => (
-                            <SelectItem key={model.id} value={model.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{model.name}</span>
-                                {model.context_length && (
-                                  <Badge variant="outline" className="ml-1 text-xs">
-                                    {Math.round(model.context_length / 1000)}k ctx
-                                  </Badge>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="mt-2 mb-4">
-                        <Button 
-                          variant="outline" 
-                          className="w-full" 
-                          onClick={loadAvailableModels}
-                          disabled={isLoadingModels}
-                        >
-                          {isLoadingModels ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              Loading available models...
-                            </>
+                          {correctAnswer === true ? (
+                            <Check className="h-3 w-3 text-primary" />
                           ) : (
-                            <>
-                              <RefreshCw className="h-4 w-4 mr-2" />
-                              Fetch available models
-                            </>
+                            <div className="h-3 w-3 rounded-full border-2" />
                           )}
                         </Button>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Click to fetch available models. Make sure you have set your API key in Settings.
-                        </p>
+                        <span>True</span>
                       </div>
-                    )}
-                    {!modelsFetched && modelName && (
-                      <div className="mt-2">
-                        <Alert className="bg-amber-50 border-amber-200">
-                          <p className="text-amber-700 text-sm">
-                            Currently using: <span className="font-semibold">{modelName}</span>
-                          </p>
-                        </Alert>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 rounded-full"
+                          onClick={() => setCorrectAnswer(false)}
+                        >
+                          {correctAnswer === false ? (
+                            <Check className="h-3 w-3 text-primary" />
+                          ) : (
+                            <div className="h-3 w-3 rounded-full border-2" />
+                          )}
+                        </Button>
+                        <span>False</span>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </TabsContent>
-              
-              {/* Advanced Tab */}
-              <TabsContent value="advanced" className="space-y-4 py-4">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="feedbackSystemPrompt">System Prompt</Label>
-                    <Textarea
-                      id="feedbackSystemPrompt"
-                      value={feedbackSystemPrompt}
-                      onChange={(e) => setFeedbackSystemPrompt(e.target.value)}
-                      placeholder="Enter system prompt for the AI..."
-                      className="min-h-[200px]"
-                    />
-                    <p className="text-sm text-muted-foreground mt-1">
-                      The system prompt tells the AI how to behave. For this feedback block, it should explain how to evaluate student answers.
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <Label htmlFor="repetitionPrevention">Anti-Repetition Instructions</Label>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6">
-                              <HelpCircle className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-sm">
-                            <p>
-                              This instruction will be added to the system prompt to help prevent the AI 
-                              from repeating the prompt back to the student. This is particularly useful for 
-                              certain models that tend to be repetitive.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
                     </div>
-                    <Textarea
-                      id="repetitionPrevention"
-                      value={repetitionPrevention}
-                      onChange={(e) => setRepetitionPrevention(e.target.value)}
-                      placeholder="Add instructions to prevent the AI from repeating the prompt..."
-                      className="min-h-[100px]"
-                    />
                   </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <Label htmlFor="includeMathFormatting">Include Math Formatting</Label>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6">
-                              <HelpCircle className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-sm">
-                            <p>
-                              Toggle this option to include or exclude math formatting instructions in the system prompt.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="includeMathFormatting"
-                        checked={includeMathFormatting}
-                        onChange={(e) => setIncludeMathFormatting(e.target.checked)}
+                )}
+                
+                {questionType === 'free-response' && (
+                  <div className="space-y-3">
+                    <div>
+                      <Label>Sample Answer (for reference)</Label>
+                      <Textarea
+                        value={typeof correctAnswer === 'string' ? correctAnswer : ''}
+                        onChange={(e) => setCorrectAnswer(e.target.value)}
+                        placeholder="Enter a sample answer"
+                        className="min-h-[100px] mt-1"
                       />
-                      <Label htmlFor="includeMathFormatting">Include Math Formatting Guide</Label>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Enable this for math-related content to ensure proper LaTeX formatting in AI responses.
-                    </p>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            {/* Image Tab */}
+            <TabsContent value="image" className="space-y-4 py-4">
+              <div className="space-y-4">
+                <div>
+                  <Label>Image (Optional)</Label>
+                  <div className="mt-2">
+                    <ImageUploader 
+                      onImageUploaded={handleImageUploaded}
+                      existingUrl={imageUrl}
+                      existingAlt={imageAlt}
+                      onUpdateAlt={handleUpdateAlt}
+                    />
                   </div>
                 </div>
-              </TabsContent>
-            </Tabs>
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                
+                <div>
+                  <Label htmlFor="imageAlt">Alt Text (for accessibility)</Label>
+                  <Input
+                    id="imageAlt"
+                    value={imageAlt}
+                    onChange={(e) => setImageAlt(e.target.value)}
+                    placeholder="Describe the image for screen readers"
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Describe what's in the image to make it accessible to users with visual impairments.
+                  </p>
+                </div>
+
+                {imageUrl && (
+                  <div className="mt-4">
+                    <Label>Image Preview</Label>
+                    <div className="mt-2 border rounded-md p-4 flex justify-center">
+                      <img 
+                        src={imageUrl} 
+                        alt={imageAlt || "Preview"} 
+                        className="max-h-48 object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+            
+            {/* Feedback Tab */}
+            <TabsContent value="feedback" className="space-y-4 py-4">
+              <Tabs defaultValue="content">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="content">Content</TabsTrigger>
+                  <TabsTrigger value="api">API Settings</TabsTrigger>
+                  <TabsTrigger value="advanced">Advanced</TabsTrigger>
+                </TabsList>
+                
+                {/* Content Tab */}
+                <TabsContent value="content" className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="feedbackInstructions">Instructions for Students</Label>
+                      <Textarea
+                        id="feedbackInstructions"
+                        value={feedbackInstructions}
+                        onChange={(e) => setFeedbackInstructions(e.target.value)}
+                        placeholder="Enter instructions for students..."
+                        className="min-h-[100px]"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        These instructions will be shown to students above the feedback chat interface.
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <Label>Sentence Starters</Label>
+                      <div className="flex flex-wrap gap-2 mt-2 mb-3">
+                        {feedbackSentenceStarters.map((starter, index) => (
+                          <Badge key={index} variant="secondary" className="px-2 py-1 flex items-center gap-1">
+                            {starter}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 rounded-full"
+                              onClick={() => handleRemoveSentenceStarter(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </Badge>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          value={newStarter}
+                          onChange={(e) => setNewStarter(e.target.value)}
+                          placeholder="Add a sentence starter..."
+                          className="flex-1"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddSentenceStarter();
+                            }
+                          }}
+                        />
+                        <Button onClick={handleAddSentenceStarter} size="sm">
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        These will appear as buttons that students can click to start their message.
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* API Settings Tab */}
+                <TabsContent value="api" className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="apiEndpoint">API Endpoint</Label>
+                      <Input
+                        id="apiEndpoint"
+                        value={apiEndpoint}
+                        onChange={(e) => setApiEndpoint(e.target.value)}
+                        placeholder="https://openrouter.ai/api/v1/chat/completions"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Default: OpenRouter.ai. Change to use a different provider like OpenAI.
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="modelName">Model Name</Label>
+                      {availableModels.length > 0 ? (
+                        <div className="space-y-2">
+                          <Input
+                            placeholder="Search models..."
+                            value={modelSearch}
+                            onChange={(e) => setModelSearch(e.target.value)}
+                            className="mb-2"
+                          />
+                          <Select
+                            value={modelName}
+                            onValueChange={setModelName}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a model" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-80">
+                              {availableModels.filter(model => 
+                                model.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                                model.id.toLowerCase().includes(modelSearch.toLowerCase())
+                              ).map((model) => (
+                                <SelectItem key={model.id} value={model.id}>
+                                  <div className="flex items-center gap-2">
+                                    <span>{model.name}</span>
+                                    {model.context_length && (
+                                      <Badge variant="outline" className="ml-1 text-xs">
+                                        {Math.round(model.context_length / 1000)}k ctx
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : (
+                        <div className="mt-2 mb-4">
+                          <Button 
+                            variant="outline" 
+                            className="w-full" 
+                            onClick={loadAvailableModels}
+                            disabled={isLoadingModels}
+                          >
+                            {isLoadingModels ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                Loading available models...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Fetch available models
+                              </>
+                            )}
+                          </Button>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Click to fetch available models. Make sure you have set your API key in Settings.
+                          </p>
+                        </div>
+                      )}
+                      {!modelsFetched && modelName && (
+                        <div className="mt-2">
+                          <Alert className="bg-amber-50 border-amber-200">
+                            <p className="text-amber-700 text-sm">
+                              Currently using: <span className="font-semibold">{modelName}</span>
+                            </p>
+                          </Alert>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* Advanced Tab */}
+                <TabsContent value="advanced" className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="feedbackSystemPrompt">System Prompt</Label>
+                      <Textarea
+                        id="feedbackSystemPrompt"
+                        value={feedbackSystemPrompt}
+                        onChange={(e) => setFeedbackSystemPrompt(e.target.value)}
+                        placeholder="Enter system prompt for the AI..."
+                        className="min-h-[200px]"
+                      />
+                      <p className="text-sm text-muted-foreground mt-1">
+                        The system prompt tells the AI how to behave. For this feedback block, it should explain how to evaluate student answers.
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor="repetitionPrevention">Anti-Repetition Instructions</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6">
+                                <HelpCircle className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-sm">
+                              <p>
+                                This instruction will be added to the system prompt to help prevent the AI 
+                                from repeating the prompt back to the student. This is particularly useful for 
+                                certain models that tend to be repetitive.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <Textarea
+                        id="repetitionPrevention"
+                        value={repetitionPrevention}
+                        onChange={(e) => setRepetitionPrevention(e.target.value)}
+                        placeholder="Add instructions to prevent the AI from repeating the prompt..."
+                        className="min-h-[100px]"
+                      />
+                    </div>
+                    
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor="includeMathFormatting">Include Math Formatting</Label>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6">
+                                <HelpCircle className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-sm">
+                              <p>
+                                Toggle this option to include or exclude math formatting instructions in the system prompt.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="includeMathFormatting"
+                          checked={includeMathFormatting}
+                          onChange={(e) => setIncludeMathFormatting(e.target.checked)}
+                        />
+                        <Label htmlFor="includeMathFormatting">Include Math Formatting Guide</Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Enable this for math-related content to ensure proper LaTeX formatting in AI responses.
+                      </p>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="max-w-3xl">
+          <SlideWizard
+            onComplete={handleWizardComplete}
+            onCancel={() => setWizardOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

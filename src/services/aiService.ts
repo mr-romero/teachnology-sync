@@ -550,3 +550,57 @@ export async function fetchAvailableModels(): Promise<{ id: string; name: string
     return null;
   }
 }
+
+export interface ImageAnalysisResult {
+  questionText: string;
+  options?: string[];
+  correctAnswer?: string;
+  optionStyle?: 'A-D' | 'F-J' | 'text';
+}
+
+export const analyzeQuestionImage = async (imageUrl: string): Promise<ImageAnalysisResult> => {
+  const systemPrompt = `You are an AI assistant helping analyze math problem images.
+Your task is to examine the image and extract:
+1. The question text
+2. The answer choices (if multiple choice)
+3. Determine which lettering system is used (A-D or F-J) if present
+4. The correct answer if marked or indicated
+
+Return the result in valid JSON format with these fields:
+{
+  "questionText": "the full question text",
+  "options": ["array of options if multiple choice"],
+  "correctAnswer": "the correct answer",
+  "optionStyle": "A-D" or "F-J" or "text"
+}`;
+
+  try {
+    const response = await fetchChatCompletion({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: 'Please analyze this math problem image and extract the required information.' }
+      ],
+      model: 'openai/gpt-4-vision-preview',
+      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+      imageUrl
+    });
+
+    if (!response) {
+      throw new Error('No response from AI service');
+    }
+
+    // Try to parse the JSON from the response
+    try {
+      const jsonStartIndex = response.indexOf('{');
+      const jsonEndIndex = response.lastIndexOf('}') + 1;
+      const jsonStr = response.slice(jsonStartIndex, jsonEndIndex);
+      return JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.error('Error parsing AI response:', parseError);
+      throw new Error('Failed to parse image analysis results');
+    }
+  } catch (error) {
+    console.error('Error analyzing image:', error);
+    throw error;
+  }
+};
