@@ -825,46 +825,6 @@ Remember to:
                   
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <Label htmlFor="maxTokens">Maximum Response Length (tokens)</Label>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-6 w-6">
-                              <HelpCircle className="h-4 w-4" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-sm">
-                            <p>
-                              Limits the length of AI responses. Lower values can help prevent repetition and keep answers concise.
-                              Recommended range: 200-1000 tokens.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Slider 
-                        id="maxTokens"
-                        value={[maxTokens]} 
-                        onValueChange={(value) => setMaxTokens(value[0])}
-                        min={100}
-                        max={2000}
-                        step={50}
-                        className="flex-1"
-                      />
-                      <Input 
-                        type="number" 
-                        value={maxTokens} 
-                        onChange={(e) => setMaxTokens(Number(e.target.value))}
-                        className="w-20"
-                        min={100}
-                        max={2000}
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
                       <Label htmlFor="includeMathFormatting">Include Math Formatting</Label>
                       <TooltipProvider>
                         <Tooltip>
