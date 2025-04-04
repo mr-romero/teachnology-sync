@@ -981,7 +981,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
   
   return (
     <div className={isJoined || isPreview ? "h-screen overflow-hidden" : "container mx-auto px-4 py-8"}>
-      {!isJoined ? renderJoinForm() : renderLessonView()}
+      {(!isJoined && !isPreview) ? renderJoinForm() : renderLessonView()}
       
       <CelebrationConfigDialog
         open={showCelebrationConfig}
