@@ -35,6 +35,7 @@ interface LessonSlideViewProps {
   showCalculator?: boolean;
   isPreviewMode?: boolean;
   studentAnswers?: Record<string, string | boolean>; // Add this prop
+  sessionId?: string; // Add sessionId prop
 }
 
 const ConnectionLine = ({ sourcePosition, targetPosition }: { 
@@ -86,7 +87,8 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   isPaused = false,
   showCalculator = false,
   isPreviewMode = false,
-  studentAnswers = {} // Add default value
+  studentAnswers = {}, // Add default value
+  sessionId // Add sessionId to props destructuring
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   const blockRefsMap = useRef<Record<string, HTMLElement | null>>({});
@@ -224,6 +226,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               onAnswerSubmit={onAnswerSubmit}
               isAnswered={answeredBlocks.includes(block.id)}
               studentResponse={studentAnswers[block.id]}
+              sessionId={sessionId} // Pass sessionId to FeedbackQuestion
             />
           </div>
         );

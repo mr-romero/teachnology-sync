@@ -143,6 +143,7 @@ interface FeedbackQuestionProps {
   // Group ID for connected blocks
   groupId?: string;
   studentResponse?: string | boolean; // Add this prop to receive stored response
+  sessionId?: string; // Add sessionId to props
 }
 
 const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
@@ -155,7 +156,8 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
   displayMode = 'all',
   isGrouped = false,
   groupId,
-  studentResponse // Add this prop
+  studentResponse, // Add this prop
+  sessionId // Add sessionId to destructuring
 }) => {
   // Add this section at the start of the component to handle visual styles
   const getComponentStyle = () => {
@@ -409,12 +411,15 @@ ${imageInfo}`;
         ...updatedMessages
       ];
       
-      const aiResponse = await fetchChatCompletion({
-        messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        imageUrl: block.imageUrl
-      });
+      const aiResponse = await fetchChatCompletion(
+        apiMessages,
+        {
+          model: block.modelName || 'openai/gpt-4',
+          endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+          imageUrl: block.imageUrl
+        },
+        sessionId
+      );
       
       if (aiResponse) {
         const assistantMessage: Message = { 
@@ -445,10 +450,10 @@ ${imageInfo}`;
       setIsLoading(true);
       setError(null);
       
-      // Prepare the messages array for the chat completion
-      const messages = [
+      // Create the messages array with proper typing
+      const messages: Message[] = [
         {
-          role: 'system',
+          role: 'system' as const,
           content: block.feedbackSystemPrompt || `You are a helpful AI tutor providing feedback on student answers.`
         }
       ];
@@ -456,7 +461,7 @@ ${imageInfo}`;
       // Add image context if available
       if (block.imageUrl) {
         messages.push({
-          role: 'user',
+          role: 'user' as const,
           content: `The question includes this image: ${block.imageUrl}
 Image description: ${block.imageAlt || 'No description provided'}`
         });
@@ -464,40 +469,35 @@ Image description: ${block.imageAlt || 'No description provided'}`
       
       // Add the question and student's answer
       messages.push({
-        role: 'user',
+        role: 'user' as const,
         content: `Question: ${block.questionText}\n${block.questionType === 'multiple-choice' ? `Options: ${block.options?.join(', ')}\n` : ''}Student's answer: ${response}`
       });
       
       // Add evaluation instructions
       messages.push({
-        role: 'user',
+        role: 'user' as const,
         content: `Please evaluate the student's answer and provide helpful feedback. ${block.correctAnswer ? `The correct answer is: ${block.correctAnswer}` : ''}`
       });
       
-      try {
-        const feedbackContent = await fetchChatCompletion({
-          messages,
-          model: block.modelName,
-          endpoint: block.apiEndpoint,
+      const feedbackContent = await fetchChatCompletion(
+        messages,
+        {
+          model: block.modelName || 'openai/gpt-4',
+          endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
           imageUrl: block.imageUrl || undefined
         },
-        sessionId  // Add sessionId parameter here
-        );
-        
-        if (!feedbackContent) {
-          throw new Error('No feedback content received from AI');
-        }
-        
-        setVisibleMessages([{ role: 'assistant', content: feedbackContent }]);
-        setHasStarted(true);
-      } catch (error) {
-        console.error('Error generating feedback:', error);
-        setError(error instanceof Error ? error.message : 'Failed to generate feedback');
-        setVisibleMessages([]);
+        sessionId
+      );
+
+      if (!feedbackContent) {
+        throw new Error('No feedback content received from AI');
       }
+      
+      setVisibleMessages([{ role: 'assistant', content: feedbackContent }]);
+      setHasStarted(true);
     } catch (error) {
-      console.error('Error in feedback generation:', error);
-      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      console.error('Error generating feedback:', error);
+      setError(error instanceof Error ? error.message : 'Failed to generate feedback');
       setVisibleMessages([]);
     } finally {
       setIsLoading(false);

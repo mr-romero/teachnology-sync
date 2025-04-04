@@ -931,6 +931,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 showCalculator={lesson.settings?.showCalculator ?? false}
                 isPreviewMode={isPreview}
                 studentAnswers={studentAnswers}
+                sessionId={sessionId} // Add sessionId prop
               />
             </div>
           </div>
