@@ -595,24 +595,43 @@ Your response must be a single valid JSON object without any additional text.`;
 
 // Function to get API key, prioritizing session settings for students
 const getApiKey = async (sessionId?: string) => {
-  // First check session settings if we have a session ID
-  if (sessionId) {
-    const { data: sessionData } = await supabase
-      .from('presentation_sessions')
-      .select('settings')
-      .eq('id', sessionId)
+  try {
+    // First check session settings if we have a session ID
+    if (sessionId) {
+      const { data: sessionData, error: sessionError } = await supabase
+        .from('presentation_sessions')
+        .select('settings')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionError) {
+        console.error('Error getting session settings:', sessionError);
+      } else if (sessionData?.settings?.openrouterApiKey) {
+        return sessionData.settings.openrouterApiKey;
+      }
+    }
+
+    // If no session key found or there was an error, try user settings
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('Error getting current user:', userError);
+      return null;
+    }
+
+    const { data: userSettings, error: settingsError } = await supabase
+      .from('user_settings')
+      .select('openrouter_api_key')
+      .eq('user_id', user.id)
       .single();
 
-    if (sessionData?.settings?.openrouterApiKey) {
-      return sessionData.settings.openrouterApiKey;
+    if (settingsError) {
+      console.error('Error getting user settings:', settingsError);
+      return null;
     }
+
+    return userSettings?.openrouter_api_key || null;
+  } catch (error) {
+    console.error('Error in getApiKey:', error);
+    return null;
   }
-
-  // Fall back to user settings if no session key found
-  const { data: userSettings } = await supabase
-    .from('user_settings')
-    .select('openrouter_api_key')
-    .single();
-
-  return userSettings?.openrouter_api_key;
 };
