@@ -184,9 +184,22 @@ export const ensureUserSettings = async (userId: string) => {
     
     if (checkError && checkError.code === 'PGRST116') {
       // Settings don't exist, create them
+      const newId = crypto.randomUUID();
       const { error: createError } = await supabase
         .from('user_settings')
-        .insert({ user_id: userId });
+        .insert({ 
+          id: newId,
+          user_id: userId,
+          settings: {},
+          celebration_settings: {
+            type: 'default',
+            effects: {
+              confetti: true,
+              sound: true,
+              screenEffect: 'gold'
+            }
+          }
+        });
         
       if (createError) {
         console.error('Error creating user settings:', createError);
