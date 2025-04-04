@@ -17,6 +17,8 @@ import {
 } from '@/services/lessonService';
 import { useRealTimeSync } from '@/hooks/useRealTimeSync';
 import { supabase } from '@/integrations/supabase/client';
+import { CelebrationConfigDialog } from '@/components/lesson/CelebrationConfigDialog';
+import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings } from '@/services/userSettingsService';
 
 // Update interface to include paced_slides property
 interface PresentationSession {
@@ -78,6 +80,8 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   const [activeSessionInfo, setActiveSessionInfo] = useState<ActiveSessionInfo | null>(null);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [allowedSlides, setAllowedSlides] = useState<number[]>([]);
+  const [showCelebrationConfig, setShowCelebrationConfig] = useState(false);
+  const [celebrationStyle, setCelebrationStyle] = useState<CelebrationSettings | null>(null);
   
   const { 
     data: sessionData,
@@ -426,6 +430,20 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
     checkActiveSession();
   }, [user, urlJoinCode, locationState.autoJoin, isPreview]);
 
+  // Add useEffect to check for existing celebration settings
+  useEffect(() => {
+    if (user && !celebrationStyle) {
+      getCelebrationSettings(user.id).then(settings => {
+        if (settings) {
+          setCelebrationStyle(settings);
+        } else {
+          // If no settings exist, show config dialog
+          setShowCelebrationConfig(true);
+        }
+      });
+    }
+  }, [user]);
+
   // Update the join session handler to properly initialize the slide position
   const handleJoinSession = async () => {
     if (!joinCode.trim() || !user) {
@@ -625,6 +643,15 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
       console.error('Error submitting answer:', error);
       toast.error('An error occurred while submitting your answer');
     }
+  };
+
+  // Add celebration config handlers
+  const handleSaveCelebrationConfig = async (config: CelebrationSettings) => {
+    if (user) {
+      await updateCelebrationSettings(user.id, config);
+      setCelebrationStyle(config);
+    }
+    setShowCelebrationConfig(false);
   };
   
   const renderJoinForm = () => {
@@ -907,6 +934,13 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   return (
     <div className={isJoined || isPreview ? "h-screen overflow-hidden" : "container mx-auto px-4 py-8"}>
       {!isJoined ? renderJoinForm() : renderLessonView()}
+      
+      <CelebrationConfigDialog
+        open={showCelebrationConfig}
+        onOpenChange={setShowCelebrationConfig}
+        onSave={handleSaveCelebrationConfig}
+        initialConfig={celebrationStyle || undefined}
+      />
     </div>
   );
 };

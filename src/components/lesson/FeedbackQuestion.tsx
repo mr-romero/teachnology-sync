@@ -13,11 +13,11 @@ import ImageViewer from './ImageViewer';
 import AIChat from './AIChat';  // Add AIChat import
 import { cn } from '@/lib/utils';
 import MathDisplay from './MathDisplay';
+import CelebrationOverlay from './CelebrationOverlay';
+import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings } from '@/services/userSettingsService';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
-  content: string;
-}
 
 // Helper function to preprocess content for proper LaTeX rendering
 const preprocessContent = (content: string): string => {
@@ -957,6 +957,18 @@ Your Task:
           </div>
         </div>
       </div>
+      <CelebrationOverlay
+        show={showCelebration}
+        onComplete={() => setShowCelebration(false)}
+        style={celebrationStyle || undefined}
+      />
+      
+      <CelebrationConfigDialog
+        open={showCelebrationConfig}
+        onOpenChange={setShowCelebrationConfig}
+        onSave={handleSaveCelebrationConfig}
+        initialConfig={celebrationStyle || undefined}
+      />
     </div>
   );
 };

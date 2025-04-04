@@ -1,13 +1,71 @@
 import { supabase } from '@/integrations/supabase/client';
 
-export const getUserSettings = async (userId: string) => {
+export const CELEBRATION_PRESETS = [
+  { 
+    id: 'superstar', 
+    phrase: 'Superstar! 🌟', 
+    effect: 'stars',
+    sound: 'success',
+    confetti: true
+  },
+  { 
+    id: 'champion', 
+    phrase: 'Champion! 🏆', 
+    effect: 'gold',
+    sound: 'chime',
+    confetti: true
+  },
+  { 
+    id: 'genius', 
+    phrase: 'Genius Move! 🧠✨', 
+    effect: 'rainbow',
+    sound: 'applause',
+    confetti: true
+  },
+  { 
+    id: 'perfect', 
+    phrase: 'Perfect! 💯', 
+    effect: 'gold',
+    sound: 'success',
+    confetti: true
+  },
+  { 
+    id: 'awesome', 
+    phrase: 'Awesome! 🎯', 
+    effect: 'stars',
+    sound: 'chime',
+    confetti: true
+  }
+];
+
+export interface CelebrationSettings {
+  type: 'custom' | 'preset' | 'default';
+  phrase?: string;
+  emoji?: string;
+  preset?: string;
+  effects?: {
+    confetti: boolean;
+    sound: boolean;
+    screenEffect: 'none' | 'gold' | 'stars' | 'rainbow';
+  };
+}
+
+export interface UserSettings {
+  id?: string;
+  user_id: string;
+  celebration_settings?: CelebrationSettings;
+  openrouter_api_key?: string;
+  settings?: Record<string, any>;
+}
+
+export const getUserSettings = async (userId: string): Promise<UserSettings | null> => {
   try {
     console.log('Getting settings for user:', userId);
     // First try to get existing settings
     const { data, error } = await supabase
       .from('user_settings')
       .select('*')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -17,7 +75,7 @@ export const getUserSettings = async (userId: string) => {
         console.log('No settings found, creating new settings...');
         const { data: newSettings, error: insertError } = await supabase
           .from('user_settings')
-          .insert({ id: userId })
+          .insert({ user_id: userId })
           .select()
           .single();
           
@@ -41,10 +99,10 @@ export const getUserSettings = async (userId: string) => {
   }
 };
 
-export const updateUserSettings = async (userId: string, settings: Partial<{
-  openrouter_api_key: string;
-  settings: Record<string, any>;
-}>) => {
+export const updateUserSettings = async (
+  userId: string, 
+  settings: Partial<UserSettings>
+): Promise<boolean> => {
   try {
     console.log('Updating settings for user:', userId);
     // First ensure the user has a settings record
@@ -57,11 +115,13 @@ export const updateUserSettings = async (userId: string, settings: Partial<{
 
     const { error } = await supabase
       .from('user_settings')
-      .update({
+      .upsert({
+        user_id: userId,
         ...settings,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', userId);
+      }, {
+        onConflict: 'user_id'
+      });
 
     if (error) {
       console.error('Error updating user settings:', error);
@@ -81,15 +141,15 @@ export const ensureUserSettings = async (userId: string) => {
     // Check if settings exist
     const { data: existingSettings, error: checkError } = await supabase
       .from('user_settings')
-      .select('id')
-      .eq('id', userId)
+      .select('user_id')
+      .eq('user_id', userId)
       .single();
     
     if (checkError && checkError.code === 'PGRST116') {
       // Settings don't exist, create them
       const { error: createError } = await supabase
         .from('user_settings')
-        .insert({ id: userId });
+        .insert({ user_id: userId });
         
       if (createError) {
         console.error('Error creating user settings:', createError);
@@ -114,7 +174,7 @@ export const getOpenRouterApiKey = async (userId: string): Promise<string | null
     const { data: settings, error } = await supabase
       .from('user_settings')
       .select('openrouter_api_key')
-      .eq('id', userId)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -139,7 +199,7 @@ export const saveOpenRouterApiKey = async (userId: string, apiKey: string): Prom
     const { error } = await supabase
       .from('user_settings')
       .update({ openrouter_api_key: apiKey })
-      .eq('id', userId);
+      .eq('user_id', userId);
 
     if (error) {
       console.error('Error saving OpenRouter API key:', error);
@@ -152,4 +212,27 @@ export const saveOpenRouterApiKey = async (userId: string, apiKey: string): Prom
     console.error('Error in saveOpenRouterApiKey:', error);
     return false;
   }
+};
+
+// New function to get/set celebration settings
+export const getCelebrationSettings = async (userId: string): Promise<UserSettings['celebration_settings']> => {
+  const settings = await getUserSettings(userId);
+  return settings?.celebration_settings || {
+    type: 'default',
+    effects: {
+      confetti: true,
+      sound: true,
+      screenEffect: 'gold'
+    }
+  };
+};
+
+export const updateCelebrationSettings = async (
+  userId: string,
+  celebrationSettings: CelebrationSettings
+): Promise<boolean> => {
+  return updateUserSettings(userId, {
+    user_id: userId,
+    celebration_settings: celebrationSettings
+  });
 };
