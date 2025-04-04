@@ -225,7 +225,7 @@ export async function fetchChatCompletion({
   temperature = 0.7,
   endpoint = 'https://openrouter.ai/api/v1/chat/completions',
   imageUrl
-}: FetchChatCompletionParams): Promise<string | null> {
+}: FetchChatCompletionParams, sessionId?: string): Promise<string | null> {
   try {
     // Get the API key from user settings
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -764,4 +764,41 @@ Your response must be a single valid JSON object without any additional text.`;
     console.error('Error analyzing image:', error);
     throw error;
   }
+};
+
+// Function to get API key, prioritizing session settings for students
+const getApiKey = async (sessionId?: string) => {
+  // First check session settings if we have a session ID
+  if (sessionId) {
+    const { data: sessionData } = await supabase
+      .from('presentation_sessions')
+      .select('settings')
+      .eq('id', sessionId)
+      .single();
+
+    if (sessionData?.settings?.openrouterApiKey) {
+      return sessionData.settings.openrouterApiKey;
+    }
+  }
+
+  // Fall back to user settings if no session key found
+  const { data: userSettings } = await supabase
+    .from('user_settings')
+    .select('openrouter_api_key')
+    .single();
+
+  return userSettings?.openrouter_api_key;
+};
+
+// Update fetchChatCompletion to accept sessionId
+export const fetchChatCompletion = async (
+  messages: ChatMessage[], 
+  options: ChatOptions,
+  sessionId?: string
+): Promise<ChatMessage> => {
+  const apiKey = await getApiKey(sessionId);
+  if (!apiKey) {
+    throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
+  }
+  // ...rest of the existing function...
 };

@@ -566,8 +566,8 @@ const StudentView: React.FC<StudentViewProps> = () => {
 
   // Handle navigation back to editor
   const handleReturnToEditor = () => {
-    if (isPreview && presentationId) {
-      navigate(`/editor/${presentationId}`);
+    if (isPreview && urlLessonId) {
+      navigate(`/editor/${urlLessonId}`);
     }
   };
   

@@ -480,7 +480,9 @@ Image description: ${block.imageAlt || 'No description provided'}`
           model: block.modelName,
           endpoint: block.apiEndpoint,
           imageUrl: block.imageUrl || undefined
-        });
+        },
+        sessionId  // Add sessionId parameter here
+        );
         
         if (!feedbackContent) {
           throw new Error('No feedback content received from AI');

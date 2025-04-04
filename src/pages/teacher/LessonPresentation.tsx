@@ -179,6 +179,25 @@ const LessonPresentation: React.FC = () => {
         // 3. If we're forcing a new session, create one
         if (forceNew) {
           console.log("Creating new session as requested");
+          
+          // If a classroom ID was provided, verify Google Classroom auth first
+          if (classroomId) {
+            try {
+              // Verify auth by trying to get classroom details
+              await classroomService.getClassrooms();
+            } catch (error: any) {
+              // Handle auth error which will redirect if needed
+              if (handleClassroomAuthError(error)) {
+                setLoading(false);
+                setSessionCreationInProgress(false);
+                return;
+              }
+              toast.error('Failed to authenticate with Google Classroom');
+              navigate('/dashboard');
+              return;
+            }
+          }
+
           // Pass the classroomId to the startPresentationSession function
           const code = await startPresentationSession(lessonId, classroomId);
           if (code) {
