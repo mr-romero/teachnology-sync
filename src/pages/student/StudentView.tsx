@@ -138,20 +138,20 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         try {
           const { currentSlideIndex: stored } = JSON.parse(storedData);
           storedPosition = Number(stored);
-          console.log('Found stored slide position:', storedPosition);
+          // Validate stored position
+          if (isNaN(storedPosition) || storedPosition < 0 || storedPosition >= lesson.slides.length) {
+            console.log('Stored position invalid:', storedPosition);
+            storedPosition = null;
+          } else {
+            console.log('Found valid stored slide position:', storedPosition);
+          }
         } catch (e) {
           console.error('Error parsing stored slide data:', e);
         }
       }
 
-      // Check if position is valid
-      const isValidPosition = (position: number) => 
-        !isNaN(position) && 
-        position >= 0 && 
-        position < lesson.slides.length;
-
-      // First check if it's in sync mode
       if (sessionData.is_synced) {
+        // In sync mode, always use teacher's position
         console.log('Sync mode active, using teacher slide:', sessionData.current_slide);
         setCurrentSlideIndex(Number(sessionData.current_slide));
         setAllowedSlides([]);
@@ -163,7 +163,8 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
           
           // If we have a valid stored position AND it's in allowed slides, use it
           if (storedPosition !== null && 
-              isValidPosition(storedPosition) && 
+              storedPosition >= 0 && 
+              storedPosition < lesson.slides.length && 
               sessionData.paced_slides.includes(storedPosition)) {
             console.log('Using stored slide position:', storedPosition);
             setCurrentSlideIndex(storedPosition);
@@ -200,17 +201,23 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
           setAllowedSlides([]);
           
           // Use stored position if valid
-          if (storedPosition !== null && isValidPosition(storedPosition)) {
+          if (storedPosition !== null) {
             console.log('Using stored slide position:', storedPosition);
             setCurrentSlideIndex(storedPosition);
             // Update the database to match localStorage
             if (user) {
               updateStudentSlide(sessionId, user.id, storedPosition);
             }
-          } else if (isValidPosition(Number(sessionData.current_slide))) {
+          } else {
             // Only use session's current_slide if we don't have a valid stored position
-            console.log('Using session current slide:', sessionData.current_slide);
-            setCurrentSlideIndex(Number(sessionData.current_slide));
+            const sessionSlide = Number(sessionData.current_slide);
+            if (!isNaN(sessionSlide) && sessionSlide >= 0 && sessionSlide < lesson.slides.length) {
+              console.log('Using session current slide:', sessionSlide);
+              setCurrentSlideIndex(sessionSlide);
+            } else {
+              console.log('Using default slide position: 0');
+              setCurrentSlideIndex(0);
+            }
           }
         }
       }
@@ -332,14 +339,17 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   }, [sessionId, lesson]);
 
   useEffect(() => {
-    if (sessionId && currentSlideIndex !== null && currentSlideIndex >= 0) {
-      console.log('Saving slide position to localStorage:', currentSlideIndex);
-      localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
-        currentSlideIndex,
-        timestamp: new Date().toISOString()
-      }));
+    if (sessionId && currentSlideIndex !== null && lesson) {
+      // Only save if we have a valid slide index
+      if (currentSlideIndex >= 0 && currentSlideIndex < lesson.slides.length) {
+        console.log('Saving slide position to localStorage:', currentSlideIndex);
+        localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
+          currentSlideIndex,
+          timestamp: new Date().toISOString()
+        }));
+      }
     }
-  }, [sessionId, currentSlideIndex]);
+  }, [sessionId, currentSlideIndex, lesson]);
 
   // Add this effect to load stored position when joining a session
   useEffect(() => {
@@ -734,14 +744,29 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
       </div>
     );
     
-    // Ensure currentSlideIndex is within valid bounds
-    const safeSlideIndex = Math.min(Math.max(0, currentSlideIndex), lesson.slides.length - 1);
-    if (safeSlideIndex !== currentSlideIndex) {
-      console.warn(`Corrected slide index from ${currentSlideIndex} to ${safeSlideIndex}`);
-      setCurrentSlideIndex(safeSlideIndex);
+    // Only validate slide index if we have a valid currentSlideIndex
+    if (currentSlideIndex !== null) {
+      const maxIndex = lesson.slides.length - 1;
+      const safeSlideIndex = Math.min(Math.max(0, currentSlideIndex), maxIndex);
+      
+      // Only log and update if there's actually a correction needed
+      if (safeSlideIndex !== currentSlideIndex) {
+        console.log(`Slide index ${currentSlideIndex} out of bounds, correcting to ${safeSlideIndex}`);
+        setCurrentSlideIndex(safeSlideIndex);
+        return null; // Return null to prevent rendering with invalid index
+      }
     }
     
-    const currentSlide = lesson.slides[safeSlideIndex];
+    // Don't try to render if we don't have a valid slide index
+    if (currentSlideIndex === null) {
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p className="text-lg">Loading slide position...</p>
+        </div>
+      );
+    }
+    
+    const currentSlide = lesson.slides[currentSlideIndex];
     
     // Add safety check for currentSlide
     if (!currentSlide) {
