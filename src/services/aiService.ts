@@ -444,13 +444,21 @@ You are a helpful AI tutor. Provide clear, encouraging feedback.`;
         }
         
         const choice = data.choices[0];
-        if (!choice || !choice.message) {
-          console.error('Invalid choice format:', choice);
-          throw new Error('Invalid choice format: missing message');
+        if (!choice) {
+          console.error('Empty choice in OpenRouter response:', data);
+          throw new Error('Empty choice in OpenRouter response');
         }
+
+        // Handle both message and delta formats
+        const messageContent = choice.message?.content || choice.delta?.content;
         
+        if (!messageContent && !Array.isArray(choice.message?.content)) {
+          console.error('No content found in OpenRouter response:', choice);
+          throw new Error('No content found in OpenRouter response');
+        }
+
         // Handle both string and array content formats
-        if (Array.isArray(choice.message.content)) {
+        if (Array.isArray(choice.message?.content)) {
           // If content is an array, find text content
           const textContent = choice.message.content.find(item => 
             item.type === 'text' && item.text
@@ -458,15 +466,15 @@ You are a helpful AI tutor. Provide clear, encouraging feedback.`;
           content = textContent?.text || null;
         } else {
           // If content is a string, use it directly
-          content = choice.message.content;
+          content = messageContent;
         }
         
         if (content === null || content === undefined) {
-          console.error('No valid content found in message:', choice.message);
+          console.error('No valid content found in message:', choice);
           throw new Error('No valid content found in OpenRouter response');
         }
         
-        console.log('Extracted content from OpenRouter format:', content);
+        console.log('Successfully extracted content from OpenRouter format:', content);
       } else if (endpoint.includes('openai.com')) {
         if (!data.choices?.[0]?.message?.content) {
           console.error('Invalid OpenAI response format:', data);
