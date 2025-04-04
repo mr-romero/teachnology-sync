@@ -132,8 +132,15 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
     }
   }, [urlJoinCode, user, locationState.autoJoin, isJoined]);
   
+  // Update useEffect for session data to handle preview mode
   useEffect(() => {
     if (sessionData && !sessionLoading && lesson) {
+      // Skip session handling if in preview mode
+      if (isPreview) {
+        setCurrentSlideIndex(0); // Start at first slide in preview mode
+        return;
+      }
+
       // Get stored slide from localStorage first
       const storedData = localStorage.getItem(`student_session_${sessionId}`);
       let storedPosition = null;
@@ -231,7 +238,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         setIsPaused(!!sessionData.is_paused);
       }
     }
-  }, [sessionData, sessionLoading, sessionId, lesson, user]);
+  }, [sessionData, sessionLoading, sessionId, lesson, user, isPreview]);
   
   useEffect(() => {
     // Only check for active sessions if we don't have a URL join code or auto-join state
@@ -764,18 +771,28 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
     );
   };
   
+  // Update the renderLessonView function
   const renderLessonView = () => {
     if (!lesson || !lesson.slides) return (
       <div className="flex justify-center items-center h-screen">
         <p className="text-lg">Loading {isPreview ? 'preview' : 'session'}...</p>
       </div>
     );
-    
+
+    // In preview mode, don't validate session state
+    if (!isPreview && currentSlideIndex === null) {
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <p className="text-lg">Loading slide position...</p>
+        </div>
+      );
+    }
+
     // Only validate slide index if we have a valid currentSlideIndex
     if (currentSlideIndex !== null) {
       const maxIndex = lesson.slides.length - 1;
       const safeSlideIndex = Math.min(Math.max(0, currentSlideIndex), maxIndex);
-      
+
       // Only log and update if there's actually a correction needed
       if (safeSlideIndex !== currentSlideIndex) {
         console.log(`Slide index ${currentSlideIndex} out of bounds, correcting to ${safeSlideIndex}`);
@@ -783,18 +800,20 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         return null; // Return null to prevent rendering with invalid index
       }
     }
-    
-    // Don't try to render if we don't have a valid slide index
-    if (currentSlideIndex === null) {
+
+    // Don't try to render if we don't have a valid slide index and aren't in preview mode
+    if (currentSlideIndex === null && !isPreview) {
       return (
         <div className="flex justify-center items-center h-screen">
-          <p className="text-lg">Loading slide position...</p>
+          <p className="text-lg">Error: Could not load slide content</p>
         </div>
       );
     }
-    
-    const currentSlide = lesson.slides[currentSlideIndex];
-    
+
+    // Use currentSlideIndex if set, otherwise use 0 for preview mode
+    const slideIndex = currentSlideIndex !== null ? currentSlideIndex : 0;
+    const currentSlide = lesson.slides[slideIndex];
+
     // Add safety check for currentSlide
     if (!currentSlide) {
       return (
@@ -803,10 +822,10 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         </div>
       );
     }
-    
-    const isSynced = sessionData?.is_synced ?? false;
-    const isPacedMode = allowedSlides.length > 0 && !isPreview;
-    
+
+    const isSynced = isPreview ? false : (sessionData?.is_synced ?? false);
+    const isPacedMode = isPreview ? false : (allowedSlides.length > 0);
+
     return (
       <div className="flex flex-col h-screen">
         {/* Header bar - fixed height */}

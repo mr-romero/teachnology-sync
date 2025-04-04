@@ -513,10 +513,11 @@ const LessonEditor: React.FC = () => {
   };
 
   // Handle creating a new presentation session
-  const handleCreateNewSession = () => {
+  const handleCreateNewSession = async (params?: { classroomId?: string }) => {
     if (lessonId) {
-      navigate(`/teacher/presentation/${lessonId}?forceNew=true`);
+      navigate(`/teacher/presentation/${lessonId}?forceNew=true${params?.classroomId ? `&classroomId=${params.classroomId}` : ""}`);
     }
+    return { sessionId: "redirecting", joinCode: "redirecting" };
   };
 
   // Handle joining an existing presentation session
@@ -532,8 +533,8 @@ const LessonEditor: React.FC = () => {
       try {
         // Save the lesson before navigating to student view
         await saveLesson(lesson);
-        // Navigate to teacher preview route instead of student view
-        navigate(`/teacher/preview/${lessonId}`);
+        // Navigate to student view with preview mode
+        navigate(`/student/view/${lessonId}?preview=true`);
       } catch (error) {
         console.error('Error saving lesson before preview:', error);
         toast.error("Failed to save lesson before preview");
