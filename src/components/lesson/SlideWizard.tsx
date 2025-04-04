@@ -9,9 +9,11 @@ import { useToast } from '@/components/ui/use-toast';
 // Add type for ImageUploader props
 interface ImageUploaderProps {
   onImageUploaded: (url: string, path: string) => void;
-  existingUrl?: string;
-  existingAlt?: string;
   onUpdateAlt: (alt: string) => void;
+  defaultUrl?: string;
+  defaultAlt?: string;
+  allowedTypes?: string[];
+  maxSizeInMB?: number;
 }
 
 interface SlideWizardProps {

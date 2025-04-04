@@ -5,26 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import { CELEBRATION_PRESETS } from '@/services/userSettingsService';
+import { CELEBRATION_PRESETS, CelebrationSettings } from '@/services/userSettingsService';
 import { Sparkles, Music, PartyPopper } from 'lucide-react';
-
-interface CelebrationConfig {
-  type: 'custom' | 'preset' | 'default';
-  phrase?: string;
-  emoji?: string;
-  preset?: string;
-  effects?: {
-    confetti: boolean;
-    sound: boolean;
-    screenEffect: 'none' | 'gold' | 'stars' | 'rainbow';
-  };
-}
 
 interface CelebrationConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (config: CelebrationConfig) => void;
-  initialConfig?: CelebrationConfig;
+  onSave: (config: CelebrationSettings) => void;
+  initialConfig?: CelebrationSettings;
 }
 
 export const CelebrationConfigDialog: React.FC<CelebrationConfigDialogProps> = ({
@@ -46,7 +34,7 @@ export const CelebrationConfigDialog: React.FC<CelebrationConfigDialogProps> = (
   });
 
   const handleSave = () => {
-    const config: CelebrationConfig = {
+    const config: CelebrationSettings = {
       type: celebrationType,
       effects
     };
@@ -187,8 +175,13 @@ export const CelebrationConfigDialog: React.FC<CelebrationConfigDialogProps> = (
           </div>
         </div>
 
-        <div className="flex justify-end">
-          <Button onClick={handleSave}>Save Celebration</Button>
+        <div className="mt-4 flex justify-end space-x-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>
+            Save Preferences
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

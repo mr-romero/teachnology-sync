@@ -14,10 +14,13 @@ import AIChat from './AIChat';  // Add AIChat import
 import { cn } from '@/lib/utils';
 import MathDisplay from './MathDisplay';
 import CelebrationOverlay from './CelebrationOverlay';
+import CelebrationConfigDialog from './CelebrationConfigDialog';
 import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings } from '@/services/userSettingsService';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
+  content: string;
+}
 
 // Helper function to preprocess content for proper LaTeX rendering
 const preprocessContent = (content: string): string => {
@@ -25,26 +28,36 @@ const preprocessContent = (content: string): string => {
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
   content = content.replace(jsonRegex, '');
 
-  // Better handling of dollar signs in currency amounts
+  // Handle currency amounts with different formats
   content = content
-    // First, handle dollar signs used in currency with a space before a numerical value
-    .replace(/\$\s*(\d+(\.\d+)?)/g, '\\\\$$1')
-    // Then, handle dollar signs immediately before numbers without spaces
-    .replace(/\$(\d+(\.\d+)?)/g, '\\\\$$1')
-    // Handle money values with dollar signs before mathematical operations
-    .replace(/\$(\d+(\.\d+)?)\s*([+\-*/])\s*\$?(\d+(\.\d+)?)/g, '\\\\$$1 $3 \\\\$$4')
-    // Handle division calculations with dollar signs
-    .replace(/\$(\d+(\.\d+)?)\s*\/\s*\$?(\d+(\.\d+)?)/g, '\\\\$$1 / \\\\$$3')
-    
-    // Ensure proper escaping for MathQuill rendering
-    .replace(/\\text\{(.*?)\}/g, '\\mathrm{$1}')
-    
-    // Convert standard LaTeX dollar delimiters to explicit \(...\) notation
-    .replace(/\$\$(.*?)\$\$/g, '\\[$1\\]')
-    .replace(/\$(.*?)\$/g, '\\($1\\)');
-    
+    // Currency with spaces and optional decimals
+    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
+    // Currency in ranges or lists
+    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
+    // Currency with operations
+    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
+    // Currency followed by percentage
+    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
+    // Currency with thousands separators
+    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
+
+  // Handle LaTeX delimiters
+  content = content
+    // Ensure proper spacing around LaTeX inline delimiters
+    .replace(/([^\s\\])\$/g, '$1 $')
+    .replace(/\$([^\s\\])/g, '$ $1')
+    // Convert standalone $ to inline LaTeX delimiters
+    .replace(/\$\s*([^$\n]+?)\s*\$/g, '\\($1\\)')
+    // Convert $$ to display LaTeX delimiters
+    .replace(/\$\$\s*([^$\n]+?)\s*\$\$/g, '\\[$1\\]')
+    // Fix escaped LaTeX delimiters
+    .replace(/\\\\\(/g, '\\(')
+    .replace(/\\\\\)/g, '\\)')
+    .replace(/\\\\\[/g, '\\[')
+    .replace(/\\\\\]/g, '\\]');
+
   return content;
-};
+}
 
 // Helper function to parse latex expressions from markdown
 const parseLatexExpressions = (text: string): { text: string, isLatex: boolean }[] => {
@@ -237,6 +250,53 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     }
   }, []);
 
+  // Add new state variables near the top of the component with other state declarations
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [celebrationStyle, setCelebrationStyle] = useState<CelebrationSettings | null>(null);
+
+  // Add effect to load celebration settings
+  useEffect(() => {
+    if (studentId) {
+      getCelebrationSettings(studentId).then(settings => {
+        if (settings) {
+          setCelebrationStyle(settings);
+        }
+      });
+    }
+  }, [studentId]);
+
+  // Add celebration config state at the top with other state declarations
+  const [showCelebrationConfig, setShowCelebrationConfig] = useState(false);
+
+  // Add useEffect to check for celebration settings and show config if needed
+  useEffect(() => {
+    if (studentId && !celebrationStyle && hasAnswered) {
+      getCelebrationSettings(studentId).then(settings => {
+        if (settings) {
+          setCelebrationStyle(settings);
+        } else {
+          // If no settings exist, show config dialog
+          setShowCelebrationConfig(true);
+        }
+      });
+    }
+  }, [studentId, celebrationStyle, hasAnswered]);
+
+  // Add handler for saving celebration config
+  const handleSaveCelebrationConfig = async (config: CelebrationSettings) => {
+    if (!studentId) return;
+    
+    try {
+      await updateCelebrationSettings(studentId, config);
+      setCelebrationStyle(config);
+      setShowCelebrationConfig(false);
+      // Show celebration immediately after saving settings
+      setShowCelebration(true);
+    } catch (error) {
+      console.error('Error saving celebration settings:', error);
+    }
+  };
+
   // Handle response change for the question part
   const handleResponseChange = (value: string | boolean | string[]) => {
     setResponse(value);
@@ -281,8 +341,18 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     
     setIsCorrect(isResponseCorrect);
     
-    // Don't auto-generate feedback immediately to allow state updates to complete
-    // and give a better UX by showing the submit confirmation first
+    // Show celebration if answer is correct
+    if (isResponseCorrect) {
+      // First check if we have celebration settings
+      if (!celebrationStyle) {
+        // If no settings, show config dialog first
+        setShowCelebrationConfig(true);
+        // Once they save settings, the celebration will show automatically
+      } else {
+        setShowCelebration(true);
+      }
+    }
+    
     setShowPracticeSimilar(true);
   };
   

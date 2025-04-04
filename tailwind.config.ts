@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -96,12 +95,38 @@ export default {
 				'pulse-gentle': {
 					'0%, 100%': { opacity: '1' },
 					'50%': { opacity: '0.8' }
+				},
+				"pulse-gold": {
+					"0%, 100%": { backgroundColor: "rgba(234, 179, 8, 0.1)" },
+					"50%": { backgroundColor: "rgba(234, 179, 8, 0.3)" }
+				},
+				"twinkle": {
+					"0%, 100%": { 
+						backgroundImage: "linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(236, 72, 153, 0.1))" 
+					},
+					"50%": { 
+						backgroundImage: "linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.3))" 
+					}
+				},
+				"rainbow": {
+					"0%": { 
+						backgroundImage: "linear-gradient(45deg, rgba(239, 68, 68, 0.2), rgba(234, 179, 8, 0.2), rgba(34, 197, 94, 0.2))" 
+					},
+					"50%": { 
+						backgroundImage: "linear-gradient(45deg, rgba(34, 197, 94, 0.2), rgba(239, 68, 68, 0.2), rgba(234, 179, 8, 0.2))" 
+					},
+					"100%": { 
+						backgroundImage: "linear-gradient(45deg, rgba(234, 179, 8, 0.2), rgba(34, 197, 94, 0.2), rgba(239, 68, 68, 0.2))" 
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'pulse-gentle': 'pulse-gentle 2s ease-in-out infinite'
+				'pulse-gentle': 'pulse-gentle 2s ease-in-out infinite',
+				"pulse-gold": "pulse-gold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+				"twinkle": "twinkle 3s ease-in-out infinite",
+				"rainbow": "rainbow 4s linear infinite"
 			}
 		}
 	},

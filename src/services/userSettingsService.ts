@@ -35,6 +35,30 @@ export const CELEBRATION_PRESETS = [
     effect: 'stars',
     sound: 'chime',
     confetti: true
+  },
+  {
+    id: 'brilliant',
+    phrase: 'Brilliant work! ⭐',
+    sound: 'chime',
+    effect: 'gold'
+  },
+  {
+    id: 'amazing',
+    phrase: 'Amazing! 🌟',
+    sound: 'success',
+    effect: 'stars'
+  },
+  {
+    id: 'perfect',
+    phrase: 'Perfect score! 🎯',
+    sound: 'applause',
+    effect: 'rainbow'
+  },
+  {
+    id: 'excellent',
+    phrase: 'Excellent! 🏆',
+    sound: 'chime',
+    effect: 'gold'
   }
 ];
 
