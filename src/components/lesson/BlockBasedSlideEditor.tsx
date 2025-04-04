@@ -969,7 +969,8 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
           feedbackSystemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.',
           feedbackSentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'openai/gpt-3.5-turbo',
+          modelName: 'gpt-4o-mini',
+          optionStyle: 'A-D',
           repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.'
         };
         break;
@@ -1004,6 +1005,113 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
     onUpdateSlide(updatedSlide);
     
     return blockId;
+  };
+
+  // Helper function to create a new block
+  const createBlock = (blockType: string, overrides: any = {}): LessonBlock => {
+    const blockId = overrides.id || `block-${Date.now()}`;
+    
+    switch (blockType) {
+      case 'text':
+        return {
+          id: blockId,
+          type: 'text',
+          content: 'Enter your text here',
+          ...overrides
+        };
+      case 'image':
+        return {
+          id: blockId,
+          type: 'image',
+          url: '',
+          alt: '',
+          ...overrides
+        };
+      case 'question':
+        return {
+          id: blockId,
+          type: 'question',
+          questionType: 'multiple-choice',
+          question: 'Enter your question here',
+          options: ['Option 1', 'Option 2', 'Option 3'],
+          correctAnswer: 'Option 1',
+          ...overrides
+        };
+      case 'graph':
+        return {
+          id: blockId,
+          type: 'graph',
+          equation: 'y = x^2',
+          settings: {
+            xMin: -10,
+            xMax: 10,
+            yMin: -10,
+            yMax: 10
+          },
+          ...overrides
+        };
+      case 'ai-chat':
+        return {
+          id: blockId,
+          type: 'ai-chat',
+          instructions: 'Ask me questions about this topic.',
+          sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+          apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+          modelName: 'gpt-4o-mini',
+          systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.',
+          ...overrides
+        };
+      case 'feedback-question':
+        return {
+          id: blockId,
+          type: 'feedback-question',
+          questionText: 'Enter your question here',
+          questionType: 'multiple-choice',
+          options: ['Option 1', 'Option 2', 'Option 3'],
+          correctAnswer: 'Option 1',
+          feedbackInstructions: 'Ask me questions about this topic.',
+          feedbackSystemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.',
+          feedbackSentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+          apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+          modelName: 'gpt-4o-mini',
+          optionStyle: 'A-D',
+          repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.',
+          ...overrides
+        };
+      default:
+        throw new Error(`Unknown block type: ${blockType}`);
+    }
+  };
+
+  // Helper function to add a block and position it
+  const handleDropBlock = (block: LessonBlock, position: GridPosition) => {
+    const updatedSlide = { ...slide };
+    
+    // Add the block to the slide
+    updatedSlide.blocks = [...updatedSlide.blocks, block];
+    
+    // Make sure layout exists
+    if (!updatedSlide.layout) {
+      updatedSlide.layout = {
+        gridRows: Math.max(position.row + 1, slide.layout?.gridRows || 1),
+        gridColumns: Math.max(position.column + 1, slide.layout?.gridColumns || 1),
+        blockPositions: {},
+      };
+    }
+    
+    // Ensure blockPositions exists
+    if (!updatedSlide.layout.blockPositions) {
+      updatedSlide.layout.blockPositions = {};
+    }
+    
+    // Position the block
+    updatedSlide.layout.blockPositions[block.id] = position;
+    
+    // Update grid dimensions if necessary
+    updatedSlide.layout.gridRows = Math.max(position.row + 1, updatedSlide.layout.gridRows || 1);
+    updatedSlide.layout.gridColumns = Math.max(position.column + 1, updatedSlide.layout.gridColumns || 1);
+    
+    onUpdateSlide(updatedSlide);
   };
 
   const blocksByPosition = getBlocksByPosition();

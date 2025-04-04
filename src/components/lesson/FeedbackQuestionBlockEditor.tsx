@@ -81,7 +81,7 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   const [newStarter, setNewStarter] = useState('');
   const [apiEndpoint, setApiEndpoint] = useState(block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions');
   const [modelSearch, setModelSearch] = useState('');
-  const [modelName, setModelName] = useState(block.modelName || 'openai/gpt-4o-mini');
+  const [modelName, setModelName] = useState(block.modelName || 'gpt-4o-mini'); // Updated default model
   const [repetitionPrevention, setRepetitionPrevention] = useState(
     block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights."
   );
@@ -374,9 +374,7 @@ Remember to:
     if (result.options && result.options.length > 0) {
       setQuestionType('multiple-choice');
       setOptions(result.options);
-      if (result.optionStyle) {
-        setOptionStyle(result.optionStyle);
-      }
+      setOptionStyle('A-D'); // Set the default option style to A-D
       if (result.correctAnswer) {
         setCorrectAnswer(result.correctAnswer);
       }
