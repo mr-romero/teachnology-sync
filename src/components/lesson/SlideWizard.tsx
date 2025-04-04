@@ -35,28 +35,38 @@ const SlideWizard: React.FC<SlideWizardProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleImageUploaded = async (url: string, path: string) => {
     setImageUrl(url);
     setImageAlt(''); // Reset alt text when new image uploaded
     setIsAnalyzing(true);
+    setError(null);
 
     try {
       const result = await analyzeQuestionImage(url, model); // Pass model to analyzeQuestionImage
       
+      // Validate the result
+      if (!result.questionText) {
+        throw new Error('Failed to extract question text from image');
+      }
+      
       onComplete({
         ...result,
         imageUrl: url,
-        imageAlt: imageAlt
+        imageAlt: imageAlt || 'Math problem image' // Provide default alt text
       });
     } catch (error) {
       console.error('Error analyzing image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
       toast({
         title: "Error Analyzing Image",
-        description: "Failed to analyze the image. Please try again or create the question manually.",
+        description: errorMessage,
         variant: "destructive"
       });
+    } finally {
       setIsAnalyzing(false);
     }
   };
@@ -83,6 +93,12 @@ const SlideWizard: React.FC<SlideWizardProps> = ({
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Analyzing image...
+            </div>
+          )}
+
+          {error && (
+            <div className="text-sm text-red-500 bg-red-50 p-3 rounded-md">
+              {error}
             </div>
           )}
 

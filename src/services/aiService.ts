@@ -311,26 +311,23 @@ export async function fetchChatCompletion({
           }
           
           // Add image analysis instructions to system message
-          const systemInstructions = `
-You are analyzing a math problem shown in an image. 
-When providing feedback:
-1. First describe what you see in the image (the math problem)
-2. Analyze if the student's answer is correct
-3. Provide a detailed explanation of the solution
-4. Format your response as a JSON object with these fields:
-   - image_content: description of the math problem in the image
-   - question: the question that was asked
-   - student_answer: what the student answered
-   - correct_answer: the correct answer
-   - explanation: detailed explanation of how to solve it
-   - is_correct: boolean indicating if student was correct
-5. After the JSON, provide helpful feedback to the student
-6. Offer to create a similar practice problem if they want more practice`;
-          
+          const systemInstructions = imageUrl ? `
+You are analyzing a math problem shown in an image.
+Your output must be a single valid JSON object containing these fields:
+{
+  "questionText": "the full question text",
+  "options": ["array of options if multiple choice"],
+  "correctAnswer": "the correct answer if indicated",
+  "optionStyle": "A-D" or "F-J" or "text"
+}
+
+Do not include any text before or after the JSON object.` : `
+You are a helpful AI tutor. Provide clear, encouraging feedback.`;
+
           // Find system message or add one
           const sysIndex = processedMessages.findIndex(msg => msg.role === 'system');
           if (sysIndex !== -1) {
-            processedMessages[sysIndex].content += `\n\n${systemInstructions}`;
+            processedMessages[sysIndex].content = systemInstructions;
           } else {
             processedMessages.unshift({
               role: 'system',
@@ -559,8 +556,8 @@ export interface ImageAnalysisResult {
 }
 
 export const analyzeQuestionImage = async (
-  imageUrl: string, 
-  model: string = 'openai/gpt-4o-mini' // Default to gpt-4o-mini but allow override
+  imageUrl: string,
+  model: string = 'openai/gpt-4o-mini'
 ): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:
@@ -575,7 +572,9 @@ Return the result in valid JSON format with these fields:
   "options": ["array of options if multiple choice"],
   "correctAnswer": "the correct answer",
   "optionStyle": "A-D" or "F-J" or "text"
-}`;
+}
+
+Important: Your response must be a single valid JSON object without any additional text.`;
 
   try {
     const response = await fetchChatCompletion({
@@ -594,10 +593,28 @@ Return the result in valid JSON format with these fields:
 
     // Try to parse the JSON from the response
     try {
-      const jsonStartIndex = response.indexOf('{');
-      const jsonEndIndex = response.lastIndexOf('}') + 1;
-      const jsonStr = response.slice(jsonStartIndex, jsonEndIndex);
-      return JSON.parse(jsonStr);
+      // First try direct parse
+      try {
+        return JSON.parse(response);
+      } catch {
+        // If that fails, try to extract JSON from the response
+        const jsonRegex = /{[\s\S]*}/;
+        const match = response.match(jsonRegex);
+        
+        if (!match) {
+          throw new Error('No JSON object found in response');
+        }
+        
+        const jsonStr = match[0];
+        const result = JSON.parse(jsonStr);
+        
+        // Validate the parsed result has required fields
+        if (!result.questionText) {
+          throw new Error('Invalid response format: missing questionText');
+        }
+        
+        return result;
+      }
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);
       throw new Error('Failed to parse image analysis results');
