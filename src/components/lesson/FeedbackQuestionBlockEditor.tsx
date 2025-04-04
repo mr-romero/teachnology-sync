@@ -57,7 +57,9 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   const [questionText, setQuestionText] = useState(block.questionText || 'Enter your question here');
   const [questionType, setQuestionType] = useState<QuestionType>(block.questionType || 'multiple-choice');
   const [options, setOptions] = useState<string[]>(block.options || ['Option 1', 'Option 2', 'Option 3']);
-  const [correctAnswer, setCorrectAnswer] = useState<string | number | boolean | undefined>(block.correctAnswer);
+  const [correctAnswer, setCorrectAnswer] = useState<string | number | boolean | string[] | undefined>(
+    block.correctAnswer
+  );
   const [optionStyle, setOptionStyle] = useState<'A-D' | 'F-J' | 'text'>(block.optionStyle || 'A-D'); // Add option style state
   const [allowAnswerChange, setAllowAnswerChange] = useState<boolean>(block.allowAnswerChange || false);
   const [allowMultipleAnswers, setAllowMultipleAnswers] = useState<boolean>(block.allowMultipleAnswers || false);
@@ -120,12 +122,12 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
       }
     } else if (type === 'true-false') {
       setOptions(['True', 'False']);
-      if (typeof correctAnswer !== 'boolean') {
+      if (Array.isArray(correctAnswer) || typeof correctAnswer !== 'boolean') {
         setCorrectAnswer(true);
       }
     } else {
       // For free response, we'll keep the correct answer as a string
-      if (typeof correctAnswer === 'boolean') {
+      if (typeof correctAnswer === 'boolean' || Array.isArray(correctAnswer)) {
         setCorrectAnswer('');
       }
     }
@@ -921,6 +923,7 @@ Remember to:
           <SlideWizard
             onComplete={handleWizardComplete}
             onCancel={() => setWizardOpen(false)}
+            model={modelName} // Pass the current model to the wizard
           />
         </DialogContent>
       </Dialog>

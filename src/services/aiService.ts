@@ -218,7 +218,7 @@ export async function fetchChatCompletion({
           // Query the presentation_settings table directly using session_id
           const { data: settings, error: settingsError } = await supabase
             .from('presentation_settings')
-            .select('openrouter_api_key', { headers: { 'Accept': 'application/json' } })
+            .select('openrouter_api_key')
             .eq('session_id', sessionId)
             .single();
 
@@ -558,7 +558,10 @@ export interface ImageAnalysisResult {
   optionStyle?: 'A-D' | 'F-J' | 'text';
 }
 
-export const analyzeQuestionImage = async (imageUrl: string): Promise<ImageAnalysisResult> => {
+export const analyzeQuestionImage = async (
+  imageUrl: string, 
+  model: string = 'openai/gpt-4o-mini' // Default to gpt-4o-mini but allow override
+): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:
 1. The question text
@@ -580,7 +583,7 @@ Return the result in valid JSON format with these fields:
         { role: 'system', content: systemPrompt },
         { role: 'user', content: 'Please analyze this math problem image and extract the required information.' }
       ],
-      model: 'openai/gpt-4-vision-preview',
+      model,
       endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       imageUrl
     });

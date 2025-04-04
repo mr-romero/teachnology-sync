@@ -6,6 +6,14 @@ import { ImageAnalysisResult, analyzeQuestionImage } from '@/services/aiService'
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
+// Add type for ImageUploader props
+interface ImageUploaderProps {
+  onImageUploaded: (url: string, path: string) => void;
+  existingUrl?: string;
+  existingAlt?: string;
+  onUpdateAlt: (alt: string) => void;
+}
+
 interface SlideWizardProps {
   onComplete: (result: {
     questionText: string;
@@ -16,26 +24,31 @@ interface SlideWizardProps {
     imageAlt: string;
   }) => void;
   onCancel: () => void;
+  model?: string; // Make model configurable
 }
 
-const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
+const SlideWizard: React.FC<SlideWizardProps> = ({ 
+  onComplete, 
+  onCancel,
+  model = 'openai/gpt-4o-mini' // Default to gpt-4o-mini but allow override
+}) => {
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
 
-  const handleImageUploaded = async (url: string, path: string, alt: string) => {
+  const handleImageUploaded = async (url: string, path: string) => {
     setImageUrl(url);
-    setImageAlt(alt);
+    setImageAlt(''); // Reset alt text when new image uploaded
     setIsAnalyzing(true);
 
     try {
-      const result = await analyzeQuestionImage(url);
+      const result = await analyzeQuestionImage(url, model); // Pass model to analyzeQuestionImage
       
       onComplete({
         ...result,
         imageUrl: url,
-        imageAlt: alt
+        imageAlt: imageAlt
       });
     } catch (error) {
       console.error('Error analyzing image:', error);
@@ -87,3 +100,5 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
     </Card>
   );
 };
+
+export default SlideWizard; // Add default export
