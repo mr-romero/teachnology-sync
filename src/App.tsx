@@ -126,7 +126,7 @@ const App = () => (
             />
             <Route 
               path="/student/view/:lessonId" 
-              element={<StudentView />}
+              element={<StudentView />} 
             />
             <Route 
               path="/student/session/:sessionId" 

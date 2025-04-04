@@ -453,6 +453,33 @@ const StudentView: React.FC<StudentViewProps> = () => {
     }
   }, [user]);
 
+  // Add effect to handle preview mode with lessonId
+  useEffect(() => {
+    const loadPreviewLesson = async () => {
+      if (isPreview && urlLessonId && !lesson) {
+        setLoading(true);
+        try {
+          const lessonData = await getLessonById(urlLessonId);
+          if (lessonData) {
+            setLesson(lessonData);
+            setCurrentSlideIndex(0);
+          } else {
+            toast.error('Failed to load lesson for preview');
+            navigate('/dashboard');
+          }
+        } catch (error) {
+          console.error('Error loading preview lesson:', error);
+          toast.error('Failed to load lesson preview');
+          navigate('/dashboard');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadPreviewLesson();
+  }, [isPreview, urlLessonId, lesson, navigate]);
+
   // Update the join session handler to properly initialize the slide position
   const handleJoinSession = async () => {
     if (!joinCode.trim() || !user) {
