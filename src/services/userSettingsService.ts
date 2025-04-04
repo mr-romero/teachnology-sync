@@ -89,50 +89,45 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
     const { data: existingSettings, error: checkError } = await supabase
       .from('user_settings')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .single();
 
-    // Properly handle the case where settings don't exist
-    if (checkError) {
+    // Handle no settings found case
+    if (checkError && checkError.code === 'PGRST116') {
+      console.log('No settings found, creating new settings...');
+      const defaultSettings = {
+        user_id: userId,
+        settings: {},
+        celebration_settings: {
+          type: 'default',
+          effects: {
+            confetti: true,
+            sound: true,
+            screenEffect: 'gold'
+          }
+        }
+      };
+
+      const { data: newSettings, error: insertError } = await supabase
+        .from('user_settings')
+        .insert(defaultSettings)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating user settings:', insertError);
+        return null;
+      }
+
+      console.log('Created new settings:', newSettings);
+      return newSettings;
+    } else if (checkError) {
       console.error('Error checking user settings:', checkError);
       return null;
     }
 
-    // If settings exist, return the first one
-    if (existingSettings && existingSettings.length > 0) {
-      console.log('Retrieved settings:', existingSettings[0]);
-      return existingSettings[0];
-    }
-
-    // If no settings exist, create new ones
-    console.log('No settings found, creating new settings...');
-    const newId = crypto.randomUUID();
-    const defaultSettings = {
-      id: newId,
-      user_id: userId,
-      settings: {},
-      celebration_settings: {
-        type: 'default',
-        effects: {
-          confetti: true,
-          sound: true,
-          screenEffect: 'gold'
-        }
-      }
-    };
-
-    const { data: newSettings, error: insertError } = await supabase
-      .from('user_settings')
-      .insert(defaultSettings)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('Error creating user settings:', insertError);
-      return null;
-    }
-
-    console.log('Created new settings:', newSettings);
-    return newSettings;
+    console.log('Retrieved settings:', existingSettings);
+    return existingSettings;
   } catch (error) {
     console.error('Exception in getUserSettings:', error);
     return null;
