@@ -610,7 +610,7 @@ Your Task:
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  Get AI Feedback
+                  Get Feedback
                 </Button>
               )}
             </div>
@@ -767,7 +767,7 @@ Your Task:
           </div>
         </div>
         
-        {/* Chat messages area - increase height */}
+        {/* Chat messages area with height matching content */}
         <ScrollArea className="flex-grow p-4 bg-white min-h-[500px]">
           {visibleMessages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
@@ -967,9 +967,11 @@ Your Task:
         </div>
         
         {/* Column 2: Chat feedback at full height */}
-        <div className="h-full min-h-[600px] flex flex-col">
+        <div className="h-full flex flex-col">
           {/* AI Feedback chat */}
-          {renderFeedback()}
+          <div className="h-full">
+            {renderFeedback()}
+          </div>
         </div>
       </div>
     </div>
