@@ -336,42 +336,63 @@ export const startPresentationSession = async (lessonId: string, classroomId?: s
 
 // Join a presentation session as a student
 export const joinPresentationSession = async (joinCode: string, userId: string): Promise<{ sessionId: string, presentationId: string } | null> => {
-  // Find the active session with this join code
-  const { data: session, error: sessionError } = await supabase
-    .from('presentation_sessions')
-    .select('id, presentation_id, current_slide')
-    .eq('join_code', joinCode)
-    .is('ended_at', null)
-    .single();
-    
-  if (sessionError || !session) {
-    console.error('Error finding session:', sessionError);
-    return null;
-  }
+  try {
+    // Find the active session with this join code
+    const { data: session, error: sessionError } = await supabase
+      .from('presentation_sessions')
+      .select('id, presentation_id, current_slide, is_synced')
+      .eq('join_code', joinCode)
+      .is('ended_at', null)
+      .single();
+      
+    if (sessionError || !session) {
+      console.error('Error finding session:', sessionError);
+      return null;
+    }
 
-  // Add the student to the session or update their record
-  const { error: participantError } = await supabase
-    .from('session_participants')
-    .upsert({
-      session_id: session.id,
-      user_id: userId,
-      current_slide: session.current_slide,
-      is_active: true,  // Set active when joining
-      joined_at: new Date().toISOString(),
-      last_active_at: new Date().toISOString()
-    }, {
-      onConflict: 'session_id,user_id'
-    });
+    // Check for stored position in localStorage
+    let initialSlide = session.current_slide;
+    if (!session.is_synced) {
+      try {
+        const storedData = localStorage.getItem(`student_session_${session.id}`);
+        if (storedData) {
+          const { currentSlideIndex } = JSON.parse(storedData);
+          if (typeof currentSlideIndex === 'number' && currentSlideIndex >= 0) {
+            initialSlide = currentSlideIndex;
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading stored slide position:', e);
+      }
+    }
+
+    // Add the student to the session or update their record
+    const { error: participantError } = await supabase
+      .from('session_participants')
+      .upsert({
+        session_id: session.id,
+        user_id: userId,
+        current_slide: initialSlide,
+        is_active: true,
+        joined_at: new Date().toISOString(),
+        last_active_at: new Date().toISOString()
+      }, {
+        onConflict: 'session_id,user_id'
+      });
+      
+    if (participantError) {
+      console.error('Error joining session:', participantError);
+      return null;
+    }
     
-  if (participantError) {
-    console.error('Error joining session:', participantError);
+    return {
+      sessionId: session.id,
+      presentationId: session.presentation_id
+    };
+  } catch (error) {
+    console.error('Error in joinPresentationSession:', error);
     return null;
   }
-  
-  return {
-    sessionId: session.id,
-    presentationId: session.presentation_id
-  };
 };
 
 // Update current slide for a session
@@ -423,7 +444,6 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
   try {
     // First, check if the student's navigation should be restricted
     try {
-      // Get session data - only request fields we know exist
       const { data: sessionData, error: sessionError } = await supabase
         .from('presentation_sessions')
         .select('is_synced, paced_slides')
@@ -432,10 +452,9 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
         
       if (sessionError) {
         console.error('Error fetching session sync status:', sessionError);
-        // Continue anyway to support older database versions
       } else if (sessionData) {
         if (sessionData.is_synced) {
-          // If in sync mode, students shouldn't update their position at all
+          // If in sync mode, don't update student's position
           console.log('Student attempted to navigate while in sync mode');
           return false;
         }
@@ -449,11 +468,9 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
         }
       }
     } catch (checkError) {
-      // If any error happens during restriction checks, log it but still
-      // allow the update to proceed (fail open for backwards compatibility)
       console.warn('Error checking navigation restrictions:', checkError);
     }
-    
+
     // Update the student's current slide in the database
     const { error } = await supabase
       .from('session_participants')
@@ -473,11 +490,13 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
         }));
       } catch (storageError) {
         console.warn('Error updating localStorage:', storageError);
-        // Continue anyway as database update was successful
       }
+
+      return true;
     }
-      
-    return !error;
+
+    console.error('Error updating student slide:', error);
+    return false;
   } catch (error) {
     console.error('Error in updateStudentSlide:', error);
     return false;

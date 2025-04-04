@@ -129,7 +129,7 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   }, [urlJoinCode, user, locationState.autoJoin, isJoined]);
   
   useEffect(() => {
-    if (sessionData && !sessionLoading) {
+    if (sessionData && !sessionLoading && lesson) {
       // Get stored slide from localStorage first
       const storedData = localStorage.getItem(`student_session_${sessionId}`);
       let storedPosition = null;
@@ -144,13 +144,18 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         }
       }
 
+      // Check if position is valid
+      const isValidPosition = (position: number) => 
+        !isNaN(position) && 
+        position >= 0 && 
+        position < lesson.slides.length;
+
       // First check if it's in sync mode
       if (sessionData.is_synced) {
         console.log('Sync mode active, using teacher slide:', sessionData.current_slide);
         setCurrentSlideIndex(Number(sessionData.current_slide));
         setAllowedSlides([]);
       } else {
-        // In non-sync mode, prioritize student's stored position
         console.log('Non-sync mode active');
         
         if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
@@ -158,25 +163,27 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
           
           // If we have a valid stored position AND it's in allowed slides, use it
           if (storedPosition !== null && 
-              !isNaN(storedPosition) && 
-              sessionData.paced_slides.includes(storedPosition) &&
-              lesson && storedPosition < lesson.slides.length) {
+              isValidPosition(storedPosition) && 
+              sessionData.paced_slides.includes(storedPosition)) {
             console.log('Using stored slide position:', storedPosition);
             setCurrentSlideIndex(storedPosition);
-            // Update the student's position in the database
+            // Update the database to match localStorage
             if (user) {
               updateStudentSlide(sessionId, user.id, storedPosition);
             }
           } else {
             // Find nearest allowed slide
-            const nextSlides = sessionData.paced_slides.filter(index => index >= Number(sessionData.current_slide));
-            const prevSlides = sessionData.paced_slides.filter(index => index < Number(sessionData.current_slide));
+            const currentSlide = Number(sessionData.current_slide);
+            let targetSlide = currentSlide;
+
+            // Find the closest allowed slide
+            const nextAllowedSlides = sessionData.paced_slides.filter(index => index >= currentSlide);
+            const prevAllowedSlides = sessionData.paced_slides.filter(index => index < currentSlide);
             
-            let targetSlide = Number(sessionData.current_slide);
-            if (nextSlides.length > 0) {
-              targetSlide = nextSlides[0];
-            } else if (prevSlides.length > 0) {
-              targetSlide = prevSlides[prevSlides.length - 1];
+            if (nextAllowedSlides.length > 0) {
+              targetSlide = nextAllowedSlides[0];
+            } else if (prevAllowedSlides.length > 0) {
+              targetSlide = prevAllowedSlides[prevAllowedSlides.length - 1];
             } else if (sessionData.paced_slides.length > 0) {
               targetSlide = sessionData.paced_slides[0];
             }
@@ -188,24 +195,20 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
             }
           }
         } else {
-          // No paced slides - free navigation
+          // Free navigation mode
           console.log('Free navigation mode');
           setAllowedSlides([]);
           
           // Use stored position if valid
-          if (storedPosition !== null && 
-              !isNaN(storedPosition) && 
-              lesson && 
-              storedPosition >= 0 && 
-              storedPosition < lesson.slides.length) {
+          if (storedPosition !== null && isValidPosition(storedPosition)) {
             console.log('Using stored slide position:', storedPosition);
             setCurrentSlideIndex(storedPosition);
             // Update the database to match localStorage
             if (user) {
               updateStudentSlide(sessionId, user.id, storedPosition);
             }
-          } else {
-            // Fallback to session's current_slide
+          } else if (isValidPosition(Number(sessionData.current_slide))) {
+            // Only use session's current_slide if we don't have a valid stored position
             console.log('Using session current slide:', sessionData.current_slide);
             setCurrentSlideIndex(Number(sessionData.current_slide));
           }
@@ -329,7 +332,8 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   }, [sessionId, lesson]);
 
   useEffect(() => {
-    if (sessionId && currentSlideIndex >= 0) {
+    if (sessionId && currentSlideIndex !== null && currentSlideIndex >= 0) {
+      console.log('Saving slide position to localStorage:', currentSlideIndex);
       localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
         currentSlideIndex,
         timestamp: new Date().toISOString()
@@ -356,47 +360,6 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
       }
     }
   }, [sessionId, user, lesson, isJoined]);
-
-  // Update storage whenever slide changes
-  useEffect(() => {
-    if (!sessionId || !isJoined) return;
-    
-    localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
-      currentSlideIndex,
-      timestamp: new Date().toISOString()
-    }));
-  }, [sessionId, currentSlideIndex, isJoined]);
-  
-  // Handle direct loading of lesson data for preview mode
-  useEffect(() => {
-    const loadPreviewLesson = async () => {
-      if (isPreview && urlLessonId && user) {
-        setLoading(true);
-        try {
-          const lessonData = await getLessonById(urlLessonId);
-          
-          if (!lessonData) {
-            toast.error('Failed to load lesson preview');
-            navigate('/dashboard');
-            return;
-          }
-          
-          setLesson(lessonData);
-          setPresentationId(urlLessonId);
-          setIsJoined(true); // Set joined to true to show lesson content
-          setCurrentSlideIndex(0);
-        } catch (error) {
-          console.error('Error loading preview lesson:', error);
-          toast.error('Error loading lesson preview');
-          navigate('/dashboard');
-        } finally {
-          setLoading(false);
-        }
-      }
-    };
-    
-    loadPreviewLesson();
-  }, [isPreview, urlLessonId, user, navigate]);
 
   // Only check for active sessions if not in preview mode
   useEffect(() => {
