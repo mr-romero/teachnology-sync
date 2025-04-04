@@ -47,6 +47,15 @@ interface StudentViewProps {
   isPreview?: boolean;
 }
 
+// Add interface for session info type
+interface SessionInfo {
+  id: string;
+  join_code: string;
+  presentation_id: string;
+  is_synced: boolean;
+  ended_at: string | null;
+}
+
 const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
   const { joinCode: urlJoinCode, lessonId: urlLessonId } = useParams<{ joinCode?: string; lessonId?: string }>();
   const location = useLocation();
@@ -199,7 +208,8 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         }
         
         if (data && data.length > 0 && data[0].presentation_sessions) {
-          const sessionInfo = data[0].presentation_sessions;
+          // First cast to unknown, then to SessionInfo to handle the array type mismatch
+          const sessionInfo = (data[0].presentation_sessions as unknown) as SessionInfo;
           
           // Store active session info for later use
           setActiveSessionInfo({
@@ -283,6 +293,36 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
       }));
     }
   }, [sessionId, currentSlideIndex]);
+
+  // Add this effect to load stored position when joining a session
+  useEffect(() => {
+    if (!sessionId || !user || !lesson || !isJoined) return;
+    
+    const storedData = localStorage.getItem(`student_session_${sessionId}`);
+    if (storedData) {
+      try {
+        const { currentSlideIndex: storedIndex, timestamp } = JSON.parse(storedData);
+        // Only use stored position if it's valid
+        if (storedIndex >= 0 && storedIndex < lesson.slides.length) {
+          setCurrentSlideIndex(storedIndex);
+          // Update the server with the stored position
+          updateStudentSlide(sessionId, user.id, storedIndex);
+        }
+      } catch (error) {
+        console.error('Error loading stored slide position:', error);
+      }
+    }
+  }, [sessionId, user, lesson, isJoined]);
+
+  // Update storage whenever slide changes
+  useEffect(() => {
+    if (!sessionId || !isJoined) return;
+    
+    localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
+      currentSlideIndex,
+      timestamp: new Date().toISOString()
+    }));
+  }, [sessionId, currentSlideIndex, isJoined]);
   
   // Handle direct loading of lesson data for preview mode
   useEffect(() => {
@@ -349,7 +389,8 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         }
         
         if (data && data.length > 0 && data[0].presentation_sessions) {
-          const sessionInfo = data[0].presentation_sessions;
+          // First cast to unknown, then to SessionInfo to handle the array type mismatch
+          const sessionInfo = (data[0].presentation_sessions as unknown) as SessionInfo;
           
           // Store active session info for later use
           setActiveSessionInfo({
@@ -409,6 +450,30 @@ const StudentView: React.FC<StudentViewProps> = ({ isPreview = false }) => {
         setLoading(false);
         return;
       }
+      
+      // When joining, try to use stored position first
+      const storedData = localStorage.getItem(`student_session_${result.sessionId}`);
+      let initialSlide = Number(sessionData.current_slide);
+      
+      if (storedData) {
+        try {
+          const { currentSlideIndex: storedIndex } = JSON.parse(storedData);
+          if (storedIndex >= 0 && storedIndex < lessonData.slides.length) {
+            initialSlide = storedIndex;
+          }
+        } catch (error) {
+          console.error('Error loading stored slide position:', error);
+        }
+      }
+      
+      setCurrentSlideIndex(initialSlide);
+      setSessionId(result.sessionId);
+      setJoinCode(joinCode);
+      setPresentationId(result.presentationId);
+      setIsJoined(true);
+      
+      // Update the student's position in the database with either stored or initial position
+      await updateStudentSlide(result.sessionId, user.id, initialSlide);
       
       setLesson(lessonData);
       setIsJoined(true);
