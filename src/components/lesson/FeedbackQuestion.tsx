@@ -578,23 +578,6 @@ Your Task:
                       </Label>
                     </div>
                   ))}
-                  <div className="mt-4">
-                    <Button
-                      onClick={() => {
-                        if (!hasAnswered) {
-                          setHasAnswered(true);
-                          const isResponseCorrect = response === block.correctAnswer;
-                          setIsCorrect(isResponseCorrect);
-                          setFeedbackStarted(true);
-                          startFeedbackChat(isResponseCorrect ? "Great job! You got it right!" : "Let's look at this together.");
-                        }
-                      }}
-                      disabled={!response || feedbackStarted}
-                      variant="secondary"
-                    >
-                      Get Feedback
-                    </Button>
-                  </div>
                 </RadioGroup>
               )}
               
