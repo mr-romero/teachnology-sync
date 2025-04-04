@@ -419,15 +419,22 @@ You are a helpful AI tutor. Provide clear, encouraging feedback.`;
       body: JSON.stringify(requestBody),
     });
     
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('API response error:', errorData);
-      console.error('Response status:', response.status);
-      throw new Error(`API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
-    }
-    
+    // Parse response first to handle both error and success cases
     const data = await response.json();
-    console.log('API Response data:', data);
+    console.log('OpenRouter raw response:', data);
+
+    // If there's an error property in the response, handle it first
+    if (data.error) {
+      console.error('OpenRouter API error:', data.error);
+      const errorMessage = data.error.message || data.error.type || 'Unknown OpenRouter error';
+      throw new Error(`OpenRouter API error: ${errorMessage}`);
+    }
+
+    if (!response.ok) {
+      console.error('API response error:', data);
+      console.error('Response status:', response.status);
+      throw new Error(`API request failed with status ${response.status}: ${data.error?.message || 'Unknown error'}`);
+    }
     
     let content = null;
     
@@ -438,43 +445,39 @@ You are a helpful AI tutor. Provide clear, encouraging feedback.`;
     
     try {
       if (endpoint.includes('openrouter.ai')) {
-        if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
-          console.error('Invalid response format from OpenRouter:', data);
-          throw new Error('Invalid OpenRouter response format - missing or empty choices array');
+        // Enhanced error checking for OpenRouter format
+        if (!data.choices) {
+          throw new Error('OpenRouter response is missing choices array');
+        }
+        
+        if (!Array.isArray(data.choices) || data.choices.length === 0) {
+          throw new Error('OpenRouter response has empty choices array');
         }
         
         const choice = data.choices[0];
         if (!choice) {
-          console.error('Empty choice in OpenRouter response:', data);
-          throw new Error('Empty choice in OpenRouter response');
+          throw new Error('No choice available in OpenRouter response');
         }
 
         // Handle both message and delta formats
         const messageContent = choice.message?.content || choice.delta?.content;
         
-        if (!messageContent && !Array.isArray(choice.message?.content)) {
-          console.error('No content found in OpenRouter response:', choice);
-          throw new Error('No content found in OpenRouter response');
-        }
-
-        // Handle both string and array content formats
         if (Array.isArray(choice.message?.content)) {
-          // If content is an array, find text content
+          // Handle array content format (e.g., for vision models)
           const textContent = choice.message.content.find(item => 
             item.type === 'text' && item.text
           );
           content = textContent?.text || null;
         } else {
-          // If content is a string, use it directly
+          // Handle string content format
           content = messageContent;
         }
         
         if (content === null || content === undefined) {
-          console.error('No valid content found in message:', choice);
           throw new Error('No valid content found in OpenRouter response');
         }
         
-        console.log('Successfully extracted content from OpenRouter format:', content);
+        console.log('Successfully extracted content:', content);
       } else if (endpoint.includes('openai.com')) {
         if (!data.choices?.[0]?.message?.content) {
           console.error('Invalid OpenAI response format:', data);
@@ -503,7 +506,18 @@ You are a helpful AI tutor. Provide clear, encouraging feedback.`;
       throw new Error(`Failed to extract content from API response: ${error.message}`);
     }
   } catch (error) {
-    console.error('Error in fetchChatCompletion:', error);
+    // Enhanced error logging
+    console.error('Error in fetchChatCompletion:', {
+      error,
+      endpoint,
+      model,
+      messageCount: messages.length
+    });
+    
+    // Rethrow with a more user-friendly message if it's an OpenRouter error
+    if (error.message.includes('OpenRouter API error:')) {
+      throw new Error('Failed to get AI response. Please check your API key and try again.');
+    }
     throw error;
   }
 }
