@@ -85,49 +85,62 @@ export interface UserSettings {
 export const getUserSettings = async (userId: string): Promise<UserSettings | null> => {
   try {
     console.log('Getting settings for user:', userId);
-    // First try to get existing settings
+    
+    // First check if settings exist without using single()
     const { data: existingSettings, error: checkError } = await supabase
       .from('user_settings')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', userId);
+
+    // If there's no error and we have data, return the first record
+    if (!checkError && existingSettings && existingSettings.length > 0) {
+      console.log('Retrieved existing settings:', existingSettings[0]);
+      return existingSettings[0];
+    }
+
+    // If we get here, no settings exist, so create new ones
+    console.log('No settings found, creating new settings...');
+    const defaultSettings = {
+      user_id: userId,
+      settings: {},
+      celebration_settings: {
+        type: 'default',
+        effects: {
+          confetti: true,
+          sound: true,
+          screenEffect: 'gold'
+        }
+      }
+    };
+
+    const { data: newSettings, error: insertError } = await supabase
+      .from('user_settings')
+      .insert(defaultSettings)
+      .select()
       .single();
 
-    // Handle no settings found case
-    if (checkError && checkError.code === 'PGRST116') {
-      console.log('No settings found, creating new settings...');
-      const defaultSettings = {
-        user_id: userId,
-        settings: {},
-        celebration_settings: {
-          type: 'default',
-          effects: {
-            confetti: true,
-            sound: true,
-            screenEffect: 'gold'
-          }
+    if (insertError) {
+      // If we get a unique constraint violation, try to fetch the settings one more time
+      if (insertError.code === '23505') {
+        console.log('Settings already exist, fetching them...');
+        const { data: retrySettings, error: retryError } = await supabase
+          .from('user_settings')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+
+        if (!retryError && retrySettings) {
+          console.log('Successfully retrieved settings on retry:', retrySettings);
+          return retrySettings;
         }
-      };
-
-      const { data: newSettings, error: insertError } = await supabase
-        .from('user_settings')
-        .insert(defaultSettings)
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Error creating user settings:', insertError);
-        return null;
       }
-
-      console.log('Created new settings:', newSettings);
-      return newSettings;
-    } else if (checkError) {
-      console.error('Error checking user settings:', checkError);
+      
+      console.error('Error creating/retrieving user settings:', insertError);
       return null;
     }
 
-    console.log('Retrieved settings:', existingSettings);
-    return existingSettings;
+    console.log('Created new settings:', newSettings);
+    return newSettings;
   } catch (error) {
     console.error('Exception in getUserSettings:', error);
     return null;
