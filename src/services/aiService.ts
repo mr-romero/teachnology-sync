@@ -175,7 +175,7 @@ interface FetchChatCompletionParams {
   model?: string;
   temperature?: number;
   endpoint?: string;
-  imageUrl?: string;  // Add imageUrl parameter
+  imageUrl?: string;
 }
 
 /**

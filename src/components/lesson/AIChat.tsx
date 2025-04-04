@@ -202,8 +202,6 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',  // Default to GPT-4 for better image understanding
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        temperature: 0.7,
-        maxTokens: block.maxTokens || 1000,
         imageUrl: questionContext.imageUrl  // Pass the image URL to the API
       });
       
@@ -271,8 +269,6 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        temperature: 0.8, // Slightly higher temperature for creativity
-        maxTokens: block.maxTokens || 1000,
         imageUrl: questionContext.imageUrl // Pass the image URL for context
       });
       
@@ -327,8 +323,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-3.5-turbo',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        temperature: 0.7,
-        maxTokens: block.maxTokens || 1000
+        temperature: 0.7
       });
       
       if (aiResponse) {

@@ -240,13 +240,26 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
   // Handle response change for the question part
   const handleResponseChange = (value: string | boolean | string[]) => {
     setResponse(value);
+    // Convert array responses to a comma-separated string when submitting
+    if (Array.isArray(value)) {
+      onAnswerSubmit?.(block.id, value.join(', '));
+    } else if (typeof value === 'boolean') {
+      onAnswerSubmit?.(block.id, value);
+    } else {
+      onAnswerSubmit?.(block.id, value);
+    }
   };
   
-  // Submit question answer
+  // Submit question answer - fix response type handling
   const handleSubmitAnswer = () => {
     if (!onAnswerSubmit || !response) return;
     
-    onAnswerSubmit(block.id, response);
+    // Convert array responses to string before submitting
+    const submittedResponse = Array.isArray(response) 
+      ? response.join(', ') 
+      : response;
+    
+    onAnswerSubmit(block.id, submittedResponse);
     setHasAnswered(true);
     
     // Check if the answer is correct
@@ -330,7 +343,6 @@ ${imageInfo}`;
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        max_tokens: block.maxTokens || 1000,
         imageUrl: block.imageUrl
       });
       
@@ -425,7 +437,6 @@ Your Task:
         messages: apiMessages,
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        max_tokens: block.maxTokens || 1000,
         imageUrl: block.imageUrl
       });
       
@@ -507,27 +518,25 @@ Your Task:
                         checked={Array.isArray(response) ? response.includes(option) : response === option}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            // Add option to selected options
                             const newResponse = Array.isArray(response) 
                               ? [...response, option] 
                               : [option];
                             handleResponseChange(newResponse as string[]);
                           } else {
-                            // Remove option from selected options
                             const newResponse = Array.isArray(response) 
                               ? response.filter(item => item !== option) 
                               : [];
                             handleResponseChange(newResponse as string[]);
                           }
                         }}
-                        disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+                        disabled={isPaused}
                         className="h-4 w-4 rounded border-gray-300 focus:ring-primary"
                       />
                       <Label 
                         htmlFor={`${block.id}-option-${index}`}
                         className={cn(
                           Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && !isStudentView && "text-green-600 font-medium",
-                          hasAnswered && Array.isArray(response) && response.includes(option) && 
+                          Array.isArray(response) && response.includes(option) && 
                           Array.isArray(block.correctAnswer) && !block.correctAnswer.includes(option) && "text-red-600"
                         )}
                       >
@@ -541,24 +550,24 @@ Your Task:
                   ))}
                 </div>
               ) : (
-                // Single selection with radio buttons - original implementation
+                // Single selection with radio buttons
                 <RadioGroup 
                   value={Array.isArray(response) ? response[0] : response as string} 
                   onValueChange={(value) => handleResponseChange(value)}
-                  disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+                  disabled={isPaused}
                 >
                   {block.options?.map((option, index) => (
                     <div key={index} className="flex items-center space-x-2">
                       <RadioGroupItem 
                         value={option} 
                         id={`${block.id}-option-${index}`}
-                        disabled={isPaused || (hasAnswered && !block.allowAnswerChange)}
+                        disabled={isPaused}
                       />
                       <Label 
                         htmlFor={`${block.id}-option-${index}`}
                         className={cn(
                           option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
-                          hasAnswered && option === response && option !== block.correctAnswer && "text-red-600"
+                          option === response && option !== block.correctAnswer && "text-red-600"
                         )}
                       >
                         {getOptionLabel(index) && (
@@ -569,21 +578,39 @@ Your Task:
                       </Label>
                     </div>
                   ))}
+                  <div className="mt-4">
+                    <Button
+                      onClick={() => {
+                        if (!hasAnswered) {
+                          setHasAnswered(true);
+                          const isResponseCorrect = response === block.correctAnswer;
+                          setIsCorrect(isResponseCorrect);
+                          setFeedbackStarted(true);
+                          startFeedbackChat(isResponseCorrect ? "Great job! You got it right!" : "Let's look at this together.");
+                        }
+                      }}
+                      disabled={!response || feedbackStarted}
+                      variant="secondary"
+                    >
+                      Get Feedback
+                    </Button>
+                  </div>
                 </RadioGroup>
               )}
               
               {studentCanRespond && (
-                <Button 
-                  className="mt-3" 
-                  size="sm" 
-                  onClick={handleSubmitAnswer}
-                  disabled={
-                    (Array.isArray(response) ? response.length === 0 : !response) || 
-                    isPaused || 
-                    (!block.allowAnswerChange && hasAnswered)
-                  }
+                <Button
+                  onClick={generateFeedback}
+                  disabled={isLoading || (Array.isArray(response) ? response.length === 0 : !response)}
+                  size="sm"
+                  className="mt-4 w-full flex items-center justify-center gap-2"
                 >
-                  {hasAnswered ? (block.allowAnswerChange ? "Change Answer" : "Submitted") : "Submit"}
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Get AI Feedback
                 </Button>
               )}
             </div>
@@ -593,46 +620,43 @@ Your Task:
         {/* True/false question */}
         {block.questionType === 'true-false' && (
           <div className="space-y-2">
-            {studentCanRespond && !hasAnswered ? (
+            {studentCanRespond ? (
               <div className="space-y-2">
                 <RadioGroup 
                   value={response === true ? "true" : response === false ? "false" : ""} 
                   onValueChange={(value) => handleResponseChange(value === "true")}
-                  disabled={isPaused || hasAnswered}
+                  disabled={isPaused}
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem 
                       value="true" 
                       id={`${block.id}-true`}
-                      disabled={isPaused || hasAnswered}
+                      disabled={isPaused}
                     />
-                    <Label 
-                      htmlFor={`${block.id}-true`}
-                    >
-                      True
-                    </Label>
+                    <Label htmlFor={`${block.id}-true`}>True</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem 
                       value="false" 
                       id={`${block.id}-false`}
-                      disabled={isPaused || hasAnswered}
+                      disabled={isPaused}
                     />
-                    <Label 
-                      htmlFor={`${block.id}-false`}
-                    >
-                      False
-                    </Label>
+                    <Label htmlFor={`${block.id}-false`}>False</Label>
                   </div>
                 </RadioGroup>
                 
-                <Button 
-                  className="mt-3" 
-                  size="sm" 
-                  onClick={handleSubmitAnswer}
-                  disabled={response === '' || isPaused || hasAnswered}
+                <Button
+                  onClick={generateFeedback}
+                  disabled={isLoading || response === ''}
+                  size="sm"
+                  className="mt-4 w-full flex items-center justify-center gap-2"
                 >
-                  {hasAnswered ? "Submitted" : "Submit"}
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Get AI Feedback
                 </Button>
               </div>
             ) : (
@@ -661,21 +685,27 @@ Your Task:
         {/* Free response question */}
         {block.questionType === 'free-response' && (
           <div className="space-y-3">
-            {studentCanRespond && !hasAnswered ? (
+            {studentCanRespond ? (
               <div className="space-y-3">
                 <Textarea
                   placeholder="Enter your answer here..."
                   value={response as string || ''}
                   onChange={(e) => handleResponseChange(e.target.value)}
-                  disabled={isPaused || hasAnswered}
+                  disabled={isPaused}
                   className="min-h-[100px]"
                 />
-                <Button 
-                  size="sm" 
-                  onClick={handleSubmitAnswer}
-                  disabled={!response || (response as string).trim() === '' || isPaused || hasAnswered}
+                <Button
+                  onClick={generateFeedback}
+                  disabled={isLoading || !response || (response as string).trim() === ''}
+                  size="sm"
+                  className="w-full flex items-center justify-center gap-2"
                 >
-                  {hasAnswered ? "Submitted" : "Submit"}
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  Get AI Feedback
                 </Button>
               </div>
             ) : (
@@ -695,8 +725,8 @@ Your Task:
       </div>
     );
   };
-  
-  // Render the AI chat feedback part
+
+  // Modify the chat area height in renderFeedback
   const renderFeedback = () => {
     if (!hasAnswered && isStudentView) {
       return (
@@ -710,7 +740,7 @@ Your Task:
             </div>
           )}
           <p className="text-sm text-muted-foreground text-center">
-            Answer the question to get AI feedback
+            Select an answer and click "Get AI Feedback" to start a conversation
           </p>
         </div>
       );
@@ -718,7 +748,7 @@ Your Task:
     
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm",
+        "flex flex-col rounded-md border shadow-sm h-full",
         isGrouped && "border-2 border-purple-200"
       )}>
         {isGrouped && groupId && (
@@ -731,14 +761,14 @@ Your Task:
           <div className="flex items-start gap-2">
             <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div>
-              <h4 className="text-sm font-medium mb-1">Feedback</h4>
-              <p className="text-xs text-muted-foreground">Ask for help if you need additional explanation.</p>
+              <h4 className="text-sm font-medium mb-1">AI Tutor Chat</h4>
+              <p className="text-xs text-muted-foreground">Ask questions or request additional explanations about the problem.</p>
             </div>
           </div>
         </div>
         
-        {/* Chat messages area */}
-        <ScrollArea className="h-[200px] p-4 flex-grow bg-white">
+        {/* Chat messages area - increase height */}
+        <ScrollArea className="flex-grow p-4 bg-white min-h-[500px]">
           {visibleMessages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
               <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
@@ -937,26 +967,7 @@ Your Task:
         </div>
         
         {/* Column 2: Chat feedback at full height */}
-        <div className="h-full flex flex-col">
-          {/* Show Get Feedback button after submitting */}
-          {hasAnswered && !visibleMessages.length && (
-            <div className="flex justify-center py-2">
-              <Button
-                onClick={generateFeedback}
-                disabled={isLoading}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                Get Feedback
-              </Button>
-            </div>
-          )}
-          
+        <div className="h-full min-h-[600px] flex flex-col">
           {/* AI Feedback chat */}
           {renderFeedback()}
         </div>

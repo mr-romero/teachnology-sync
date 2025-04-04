@@ -78,7 +78,6 @@ export interface AIChatBlock extends BaseBlock {
   apiEndpoint?: string;
   modelName?: string;
   repetitionPrevention?: string;
-  maxTokens?: number;
 }
 
 // New combo block type that combines question with AI chat feedback
@@ -100,7 +99,6 @@ export interface FeedbackQuestionBlock extends BaseBlock {
   apiEndpoint?: string;
   modelName?: string;
   repetitionPrevention?: string;
-  maxTokens?: number;
   // New properties for split functionality
   displayMode?: 'all' | 'image' | 'question' | 'feedback';
   isGrouped?: boolean;

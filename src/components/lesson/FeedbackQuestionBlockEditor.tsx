@@ -91,7 +91,6 @@ When responding with mathematical content:
   const [repetitionPrevention, setRepetitionPrevention] = useState(
     block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights."
   );
-  const [maxTokens, setMaxTokens] = useState(block.maxTokens || 500);
   const [includeMathFormatting, setIncludeMathFormatting] = useState(
     block.feedbackSystemPrompt?.includes('When responding with mathematical content') || false
   );
@@ -297,7 +296,6 @@ When responding with mathematical content:
       onUpdate({
         ...block,
         modelName: 'openai/gpt-4',  // Default to GPT-4 for better image understanding
-        maxTokens: 1000,  // Ensure enough tokens for detailed image analysis
         feedbackSystemPrompt: `You are a helpful mathematics tutor providing feedback on a student's answer.
 
 ${block.imageUrl ? `When analyzing this problem:
@@ -339,7 +337,6 @@ Remember to:
       feedbackSentenceStarters,
       apiEndpoint,
       modelName,
-      maxTokens,
       repetitionPrevention,
       imageUrl,
       imageAlt
@@ -358,7 +355,6 @@ Remember to:
     feedbackSentenceStarters,
     apiEndpoint,
     modelName,
-    maxTokens,
     repetitionPrevention,
     imageUrl,
     imageAlt
