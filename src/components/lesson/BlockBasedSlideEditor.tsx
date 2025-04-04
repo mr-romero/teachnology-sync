@@ -953,8 +953,14 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
           instructions: 'Ask me questions about this topic.',
           sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'openai/gpt-3.5-turbo',
-          systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding. Be encouraging and supportive.'
+          modelName: 'gpt-4o-mini',
+          systemPrompt: `You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.
+
+When responding with mathematical content:
+- Use \\( and \\) for inline math expressions
+- Use \\[ and \\] for displayed math expressions
+- Format equations and mathematical symbols properly
+- Be consistent with LaTeX notation throughout the response`,
         };
         break;
       case 'feedback-question':
@@ -1058,7 +1064,13 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
           sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
           modelName: 'gpt-4o-mini',
-          systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.',
+          systemPrompt: `You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.
+
+When responding with mathematical content:
+- Use \\( and \\) for inline math expressions
+- Use \\[ and \\] for displayed math expressions
+- Format equations and mathematical symbols properly
+- Be consistent with LaTeX notation throughout the response`,
           ...overrides
         };
       case 'feedback-question':

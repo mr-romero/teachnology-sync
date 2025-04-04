@@ -73,7 +73,13 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
     block.feedbackInstructions || 'Your AI tutor will help explain the answer.'
   );
   const [feedbackSystemPrompt, setFeedbackSystemPrompt] = useState(
-    block.feedbackSystemPrompt || 'You are a helpful AI tutor. Provide encouraging feedback based on the student\'s answer. Explain why the answer is correct or incorrect, and provide additional context to enhance learning.'
+    block.feedbackSystemPrompt || `You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.
+
+When responding with mathematical content:
+- Use \\( and \\) for inline math expressions
+- Use \\[ and \\] for displayed math expressions
+- Format equations and mathematical symbols properly
+- Be consistent with LaTeX notation throughout the response`
   );
   const [feedbackSentenceStarters, setFeedbackSentenceStarters] = useState<string[]>(
     block.feedbackSentenceStarters || ['Can you explain...?', 'Why is that...?', 'What about...?']

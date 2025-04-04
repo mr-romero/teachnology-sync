@@ -561,26 +561,32 @@ export const analyzeQuestionImage = async (
 ): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:
-1. The question text
-2. The answer choices (if multiple choice)
+1. The question text (use LaTeX notation for mathematical expressions, e.g. \\( x^2 \\) for inline and \\[ \\frac{1}{2} \\] for display)
+2. The answer choices (if multiple choice) with proper LaTeX formatting
 3. Determine which lettering system is used (A-D or F-J) if present
 4. The correct answer if marked or indicated
 
 Return the result in valid JSON format with these fields:
 {
-  "questionText": "the full question text",
-  "options": ["array of options if multiple choice"],
-  "correctAnswer": "the correct answer",
+  "questionText": "the full question text with LaTeX notation",
+  "options": ["array of options with LaTeX notation"],
+  "correctAnswer": "the correct answer with LaTeX if needed",
   "optionStyle": "A-D" or "F-J" or "text"
 }
 
-Important: Your response must be a single valid JSON object without any additional text.`;
+Important: For mathematical expressions:
+- Use \\( and \\) for inline math
+- Use \\[ and \\] for display math
+- Format fractions as \\frac{numerator}{denominator}
+- Format exponents as x^{power}
+- Format subscripts as x_{subscript}
+Your response must be a single valid JSON object without any additional text.`;
 
   try {
     const response = await fetchChatCompletion({
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Please analyze this math problem image and extract the required information.' }
+        { role: 'user', content: 'Please analyze this math problem image and extract the required information with proper mathematical notation.' }
       ],
       model,
       endpoint: 'https://openrouter.ai/api/v1/chat/completions',
