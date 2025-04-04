@@ -97,9 +97,22 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
       // If no settings exist, create new ones
       if (error.code === 'PGRST116') {
         console.log('No settings found, creating new settings...');
+        const newId = crypto.randomUUID(); // Generate a new UUID for the settings
         const { data: newSettings, error: insertError } = await supabase
           .from('user_settings')
-          .insert({ user_id: userId })
+          .insert({ 
+            id: newId,
+            user_id: userId,
+            settings: {},
+            celebration_settings: {
+              type: 'default',
+              effects: {
+                confetti: true,
+                sound: true,
+                screenEffect: 'gold'
+              }
+            }
+          })
           .select()
           .single();
           
