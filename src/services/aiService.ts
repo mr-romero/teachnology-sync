@@ -559,24 +559,22 @@ const getApiKey = async (sessionId?: string): Promise<string | null> => {
   try {
     // If we have a sessionId, try to get teacher's key from the presentation first
     if (sessionId) {
-      // Get the presentation_id from the session first
-      const { data: session } = await supabase
+      // Get the presentation_id from the session
+      const { data: session, error: sessionError } = await supabase
         .from('presentation_sessions')
-        .select('presentation_id')
+        .select(`
+          presentation_id,
+          presentations (
+            settings
+          )
+        `)
         .eq('id', sessionId)
         .single();
       
-      if (session?.presentation_id) {
-        // Then get the openrouter_api_key from the presentation
-        const { data: presentation } = await supabase
-          .from('presentations')
-          .select('openrouter_api_key')
-          .eq('id', session.presentation_id)
-          .single();
-        
-        if (presentation?.openrouter_api_key) {
-          return presentation.openrouter_api_key;
-        }
+      if (sessionError) {
+        console.error('Error getting session:', sessionError);
+      } else if (session?.presentations?.settings?.openrouter_api_key) {
+        return session.presentations.settings.openrouter_api_key;
       }
     }
     

@@ -351,10 +351,18 @@ export const startPresentationSession = async (lessonId: string, classroomId?: s
 // Join a presentation session as a student
 export const joinPresentationSession = async (joinCode: string, userId: string): Promise<{ sessionId: string, presentationId: string } | null> => {
   try {
-    // Find the active session with this join code
+    // Find the active session with this join code and include presentation settings
     const { data: session, error: sessionError } = await supabase
       .from('presentation_sessions')
-      .select('id, presentation_id, current_slide, is_synced')
+      .select(`
+        id,
+        presentation_id,
+        current_slide,
+        is_synced,
+        presentations (
+          settings
+        )
+      `)
       .eq('join_code', joinCode)
       .is('ended_at', null)
       .single();
