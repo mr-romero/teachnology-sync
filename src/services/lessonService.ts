@@ -72,10 +72,16 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
   // Convert to database format
   const dbData = convertAppLessonToDbFormat(newLesson);
   
+  // Get teacher's API key
+  const apiKey = await getOpenRouterApiKey(userId);
+
   // Insert the presentation
   const { error: presentationError } = await supabase
     .from('presentations')
-    .insert(dbData.presentation);
+    .insert({
+      ...dbData.presentation,
+      openrouter_api_key: apiKey // Add the teacher's API key
+    });
     
   if (presentationError) {
     console.error('Error creating presentation:', presentationError);

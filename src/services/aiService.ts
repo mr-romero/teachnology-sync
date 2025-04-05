@@ -435,50 +435,13 @@ export async function getChatHistory({
  */
 export async function fetchAvailableModels(): Promise<{ id: string; name: string }[] | null> {
   try {
-    // Get the API key from user settings
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) {
-      console.error('Error getting current user:', userError);
-      throw new Error('Failed to get current user');
-    }
+    // Get session ID from URL, handling both full URLs and path segments
+    const pathSegments = window.location.pathname.split('/');
+    const sessionId = pathSegments[pathSegments.length - 1];
+
+    // Use our getApiKey helper that will check both presentation and user settings
+    const apiKey = await getApiKey(sessionId);
     
-    if (!user?.id) {
-      console.error('No user ID found');
-      throw new Error('No user found');
-    }
-
-    // First try to get API key from user settings
-    let apiKey = await getOpenRouterApiKey(user.id);
-    
-    // If no API key found, try to get teacher's API key from the presentation settings
-    if (!apiKey) {
-      // Get session ID from URL, handling both full URLs and path segments
-      const pathSegments = window.location.pathname.split('/');
-      const sessionId = pathSegments[pathSegments.length - 1];
-      
-      console.log('No user API key found, checking presentation settings for session:', sessionId);
-
-      if (sessionId && sessionId.length > 0) {
-        try {
-          // Query the presentation_settings table directly using session_id
-          const { data: settings, error: settingsError } = await supabase
-            .from('presentation_settings')
-            .select('openrouter_api_key')
-            .eq('session_id', sessionId)
-            .single();
-
-          if (settingsError) {
-            console.error('Error getting presentation settings:', settingsError);
-          } else if (settings?.openrouter_api_key) {
-            apiKey = settings.openrouter_api_key;
-            console.log('Successfully retrieved API key from presentation settings');
-          }
-        } catch (err) {
-          console.error('Error in presentation settings lookup:', err);
-        }
-      }
-    }
-
     if (!apiKey) {
       throw new Error('No API key found. Please add your OpenRouter API key in Settings or use a presentation with an API key configured.');
     }
@@ -594,15 +557,7 @@ Return only the JSON object, no additional text or markdown.`;
 // Function to get API key, prioritizing session settings for students
 const getApiKey = async (sessionId?: string): Promise<string | null> => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    // First try to get user's own API key
-    if (user?.id) {
-      const userKey = await getOpenRouterApiKey(user.id);
-      if (userKey) return userKey;
-    }
-    
-    // If no user key and we have a sessionId, try to get teacher's key
+    // If we have a sessionId, try to get teacher's key from the presentation first
     if (sessionId) {
       // Get the presentation_id from the session first
       const { data: session } = await supabase
@@ -623,6 +578,13 @@ const getApiKey = async (sessionId?: string): Promise<string | null> => {
           return presentation.openrouter_api_key;
         }
       }
+    }
+    
+    // If no session key found, try to get user's own API key as fallback
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) {
+      const userKey = await getOpenRouterApiKey(user.id);
+      if (userKey) return userKey;
     }
     
     return null;
