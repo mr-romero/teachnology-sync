@@ -337,6 +337,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               isPaused={isPaused}
               isAnswered={true}
               isPreviewMode={true}
+              sessionId={sessionId} // Add sessionId prop
               questionContext={{
                 question: block.type === 'feedback-question' 
                   ? (block as FeedbackQuestionBlock).questionText 

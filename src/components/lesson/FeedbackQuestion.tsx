@@ -418,7 +418,7 @@ ${imageInfo}`;
           endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
           imageUrl: block.imageUrl
         },
-        sessionId
+        sessionId  // Pass sessionId to fetchChatCompletion
       );
       
       if (aiResponse) {

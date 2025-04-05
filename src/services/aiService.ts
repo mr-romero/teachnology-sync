@@ -216,11 +216,17 @@ type ContentItem =
 
 // Unified fetchChatCompletion implementation
 export async function fetchChatCompletion(
-  messages: ChatMessage[],
-  options: ChatOptions,
+  options: {
+    messages: ChatMessage[];
+    model?: string;
+    endpoint?: string;
+    temperature?: number;
+    imageUrl?: string;
+  },
   sessionId?: string
 ): Promise<string | null> {
   const {
+    messages,
     model = 'openai/gpt-4',
     temperature = 0.7,
     endpoint = 'https://openrouter.ai/api/v1/chat/completions',
@@ -514,11 +520,15 @@ Return only the JSON object, no additional text or markdown.`;
 
   try {
     const response = await fetchChatCompletion(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Please analyze this math problem image and extract the required information.' }
-      ],
-      { model, endpoint: 'https://openrouter.ai/api/v1/chat/completions', imageUrl }
+      {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Please analyze this math problem image and extract the required information.' }
+        ],
+        model,
+        endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+        imageUrl
+      }
     );
 
     if (!response) {
