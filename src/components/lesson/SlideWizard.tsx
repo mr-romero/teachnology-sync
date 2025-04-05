@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 import ImageUploader from './ImageUploader';
 import { ImageAnalysisResult, analyzeQuestionImage, fetchAvailableModels } from '@/services/aiService';
 import { Loader2, RefreshCw } from 'lucide-react';
