@@ -426,12 +426,14 @@ const DraggableBlock = ({
         e.stopPropagation();
       }}
       className={cn(
-        "relative mb-4 p-4 border rounded-md group transition-all cursor-move",
+        "relative mb-4 p-4 border rounded-md group transition-all cursor-move min-h-[200px]",
         isSelected ? "ring-2 ring-primary" : "",
         // Add visual indicators for split feedback blocks
         block.type === 'feedback-question' && block.isGrouped ? "border-purple-300 border-2 bg-purple-50/30" : "",
         // Add visual indicator for blocks that span multiple columns
-        span?.columnSpan && span.columnSpan > 1 ? "border-violet-300 border-2 bg-violet-50/30" : ""
+        span?.columnSpan && span.columnSpan > 1 ? "border-violet-300 border-2 bg-violet-50/30" : "",
+        // Special styling for feedback blocks
+        block.type === 'feedback-question' ? "flex flex-col justify-between" : ""
       )}
       onClick={(e) => {
         e.stopPropagation();
