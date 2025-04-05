@@ -58,6 +58,7 @@ const Dashboard: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedLessons, setSelectedLessons] = useState<Set<string>>(new Set());
+  const [isDeletionMode, setIsDeletionMode] = useState(false);
   
   // State for lesson sessions dialog
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -141,7 +142,7 @@ const Dashboard: React.FC = () => {
             id: session.id,
             join_code: session.join_code,
             presentation_id: session.presentation_id,
-            presentation_title: session.presentations?.title || 'Untitled',
+            presentation_title: session.presentations?.[0]?.title || 'Untitled',
             started_at: session.started_at,
             active_students: count || 0,
             classroom_name: classroomName,
@@ -331,6 +332,15 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Add handler for toggling deletion mode
+  const toggleDeletionMode = () => {
+    setIsDeletionMode(!isDeletionMode);
+    if (isDeletionMode) {
+      // Clear selections when exiting deletion mode
+      setSelectedLessons(new Set());
+    }
+  };
+
   if (!user) {
     return (
       <div className="container py-8">
@@ -349,31 +359,47 @@ const Dashboard: React.FC = () => {
           <h1 className="text-3xl font-bold mb-2">Welcome, {user.name}</h1>
           <p className="text-muted-foreground">Manage your lessons and assignments</p>
         </div>
-        <Link to="/editor/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Create New Lesson
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          {isDeletionMode ? (
+            <>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                disabled={isDeleting || selectedLessons.size === 0}
+                className="flex items-center"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete {selectedLessons.size} {selectedLessons.size === 1 ? 'Lesson' : 'Lessons'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleDeletionMode}
+              >
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={toggleDeletionMode} variant="outline" size="sm">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Lessons
+              </Button>
+              <Link to="/editor/new">
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create New Lesson
+                </Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
       
       {/* Lessons List */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold">Your Lessons</h2>
-          {selectedLessons.size > 0 && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleBulkDelete}
-              disabled={isDeleting}
-              className="flex items-center"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete {selectedLessons.size} {selectedLessons.size === 1 ? 'Lesson' : 'Lessons'}
-            </Button>
-          )}
-        </div>
+        <h2 className="text-2xl font-bold mb-4">Your Lessons</h2>
         {loading ? (
           <p>Loading your lessons...</p>
         ) : lessons.length > 0 ? (
@@ -384,11 +410,13 @@ const Dashboard: React.FC = () => {
                   <div className="flex-1 p-6">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
-                        <Checkbox
-                          checked={selectedLessons.has(lesson.id)}
-                          onCheckedChange={(checked) => handleLessonSelect(lesson.id, checked as boolean)}
-                          className="mt-1"
-                        />
+                        {isDeletionMode && (
+                          <Checkbox
+                            checked={selectedLessons.has(lesson.id)}
+                            onCheckedChange={(checked) => handleLessonSelect(lesson.id, checked as boolean)}
+                            className="mt-1"
+                          />
+                        )}
                         <div>
                           <h3 className="text-xl font-bold mb-1">{lesson.title}</h3>
                           <div className="flex items-center text-sm text-muted-foreground mb-2">

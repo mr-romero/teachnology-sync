@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Database } from "@/integrations/supabase/types";
 import { Json } from "@/integrations/supabase/types";
 import { classroomService } from "@/services/classroomService";
+import { getOpenRouterApiKey } from '@/services/userSettingsService';
 
 // Helper function to convert any object to Json type
 const toJson = <T>(data: T): Json => {
