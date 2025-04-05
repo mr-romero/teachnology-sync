@@ -431,6 +431,7 @@ ${imageInfo}`;
     try {
       setIsLoading(true);
       setError(null);
+      setHasAnswered(true); // Set this before generating feedback
       
       // Create the messages array with proper typing
       const messages: Message[] = [
@@ -473,12 +474,16 @@ Image description: ${block.imageAlt || 'No description provided'}`
         throw new Error('No feedback content received from AI');
       }
       
+      // Update the visible messages and other states
       setVisibleMessages([{ role: 'assistant', content: feedbackContent }]);
       setHasStarted(true);
+      setFeedbackStarted(true);
+      setShowPracticeSimilar(true);
+
     } catch (error) {
       console.error('Error generating feedback:', error);
       setError(error instanceof Error ? error.message : 'Failed to generate feedback');
-      setVisibleMessages([]);
+      setVisibleMessages([]); // Clear any partial messages on error
     } finally {
       setIsLoading(false);
     }
@@ -617,7 +622,10 @@ Image description: ${block.imageAlt || 'No description provided'}`
               
               {studentCanRespond && (
                 <Button
-                  onClick={generateFeedback}
+                  onClick={async () => {
+                    setHasAnswered(true); // Set this first
+                    await generateFeedback(); // Then generate feedback
+                  }}
                   disabled={isLoading || (Array.isArray(response) ? response.length === 0 : !response)}
                   size="sm"
                   className="mt-4 w-full flex items-center justify-center gap-2"
@@ -765,8 +773,9 @@ Image description: ${block.imageAlt || 'No description provided'}`
     
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm h-full",
-        isGrouped && "border-2 border-purple-200"
+        "flex flex-col rounded-md border shadow-sm",
+        isGrouped && "border-2 border-purple-200",
+        "min-h-[400px]" // Add minimum height
       )}>
         {isGrouped && groupId && (
           <div className="text-xs font-medium text-purple-600 p-2 border-b uppercase tracking-wide">
@@ -785,72 +794,78 @@ Image description: ${block.imageAlt || 'No description provided'}`
         </div>
         
         {/* Chat messages area with height matching content */}
-        <ScrollArea className="flex-grow p-4 bg-white min-h-[500px]">
-          {visibleMessages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
-              <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
-              <p className="text-sm mb-1">Answer the question to get feedback</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {visibleMessages.map((message, index) => (
-                <div
-                  key={index}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+        <ScrollArea className="flex-1 p-4 bg-white">
+          <div className="flex flex-col min-h-[300px]">
+            {visibleMessages.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
+                <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
+                {hasAnswered ? (
+                  <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>
+                ) : (
+                  <p className="text-sm mb-1">Answer the question to get feedback</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4 mb-4">
+                {visibleMessages.map((message, index) => (
                   <div
-                    className={`max-w-[80%] rounded-lg p-3 ${
-                      message.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    }`}
+                    key={index}
+                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    {message.role === 'assistant' ? (
-                      <div className="text-sm markdown-content">
-                        <MarkdownWithMath content={preprocessContent(message.content)} />
-                      </div>
-                    ) : (
-                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                    <div className="flex items-center">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      <span className="text-sm">Thinking...</span>
+                    <div
+                      className={`max-w-[80%] rounded-lg p-3 ${
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      }`}
+                    >
+                      {message.role === 'assistant' ? (
+                        <div className="text-sm markdown-content">
+                          <MarkdownWithMath content={preprocessContent(message.content)} />
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
-              {error && (
-                <div className="flex justify-center">
-                  <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
-                    {error}
+                ))}
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-lg p-3 bg-muted">
+                      <div className="flex items-center">
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        <span className="text-sm">Thinking...</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )}
-              {showPracticeSimilar && hasAnswered && (
-                <div className="flex justify-center my-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1 text-xs"
-                    onClick={() => {
-                      setShowPracticeSimilar(false);
-                      setInputValue("Can I practice a similar problem?");
-                      setTimeout(() => handleSendMessage(), 100);
-                    }}
-                  >
-                    Practice a similar problem <ChevronRight className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+                )}
+                {error && (
+                  <div className="flex justify-center">
+                    <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
+                      {error}
+                    </div>
+                  </div>
+                )}
+                {showPracticeSimilar && hasAnswered && (
+                  <div className="flex justify-center my-4">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex items-center gap-1 text-xs"
+                      onClick={() => {
+                        setShowPracticeSimilar(false);
+                        setInputValue("Can I practice a similar problem?");
+                        setTimeout(() => handleSendMessage(), 100);
+                      }}
+                    >
+                      Practice a similar problem <ChevronRight className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+            )}
+          </div>
         </ScrollArea>
         
         {/* Sentence starters */}
