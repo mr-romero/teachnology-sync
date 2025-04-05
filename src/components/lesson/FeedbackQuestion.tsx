@@ -43,9 +43,6 @@ const preprocessContent = (content: string): string => {
 
   // Handle LaTeX delimiters
   content = content
-    // Ensure proper spacing around LaTeX inline delimiters
-    .replace(/([^\s\\])\$/g, '$1 $')
-    .replace(/\$([^\s\\])/g, '$ $1')
     // Convert standalone $ to inline LaTeX delimiters
     .replace(/\$\s*([^$\n]+?)\s*\$/g, '\\($1\\)')
     // Convert $$ to display LaTeX delimiters
