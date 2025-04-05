@@ -538,14 +538,17 @@ Return the result in valid JSON format with these fields:
   "optionStyle": "A-D" or "F-J" or "text"
 }
 
-Important LaTeX formatting rules:
-- Use \\( and \\) for inline math expressions (NOT $ signs)
-- Use \\[ and \\] for display math expressions (NOT $$ signs)
-- Escape backslashes: use \\\\ instead of \\
-- Example: "Find x when \\(2x + 5 = 13\\)"
-- For display math: "Solve: \\[\\frac{x+1}{2} = 4\\]"
+Important LaTeX and JSON formatting rules:
+- Use \\\\( and \\\\) for inline math expressions (NOT $ signs)
+- Use \\\\[ and \\\\] for display math expressions (NOT $$ signs)
+- In JSON strings, each backslash needs to be escaped, so use 4 backslashes
+- Example JSON with LaTeX:
+{
+  "questionText": "Find x when \\\\(2x + 5 = 13\\\\)",
+  "options": ["\\\\(x = 4\\\\)", "\\\\(x = 8\\\\)"]
+}
 
-Make sure all JSON strings are properly escaped. Return only the JSON object, no additional text.`;
+Return only the JSON object, no additional text or markdown.`;
 
   try {
     const response = await fetchChatCompletion(
@@ -562,8 +565,11 @@ Make sure all JSON strings are properly escaped. Return only the JSON object, no
 
     // Clean and parse the response
     try {
+      // Remove markdown code block markers if present
+      const cleanResponse = response.replace(/```json\n?|\n?```/g, '');
+      
       // Remove any non-JSON text before or after the JSON object
-      const jsonStr = response.replace(/^[^{]*({.*})[^}]*$/s, '$1');
+      const jsonStr = cleanResponse.replace(/^[^{]*({.*})[^}]*$/s, '$1');
       
       // Replace any unescaped newlines and control characters
       const cleanedStr = jsonStr.replace(/[\n\r\t]/g, ' ');
