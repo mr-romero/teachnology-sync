@@ -538,15 +538,14 @@ Return the result in valid JSON format with these fields:
   "optionStyle": "A-D" or "F-J" or "text"
 }
 
-Important LaTeX and JSON formatting rules:
-- Use \\\\( and \\\\) for inline math expressions (NOT $ signs)
-- Use \\\\[ and \\\\] for display math expressions (NOT $$ signs)
-- In JSON strings, each backslash needs to be escaped, so use 4 backslashes
-- Example JSON with LaTeX:
-{
-  "questionText": "Find x when \\\\(2x + 5 = 13\\\\)",
-  "options": ["\\\\(x = 4\\\\)", "\\\\(x = 8\\\\)"]
-}
+Important LaTeX formatting rules:
+- Function notations like f(x) should stay as plain text
+- Only put algebraic expressions inside LaTeX delimiters
+- Use \\\\( and \\\\) for inline math expressions
+- Use \\\\[ and \\\\] for display math expressions
+- Example for function questions: "If f(x) = \\\\(3x^2 - 7\\\\), what is the value of f(4)?"
+- For equations: "Solve: \\\\[\\\\frac{x+1}{2} = 4\\\\]"
+- For variables: "Find x when \\\\(x + 5 = 12\\\\)"
 
 Return only the JSON object, no additional text or markdown.`;
 

@@ -57,8 +57,13 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
 }): JSX.Element => {  // Add explicit return type
   // Load saved state or use defaults
   const loadSavedState = (key: string, defaultValue: any) => {
-    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`);
-    return saved ? JSON.parse(saved) : defaultValue;
+    try {
+      const saved = sessionStorage.getItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`);
+      return saved ? JSON.parse(saved) : defaultValue;
+    } catch (err) {
+      console.error('Error loading saved state:', err);
+      return defaultValue;
+    }
   };
 
   // Question state
@@ -114,7 +119,7 @@ When responding with mathematical content:
   );
   const [modelSearch, setModelSearch] = useState('');
   const [modelName, setModelName] = useState(() => 
-    loadSavedState('modelName', block.modelName || 'gpt-4o-mini')
+    loadSavedState('modelName', block.modelName || 'mistralai/mistral-small')
   );
   const [repetitionPrevention, setRepetitionPrevention] = useState(() => 
     loadSavedState('repetitionPrevention', block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights.")
@@ -391,7 +396,11 @@ Remember to:
   // Save state when it changes
   useEffect(() => {
     const saveState = (key: string, value: any) => {
-      localStorage.setItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`, JSON.stringify(value));
+      try {
+        sessionStorage.setItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`, JSON.stringify(value));
+      } catch (err) {
+        console.error('Error saving state:', err);
+      }
     };
 
     // Save all form fields
@@ -431,7 +440,9 @@ Remember to:
 
   // Clean up storage when component unmounts
   useEffect(() => {
-    return () => {
+    // Store cleanup function in window to handle page unloads
+    const cleanupKey = `cleanup_${block.id}`;
+    window[cleanupKey] = () => {
       const keys = [
         'questionText', 'questionType', 'options', 'correctAnswer', 'optionStyle',
         'allowAnswerChange', 'allowMultipleAnswers', 'feedbackInstructions',
@@ -440,8 +451,16 @@ Remember to:
       ];
       
       keys.forEach(key => {
-        localStorage.removeItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`);
+        sessionStorage.removeItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`);
       });
+    };
+
+    // Add unload listener
+    window.addEventListener('beforeunload', window[cleanupKey]);
+
+    return () => {
+      window.removeEventListener('beforeunload', window[cleanupKey]);
+      delete window[cleanupKey];
     };
   }, [block.id]);
 

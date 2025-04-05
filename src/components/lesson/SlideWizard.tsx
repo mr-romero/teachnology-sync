@@ -42,7 +42,7 @@ interface ModelOption {
 const SlideWizard: React.FC<SlideWizardProps> = ({ 
   onComplete, 
   onCancel,
-  model: initialModel = 'openai/gpt-4o-mini' // Default to gpt-4o-mini but allow override
+  model: initialModel = 'mistralai/mistral-small' // Change default to Mistral
 }) => {
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
@@ -52,6 +52,7 @@ const SlideWizard: React.FC<SlideWizardProps> = ({
   
   // Model selection state
   const [model, setModel] = useState(initialModel);
+  const [modelSearch, setModelSearch] = useState('');
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsFetched, setModelsFetched] = useState(false);
@@ -129,25 +130,38 @@ const SlideWizard: React.FC<SlideWizardProps> = ({
             <div>
               <Label>AI Model</Label>
               {availableModels.length > 0 ? (
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a model" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-80">
-                    {availableModels.map((model) => (
-                      <SelectItem key={model.id} value={model.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{model.name}</span>
-                          {model.context_length && (
-                            <span className="text-xs text-muted-foreground">
-                              ({Math.round(model.context_length / 1000)}k ctx)
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Search models..."
+                    value={modelSearch}
+                    onChange={(e) => setModelSearch(e.target.value)}
+                    className="mb-2"
+                  />
+                  <Select value={model} onValueChange={setModel}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a model" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-80">
+                      {availableModels
+                        .filter(model => 
+                          model.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
+                          model.id.toLowerCase().includes(modelSearch.toLowerCase())
+                        )
+                        .map((model) => (
+                          <SelectItem key={model.id} value={model.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{model.name}</span>
+                              {model.context_length && (
+                                <span className="text-xs text-muted-foreground">
+                                  ({Math.round(model.context_length / 1000)}k ctx)
+                                </span>
+                              )}
+                            </div>
+                          </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               ) : (
                 <Button 
                   variant="outline" 
