@@ -604,13 +604,12 @@ Image description: ${block.imageAlt || 'No description provided'}`
                   disabled={isPaused}
                 >
                   {block.options?.map((option, index) => (
-                    <div key={index} className="flex items-start space-x-2">
-                      <div className="flex items-center gap-2">
+                    <div key={index} className="flex items-center space-x-2">
+                      <div className="flex items-center gap-2 min-w-[2rem]">
                         <RadioGroupItem 
                           value={option} 
                           id={`${block.id}-option-${index}`}
                           disabled={isPaused}
-                          className="mt-1"
                         />
                         {getOptionLabel(index) && (
                           <span className="font-medium text-sm">{getOptionLabel(index)}.</span>
@@ -619,7 +618,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                       <Label 
                         htmlFor={`${block.id}-option-${index}`}
                         className={cn(
-                          "flex-1",
+                          "pt-0.5", // Add slight padding to align with radio button
                           option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
                           option === response && option !== block.correctAnswer && "text-red-600"
                         )}

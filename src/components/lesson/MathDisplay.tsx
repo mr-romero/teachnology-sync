@@ -69,8 +69,20 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
         containerRef.current.innerHTML = '';
       }
 
-      // Create new static math field
+      // Create new static math field with display mode based on prop
       mathFieldRef.current = MQ.StaticMath(containerRef.current);
+      
+      // Handle display mode with proper styling
+      if (display) {
+        containerRef.current.style.display = 'block';
+        containerRef.current.style.margin = '0.5em 0';
+        containerRef.current.style.fontSize = '1.2em';
+      } else {
+        containerRef.current.style.display = 'inline-block';
+        containerRef.current.style.margin = '0';
+        containerRef.current.style.verticalAlign = 'middle';
+      }
+      
       mathFieldRef.current.latex(latex);
     };
 
@@ -82,7 +94,7 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
         containerRef.current.innerHTML = '';
       }
     };
-  }, [latex]);
+  }, [latex, display]);
 
   return (
     <div 
@@ -92,6 +104,10 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
         display && "my-4 text-lg",
         className
       )}
+      style={{ 
+        lineHeight: display ? '1.4' : 'inherit',
+        minHeight: display ? '1.4em' : 'auto'
+      }}
     />
   );
 };
