@@ -34,26 +34,47 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
           mathquillCss.href = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css';
           document.head.appendChild(mathquillCss);
 
-          // Add custom CSS to force inline rendering
+          // Add custom CSS to force inline rendering and precise vertical alignment
           const customStyle = document.createElement('style');
           customStyle.textContent = `
             .mathquill-rendered-math {
               display: inline !important;
-              vertical-align: baseline !important;
+              vertical-align: -0.1em !important;
               padding: 0 !important;
               margin: 0 !important;
+              position: relative;
+              top: -0.05em;
             }
-            .mathquill-rendered-math.text-mode {
-              margin: 0 !important;
+            /* Base container styles */
+            .mathquill-rendered-math.mq-editable-field {
+              transform: translateY(0.05em);
             }
-            /* Remove any built-in margins that might cause wrapping */
+            /* Adjust specific math elements */
+            .mathquill-rendered-math .mq-root-block {
+              vertical-align: baseline !important;
+              line-height: 1 !important;
+            }
+            /* Remove any built-in margins that might affect alignment */
             .mathquill-rendered-math span {
               margin: 0 !important;
+              vertical-align: baseline !important;
             }
-            /* Ensure operators don't force line breaks */
+            /* Ensure operators align properly */
             .mathquill-rendered-math .mq-binary-operator {
               display: inline !important;
               margin: 0 0.125em !important;
+              vertical-align: baseline !important;
+            }
+            /* Adjust superscripts and subscripts */
+            .mathquill-rendered-math .mq-sup-only {
+              vertical-align: baseline !important;
+              position: relative;
+              top: -0.5em;
+            }
+            .mathquill-rendered-math .mq-sub-only {
+              vertical-align: baseline !important;
+              position: relative;
+              top: 0.2em;
             }
           `;
           document.head.appendChild(customStyle);
@@ -97,11 +118,14 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
       mathFieldRef.current = MQ.StaticMath(containerRef.current);
       mathFieldRef.current.latex(latex);
       
-      // Force inline display mode
+      // Force inline display mode and adjust vertical position
       if (containerRef.current.firstChild) {
-        (containerRef.current.firstChild as HTMLElement).style.display = 'inline';
-        (containerRef.current.firstChild as HTMLElement).style.margin = '0';
-        (containerRef.current.firstChild as HTMLElement).style.verticalAlign = 'baseline';
+        const mathElement = containerRef.current.firstChild as HTMLElement;
+        mathElement.style.display = 'inline';
+        mathElement.style.margin = '0';
+        mathElement.style.verticalAlign = 'baseline';
+        mathElement.style.position = 'relative';
+        mathElement.style.top = '-0.05em';
       }
     };
 
@@ -118,9 +142,14 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
     <span 
       ref={containerRef}
       className={cn(
-        "inline align-baseline",
+        "inline align-baseline relative",
         className
       )}
+      style={{ 
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        verticalAlign: 'baseline'
+      }}
     />
   );
 };
