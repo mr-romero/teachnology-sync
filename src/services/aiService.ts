@@ -571,28 +571,17 @@ const getApiKey = async (sessionId?: string): Promise<string | null> => {
     if (sessionId) {
       console.log('Getting API key for session:', sessionId);
       
-      // First get the presentation_id from the session
-      const { data: sessionData, error: sessionError } = await supabase
-        .from('presentation_sessions')
-        .select('presentation_id')
-        .eq('id', sessionId)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid errors if not found
+      // Get API key directly from presentation_settings using sessionId
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('presentation_settings')
+        .select('openrouter_api_key')
+        .eq('session_id', sessionId)
+        .maybeSingle();
       
-      if (sessionError) {
-        console.error('Error getting session:', sessionError);
-      } else if (sessionData?.presentation_id) {
-        // Then get the settings from the presentation
-        const { data: presentationData, error: presentationError } = await supabase
-          .from('presentations')
-          .select('settings')
-          .eq('id', sessionData.presentation_id)
-          .maybeSingle();
-          
-        if (presentationError) {
-          console.error('Error getting presentation settings:', presentationError);
-        } else if (presentationData?.settings?.openrouter_api_key) {
-          return presentationData.settings.openrouter_api_key;
-        }
+      if (settingsError) {
+        console.error('Error getting presentation settings:', settingsError);
+      } else if (settingsData?.openrouter_api_key) {
+        return settingsData.openrouter_api_key;
       }
     }
     
