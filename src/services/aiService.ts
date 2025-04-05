@@ -525,32 +525,30 @@ export const analyzeQuestionImage = async (
 ): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:
-1. The question text (use LaTeX notation for mathematical expressions, e.g. \\( x^2 \\) for inline and \\[ \\frac{1}{2} \\] for display)
+1. The question text (use LaTeX notation for mathematical expressions)
 2. The answer choices (if multiple choice) with proper LaTeX formatting
 3. Determine which lettering system is used (A-D or F-J) if present
 4. The correct answer if marked or indicated
 
 Return the result in valid JSON format with these fields:
 {
-  "questionText": "the full question text with LaTeX notation",
-  "options": ["array of options with LaTeX notation"],
-  "correctAnswer": "the correct answer with LaTeX if needed",
+  "questionText": "the full question text",
+  "options": ["array of options"],
+  "correctAnswer": "the correct answer",
   "optionStyle": "A-D" or "F-J" or "text"
 }
 
-Important: For mathematical expressions:
-- Use \\( and \\) for inline math
-- Use \\[ and \\] for display math
-- Format fractions as \\frac{numerator}{denominator}
-- Format exponents as x^{power}
-- Format subscripts as x_{subscript}
-Your response must be a single valid JSON object without any additional text.`;
+Important:
+- Escape all backslashes in LaTeX: use \\\\ instead of \\
+- Make sure all JSON strings are properly escaped
+- Return only the JSON object, no additional text or formatting
+Your response must be a single valid JSON object.`;
 
   try {
     const response = await fetchChatCompletion(
       [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Please analyze this math problem image and extract the required information with proper mathematical notation.' }
+        { role: 'user', content: 'Please analyze this math problem image and extract the required information.' }
       ],
       { model, endpoint: 'https://openrouter.ai/api/v1/chat/completions', imageUrl }
     );
@@ -559,32 +557,24 @@ Your response must be a single valid JSON object without any additional text.`;
       throw new Error('No response from AI service');
     }
 
-    // Try to parse the JSON from the response
+    // Clean and parse the response
     try {
-      // First try direct parse
-      try {
-        return JSON.parse(response);
-      } catch {
-        // If that fails, try to extract JSON from the response
-        const jsonRegex = /{[\s\S]*}/;
-        const match = response.match(jsonRegex);
-        
-        if (!match) {
-          throw new Error('No JSON object found in response');
-        }
-        
-        const jsonStr = match[0];
-        const result = JSON.parse(jsonStr);
-        
-        // Validate the parsed result has required fields
-        if (!result.questionText) {
-          throw new Error('Invalid response format: missing questionText');
-        }
-        
-        return result;
+      // Remove any non-JSON text before or after the JSON object
+      const jsonStr = response.replace(/^[^{]*({.*})[^}]*$/s, '$1');
+      
+      // Replace any unescaped newlines and control characters
+      const cleanedStr = jsonStr.replace(/[\n\r\t]/g, ' ');
+      
+      const result = JSON.parse(cleanedStr);
+
+      // Validate the parsed result has required fields
+      if (!result.questionText) {
+        throw new Error('Invalid response format: missing questionText');
       }
+
+      return result;
     } catch (parseError) {
-      console.error('Error parsing AI response:', parseError);
+      console.error('Error parsing AI response:', parseError, '\nResponse:', response);
       throw new Error('Failed to parse image analysis results');
     }
   } catch (error) {
