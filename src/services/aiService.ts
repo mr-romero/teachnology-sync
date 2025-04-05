@@ -508,13 +508,17 @@ Return the result in valid JSON format with these fields:
 }
 
 Important LaTeX formatting rules:
-- Function notations like f(x) should stay as plain text
-- Only put algebraic expressions inside LaTeX delimiters
-- Use \\\\( and \\\\) for inline math expressions
-- Use \\\\[ and \\\\] for display math expressions
-- Example for function questions: "If f(x) = \\\\(3x^2 - 7\\\\), what is the value of f(4)?"
-- For equations: "Solve: \\\\[\\\\frac{x+1}{2} = 4\\\\]"
-- For variables: "Find x when \\\\(x + 5 = 12\\\\)"
+- ALL mathematical expressions MUST be wrapped in LaTeX delimiters
+- Use \\\\( and \\\\) for inline math expressions (within text)
+- Use \\\\[ and \\\\] for standalone display equations
+- Even simple expressions like x^2 must be wrapped: "Find \\\\(x^2\\\\) when..."
+- Variable references like f(x) should be wrapped: "If \\\\(f(x)\\\\) equals..."
+- Multiple expressions in a sentence need separate wrapping: "If \\\\(x = 5\\\\) and \\\\(y = 3\\\\), find..."
+
+Examples:
+- Question with inline math: "If \\\\(f(x) = 6x^2 - 23x + 21\\\\), find the factors."
+- Answer with display math: "\\\\[f(x) = 3(x - 7)(2x - 1)\\\\]"
+- Multiple choice with LaTeX: ["\\\\(3x + 4\\\\)", "\\\\(3x - 4\\\\)", "\\\\(4x + 3\\\\)", "\\\\(4x - 3\\\\)"]
 
 Return only the JSON object, no additional text or markdown.`;
 
