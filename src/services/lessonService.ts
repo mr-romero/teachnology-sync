@@ -307,7 +307,7 @@ export const startPresentationSession = async (lessonId: string, classroomId?: s
       paced_slides: [] // Initialize with empty array
     };
 
-    // Create session and get its ID
+    // Create session - presentation_settings will be created by the database trigger
     const { data: sessionResult, error: sessionError } = await supabase
       .from('presentation_sessions')
       .insert(sessionData)
