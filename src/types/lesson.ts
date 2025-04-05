@@ -78,6 +78,7 @@ export interface AIChatBlock extends BaseBlock {
   apiEndpoint?: string;
   modelName?: string;
   repetitionPrevention?: string;
+  maxTokens?: number;
 }
 
 // New combo block type that combines question with AI chat feedback

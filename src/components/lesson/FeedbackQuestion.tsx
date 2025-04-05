@@ -414,10 +414,10 @@ ${imageInfo}`;
       // Ensure sessionId is passed as a string
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        model: block.modelName, // Required - no default
+        endpoint: block.apiEndpoint, // Required - no default
         imageUrl: block.imageUrl
-      }, sessionId?.toString());  // Convert sessionId to string
+      }, sessionId?.toString());
 
       if (aiResponse) {
         const assistantMessage: Message = { 
@@ -479,8 +479,8 @@ Image description: ${block.imageAlt || 'No description provided'}`
       
       const feedbackContent = await fetchChatCompletion({
         messages,
-        model: block.modelName || 'openai/gpt-4',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        model: block.modelName, // Required - no default
+        endpoint: block.apiEndpoint, // Required - no default 
         imageUrl: block.imageUrl
       }, sessionId?.toString());
 

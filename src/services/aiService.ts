@@ -227,7 +227,7 @@ export async function fetchChatCompletion(
 ): Promise<string | null> {
   const {
     messages,
-    model = 'openai/gpt-4',
+    model = 'google/palm-2', // Free default model
     temperature = 0.7,
     endpoint = 'https://openrouter.ai/api/v1/chat/completions',
     imageUrl

@@ -70,7 +70,7 @@ const AIChatBlockEditor: React.FC<AIChatBlockEditorProps> = ({
   const [newStarter, setNewStarter] = useState('');
   const [targetConclusion, setTargetConclusion] = useState(block.targetConclusion || '');
   const [apiEndpoint, setApiEndpoint] = useState(block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions');
-  const [modelName, setModelName] = useState(block.modelName || 'openai/gpt-3.5-turbo');
+  const [modelName, setModelName] = useState(block.modelName || '');
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [modelsFetched, setModelsFetched] = useState(false);
@@ -374,7 +374,7 @@ const AIChatBlockEditor: React.FC<AIChatBlockEditorProps> = ({
               )}
               {!modelsFetched && modelName && (
                 <div className="mt-2">
-                  <Alert variant="outline" className="bg-amber-50">
+                  <Alert variant="default" className="bg-amber-50">
                     <p className="text-amber-700 text-sm">
                       Currently using: <span className="font-semibold">{modelName}</span>
                     </p>
