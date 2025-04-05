@@ -32,6 +32,7 @@ import PresentationDialog from '@/components/lesson/PresentationDialog';
 import { classroomService, ImportedClassroom } from '@/services/classroomService';
 import GoogleClassroomIcon from '@/components/ui/google-classroom-icon';
 import LessonPreviewModal from '@/components/lesson/LessonPreviewModal';
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ActiveSession {
   id: string;
@@ -56,6 +57,7 @@ const Dashboard: React.FC = () => {
   const [lessonToDelete, setLessonToDelete] = useState<Lesson | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedLessons, setSelectedLessons] = useState<Set<string>>(new Set());
   
   // State for lesson sessions dialog
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -288,6 +290,47 @@ const Dashboard: React.FC = () => {
     });
   };
 
+  // Add handler for lesson selection
+  const handleLessonSelect = (lessonId: string, checked: boolean) => {
+    setSelectedLessons(prev => {
+      const updated = new Set(prev);
+      if (checked) {
+        updated.add(lessonId);
+      } else {
+        updated.delete(lessonId);
+      }
+      return updated;
+    });
+  };
+
+  // Add handler for bulk deletion
+  const handleBulkDelete = async () => {
+    if (selectedLessons.size === 0) return;
+    
+    try {
+      setIsDeleting(true);
+      let successCount = 0;
+      
+      // Delete lessons one by one
+      for (const lessonId of selectedLessons) {
+        const success = await deleteLesson(lessonId);
+        if (success) successCount++;
+      }
+      
+      // Show success message
+      if (successCount > 0) {
+        toast.success(`Successfully deleted ${successCount} lessons`);
+        setSelectedLessons(new Set()); // Clear selection
+        fetchLessonsAndSessions(); // Refresh the list
+      }
+    } catch (error) {
+      console.error('Error in bulk delete:', error);
+      toast.error('An error occurred while deleting lessons');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="container py-8">
@@ -316,7 +359,21 @@ const Dashboard: React.FC = () => {
       
       {/* Lessons List */}
       <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">Your Lessons</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold">Your Lessons</h2>
+          {selectedLessons.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="flex items-center"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete {selectedLessons.size} {selectedLessons.size === 1 ? 'Lesson' : 'Lessons'}
+            </Button>
+          )}
+        </div>
         {loading ? (
           <p>Loading your lessons...</p>
         ) : lessons.length > 0 ? (
@@ -326,11 +383,18 @@ const Dashboard: React.FC = () => {
                 <div className="flex flex-col md:flex-row">
                   <div className="flex-1 p-6">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-xl font-bold mb-1">{lesson.title}</h3>
-                        <div className="flex items-center text-sm text-muted-foreground mb-2">
-                          <Calendar className="h-3.5 w-3.5 mr-1" />
-                          <span>Created: {formatDate(lesson.createdAt)}</span>
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedLessons.has(lesson.id)}
+                          onCheckedChange={(checked) => handleLessonSelect(lesson.id, checked as boolean)}
+                          className="mt-1"
+                        />
+                        <div>
+                          <h3 className="text-xl font-bold mb-1">{lesson.title}</h3>
+                          <div className="flex items-center text-sm text-muted-foreground mb-2">
+                            <Calendar className="h-3.5 w-3.5 mr-1" />
+                            <span>Created: {formatDate(lesson.createdAt)}</span>
+                          </div>
                         </div>
                       </div>
                       <Badge variant="outline" className="ml-2">
