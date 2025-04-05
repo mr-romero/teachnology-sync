@@ -120,7 +120,7 @@ When responding with mathematical content:
   );
   const [modelSearch, setModelSearch] = useState('');
   const [modelName, setModelName] = useState(() => 
-    loadSavedState('modelName', block.modelName || 'mistralai/mistral-small')
+    loadSavedState('modelName', block.modelName || 'mistralai/mistral-small-3.1-24b-instruct:free')
   );
   const [repetitionPrevention, setRepetitionPrevention] = useState(() => 
     loadSavedState('repetitionPrevention', block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights.")

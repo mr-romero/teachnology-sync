@@ -974,10 +974,10 @@ When responding with mathematical content:
           options: ['Option 1', 'Option 2', 'Option 3'],
           correctAnswer: 'Option 1',
           feedbackInstructions: 'Ask me questions about this topic.',
-          feedbackSystemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.',
-          feedbackSentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+          feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
+          feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'gpt-4o-mini',
+          modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
           optionStyle: 'A-D',
           repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.'
         };
@@ -1084,10 +1084,10 @@ When responding with mathematical content:
           options: ['Option 1', 'Option 2', 'Option 3'],
           correctAnswer: 'Option 1',
           feedbackInstructions: 'Ask me questions about this topic.',
-          feedbackSystemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.',
-          feedbackSentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+          feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
+          feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'gpt-4o-mini',
+          modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
           optionStyle: 'A-D',
           repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.',
           ...overrides

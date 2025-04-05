@@ -261,8 +261,8 @@ const LessonEditor: React.FC = () => {
             feedbackInstructions: 'Ask for help if you need additional explanation.',
             feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
             feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
-            apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-            modelName: 'mistralai/mistral-small'
+            modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+            apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions'
           };
           break;
         default:
