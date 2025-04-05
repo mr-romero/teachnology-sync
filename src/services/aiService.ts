@@ -525,7 +525,7 @@ export const analyzeQuestionImage = async (
 ): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:
-1. The question text (use LaTeX notation for mathematical expressions)
+1. The question text with mathematical expressions properly formatted in LaTeX
 2. The answer choices (if multiple choice) with proper LaTeX formatting
 3. Determine which lettering system is used (A-D or F-J) if present
 4. The correct answer if marked or indicated
@@ -538,11 +538,14 @@ Return the result in valid JSON format with these fields:
   "optionStyle": "A-D" or "F-J" or "text"
 }
 
-Important:
-- Escape all backslashes in LaTeX: use \\\\ instead of \\
-- Make sure all JSON strings are properly escaped
-- Return only the JSON object, no additional text or formatting
-Your response must be a single valid JSON object.`;
+Important LaTeX formatting rules:
+- Use \\( and \\) for inline math expressions (NOT $ signs)
+- Use \\[ and \\] for display math expressions (NOT $$ signs)
+- Escape backslashes: use \\\\ instead of \\
+- Example: "Find x when \\(2x + 5 = 13\\)"
+- For display math: "Solve: \\[\\frac{x+1}{2} = 4\\]"
+
+Make sure all JSON strings are properly escaped. Return only the JSON object, no additional text.`;
 
   try {
     const response = await fetchChatCompletion(
