@@ -510,7 +510,28 @@ const LessonEditor: React.FC = () => {
   }, [lesson, lessonId]);
 
   // Handle opening the presentation dialog
-  const handleOpenPresentationDialog = () => {
+  const handleOpenPresentationDialog = async () => {
+    if (lessonId === 'new' || !lesson) {
+      // Save the lesson first
+      try {
+        const newLesson = await createLesson(user.id, lesson?.title || 'New Lesson');
+        if (newLesson) {
+          setLesson(newLesson);
+          // Update URL without refreshing the page
+          window.history.replaceState({}, '', `/editor/${newLesson.id}`);
+          setIsPresentationDialogOpen(true);
+          toast.success('Lesson saved before presenting');
+        } else {
+          toast.error('Failed to save lesson');
+        }
+      } catch (error) {
+        console.error('Error saving lesson:', error);
+        toast.error('Failed to save lesson');
+      }
+      return;
+    }
+    
+    // For existing lessons, just open the dialog
     setIsPresentationDialogOpen(true);
   };
 
