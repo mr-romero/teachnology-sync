@@ -49,6 +49,8 @@ const LessonEditor: React.FC = () => {
           if (newLesson) {
             setLesson(newLesson);
             setActiveSlide(newLesson.slides[0].id);
+            // Update URL without refreshing the page
+            window.history.replaceState({}, '', `/editor/${newLesson.id}`);
             toast.success('New lesson created');
           } else {
             toast.error('Failed to create new lesson');
@@ -242,7 +244,7 @@ const LessonEditor: React.FC = () => {
             instructions: 'Ask me questions about this topic.',
             sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
             apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-            modelName: 'openai/gpt-3.5-turbo',
+            modelName: 'mistralai/mistral-small',
             systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding. Be encouraging and supportive.'
           };
           break;
@@ -260,7 +262,7 @@ const LessonEditor: React.FC = () => {
             feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
             feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
             apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-            modelName: 'openai/gpt-3.5-turbo'
+            modelName: 'mistralai/mistral-small'
           };
           break;
         default:
