@@ -34,22 +34,26 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
           mathquillCss.href = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css';
           document.head.appendChild(mathquillCss);
 
-          // Add custom CSS to force inline rendering and proper spacing
+          // Add custom CSS to force inline rendering
           const customStyle = document.createElement('style');
           customStyle.textContent = `
             .mathquill-rendered-math {
-              display: inline-block !important;
-              vertical-align: middle !important;
-              margin: 0 0.1em !important;
+              display: inline !important;
+              vertical-align: baseline !important;
+              padding: 0 !important;
+              margin: 0 !important;
             }
             .mathquill-rendered-math.text-mode {
               margin: 0 !important;
             }
-            .mathquill-rendered-math sup {
-              vertical-align: super !important;
+            /* Remove any built-in margins that might cause wrapping */
+            .mathquill-rendered-math span {
+              margin: 0 !important;
             }
-            .mathquill-rendered-math sub {
-              vertical-align: sub !important;
+            /* Ensure operators don't force line breaks */
+            .mathquill-rendered-math .mq-binary-operator {
+              display: inline !important;
+              margin: 0 0.125em !important;
             }
           `;
           document.head.appendChild(customStyle);
@@ -91,17 +95,14 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
 
       // Create new static math field
       mathFieldRef.current = MQ.StaticMath(containerRef.current);
-      
-      // Apply styles based on display mode
-      if (display) {
-        containerRef.current.style.display = 'block';
-        containerRef.current.style.margin = '0.5em 0';
-      } else {
-        containerRef.current.style.display = 'inline';
-        containerRef.current.style.margin = '0';
-      }
-      
       mathFieldRef.current.latex(latex);
+      
+      // Force inline display mode
+      if (containerRef.current.firstChild) {
+        (containerRef.current.firstChild as HTMLElement).style.display = 'inline';
+        (containerRef.current.firstChild as HTMLElement).style.margin = '0';
+        (containerRef.current.firstChild as HTMLElement).style.verticalAlign = 'baseline';
+      }
     };
 
     loadMathQuill();
@@ -114,11 +115,10 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
   }, [latex, display]);
 
   return (
-    <div 
+    <span 
       ref={containerRef}
       className={cn(
         "inline align-baseline",
-        display && "block my-4",
         className
       )}
     />

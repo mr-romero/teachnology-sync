@@ -94,22 +94,30 @@ const parseLatexExpressions = (text: string): { text: string, isLatex: boolean }
   return parts;
 };
 
-// Custom renderer for ReactMarkdown that uses MathDisplay for math content
+// Update the MarkdownWithMath component to properly handle markdown
+// and update the markdown styles
 const MarkdownWithMath = ({ content }: { content: string }) => {
   const parts = parseLatexExpressions(content);
   
   return (
-    <span className="inline">
+    <div className="prose prose-sm max-w-none">
       {parts.map((part, index) => 
         part.isLatex ? (
-          <MathDisplay key={index} latex={part.text} className="mx-[0.1em]" />
+          <MathDisplay key={index} latex={part.text} className="inline" />
         ) : (
-          <span key={index} className="inline">
+          <ReactMarkdown key={index} components={{
+            p: ({node, className, ...props}) => <span className="inline" {...props} />,
+            strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+            em: ({node, ...props}) => <em className="italic" {...props} />,
+            ol: ({node, ...props}) => <ol className="list-decimal list-inside my-2" {...props} />,
+            ul: ({node, ...props}) => <ul className="list-disc list-inside my-2" {...props} />,
+            li: ({node, ...props}) => <li className="ml-2" {...props} />,
+          }}>
             {part.text}
-          </span>
+          </ReactMarkdown>
         )
       )}
-    </span>
+    </div>
   );
 };
 
