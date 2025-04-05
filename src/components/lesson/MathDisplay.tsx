@@ -33,6 +33,26 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
           mathquillCss.rel = 'stylesheet';
           mathquillCss.href = 'https://cdnjs.cloudflare.com/ajax/libs/mathquill/0.10.1/mathquill.css';
           document.head.appendChild(mathquillCss);
+
+          // Add custom CSS to force inline rendering and proper spacing
+          const customStyle = document.createElement('style');
+          customStyle.textContent = `
+            .mathquill-rendered-math {
+              display: inline-block !important;
+              vertical-align: middle !important;
+              margin: 0 0.1em !important;
+            }
+            .mathquill-rendered-math.text-mode {
+              margin: 0 !important;
+            }
+            .mathquill-rendered-math sup {
+              vertical-align: super !important;
+            }
+            .mathquill-rendered-math sub {
+              vertical-align: sub !important;
+            }
+          `;
+          document.head.appendChild(customStyle);
         }
 
         // Load jQuery if not already loaded
@@ -69,18 +89,16 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
         containerRef.current.innerHTML = '';
       }
 
-      // Create new static math field with display mode based on prop
+      // Create new static math field
       mathFieldRef.current = MQ.StaticMath(containerRef.current);
       
-      // Handle display mode with proper styling
+      // Apply styles based on display mode
       if (display) {
         containerRef.current.style.display = 'block';
         containerRef.current.style.margin = '0.5em 0';
-        containerRef.current.style.fontSize = '1.2em';
       } else {
-        containerRef.current.style.display = 'inline-block';
+        containerRef.current.style.display = 'inline';
         containerRef.current.style.margin = '0';
-        containerRef.current.style.verticalAlign = 'middle';
       }
       
       mathFieldRef.current.latex(latex);
@@ -89,7 +107,6 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
     loadMathQuill();
 
     return () => {
-      // Cleanup if needed
       if (containerRef.current) {
         containerRef.current.innerHTML = '';
       }
@@ -100,14 +117,10 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
     <div 
       ref={containerRef}
       className={cn(
-        "overflow-x-auto",
-        display && "my-4 text-lg",
+        "inline align-baseline",
+        display && "block my-4",
         className
       )}
-      style={{ 
-        lineHeight: display ? '1.4' : 'inherit',
-        minHeight: display ? '1.4em' : 'auto'
-      }}
     />
   );
 };

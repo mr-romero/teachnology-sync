@@ -102,30 +102,30 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
   const parts = parseLatexExpressions(content);
   
   return (
-    <div className="space-y-2">
+    <span className="space-y-2">
       {parts.map((part, index) => 
         part.isLatex ? (
-          <MathDisplay key={index} latex={part.text} className="inline-block" />
+          <MathDisplay key={index} latex={part.text} className="mx-1" />
         ) : (
           <ReactMarkdown key={index} components={{
-            p: ({node, ...props}) => <p className="mb-2" {...props} />,
-            h3: ({node, ...props}) => <h3 className="text-base font-bold mt-3 mb-1" {...props} />,
-            h4: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1" {...props} />,
-            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
-            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
+            p: ({node, ...props}) => <span className="mb-2 inline" {...props} />,
+            h3: ({node, ...props}) => <h3 className="text-base font-bold mt-3 mb-1 block" {...props} />,
+            h4: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1 block" {...props} />,
+            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2 block" {...props} />,
+            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2 block" {...props} />,
             li: ({node, ...props}) => <li className="ml-2" {...props} />,
             a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} />,
-            blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-gray-300 pl-2 italic my-2" {...props} />,
+            blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-gray-300 pl-2 italic my-2 block" {...props} />,
             code: ({className, ...props}: any) => 
               className?.includes('inline') 
                 ? <code className="bg-gray-100 rounded px-1 py-0.5" {...props} /> 
-                : <pre className="bg-gray-100 p-2 rounded overflow-x-auto my-2"><code {...props} /></pre>
+                : <pre className="bg-gray-100 p-2 rounded overflow-x-auto my-2 block"><code {...props} /></pre>
           }}>
             {part.text}
           </ReactMarkdown>
         )
       )}
-    </div>
+    </span>
   );
 };
 
