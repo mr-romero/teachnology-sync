@@ -543,7 +543,9 @@ Image description: ${block.imageAlt || 'No description provided'}`
             Group: {groupId}
           </div>
         )}
-        <p className="font-medium mb-3">{block.questionText}</p>
+        <div className="font-medium mb-3">
+          <MarkdownWithMath content={preprocessContent(block.questionText)} />
+        </div>
         
         {/* Multiple choice question */}
         {block.questionType === 'multiple-choice' && (
@@ -553,38 +555,41 @@ Image description: ${block.imageAlt || 'No description provided'}`
                 // Multiple selection with checkboxes
                 <div className="space-y-2">
                   {block.options?.map((option, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <input 
-                        type="checkbox" 
-                        id={`${block.id}-option-${index}`}
-                        checked={Array.isArray(response) ? response.includes(option) : response === option}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const newResponse = Array.isArray(response) 
-                              ? [...response, option] 
-                              : [option];
-                            handleResponseChange(newResponse as string[]);
-                          } else {
-                            const newResponse = Array.isArray(response) 
-                              ? response.filter(item => item !== option) 
-                              : [];
-                            handleResponseChange(newResponse as string[]);
-                          }
-                        }}
-                        disabled={isPaused}
-                        className="h-4 w-4 rounded border-gray-300 focus:ring-primary"
-                      />
+                    <div key={index} className="flex items-start space-x-2">
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="checkbox" 
+                          id={`${block.id}-option-${index}`}
+                          checked={Array.isArray(response) ? response.includes(option) : response === option}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const newResponse = Array.isArray(response) 
+                                ? [...response, option] 
+                                : [option];
+                              handleResponseChange(newResponse as string[]);
+                            } else {
+                              const newResponse = Array.isArray(response) 
+                                ? response.filter(item => item !== option) 
+                                : [];
+                              handleResponseChange(newResponse as string[]);
+                            }
+                          }}
+                          disabled={isPaused}
+                          className="h-4 w-4 rounded border-gray-300 focus:ring-primary mt-1"
+                        />
+                        {getOptionLabel(index) && (
+                          <span className="font-medium text-sm">{getOptionLabel(index)}.</span>
+                        )}
+                      </div>
                       <Label 
                         htmlFor={`${block.id}-option-${index}`}
                         className={cn(
+                          "flex-1",
                           Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && !isStudentView && "text-green-600 font-medium",
                           Array.isArray(response) && response.includes(option) && 
                           Array.isArray(block.correctAnswer) && !block.correctAnswer.includes(option) && "text-red-600"
                         )}
                       >
-                        {getOptionLabel(index) && (
-                          <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
-                        )}
                         <MarkdownWithMath content={preprocessContent(option)} />
                         {!isStudentView && Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && " (correct)"}
                       </Label>
@@ -599,22 +604,26 @@ Image description: ${block.imageAlt || 'No description provided'}`
                   disabled={isPaused}
                 >
                   {block.options?.map((option, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <RadioGroupItem 
-                        value={option} 
-                        id={`${block.id}-option-${index}`}
-                        disabled={isPaused}
-                      />
+                    <div key={index} className="flex items-start space-x-2">
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem 
+                          value={option} 
+                          id={`${block.id}-option-${index}`}
+                          disabled={isPaused}
+                          className="mt-1"
+                        />
+                        {getOptionLabel(index) && (
+                          <span className="font-medium text-sm">{getOptionLabel(index)}.</span>
+                        )}
+                      </div>
                       <Label 
                         htmlFor={`${block.id}-option-${index}`}
                         className={cn(
+                          "flex-1",
                           option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
                           option === response && option !== block.correctAnswer && "text-red-600"
                         )}
                       >
-                        {getOptionLabel(index) && (
-                          <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
-                        )}
                         <MarkdownWithMath content={preprocessContent(option)} />
                         {!isStudentView && option === block.correctAnswer && " (correct)"}
                       </Label>
