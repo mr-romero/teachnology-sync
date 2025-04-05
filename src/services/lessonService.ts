@@ -73,35 +73,51 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
   // Convert to database format
   const dbData = convertAppLessonToDbFormat(newLesson);
   
-  // Get teacher's API key
-  const apiKey = await getOpenRouterApiKey(userId);
+  try {
+    // Insert the presentation
+    const { error: presentationError } = await supabase
+      .from('presentations')
+      .insert(dbData.presentation);
+      
+    if (presentationError) {
+      throw presentationError;
+    }
 
-  // Insert the presentation
-  const { error: presentationError } = await supabase
-    .from('presentations')
-    .insert({
-      ...dbData.presentation,
-      openrouter_api_key: apiKey // Add the teacher's API key
-    });
-    
-  if (presentationError) {
-    console.error('Error creating presentation:', presentationError);
+    // Insert the initial slide
+    const { error: slideError } = await supabase
+      .from('slides')
+      .insert(dbData.slides);
+      
+    if (slideError) {
+      // If slide insertion fails, delete the presentation
+      await supabase.from('presentations').delete().eq('id', lessonId);
+      throw slideError;
+    }
+
+    // Get teacher's API key
+    const apiKey = await getOpenRouterApiKey(userId);
+
+    // Store API key in presentation_settings if available
+    if (apiKey) {
+      const { error: settingsError } = await supabase
+        .from('presentation_settings')
+        .insert({
+          session_id: lessonId,
+          openrouter_api_key: apiKey,
+          settings: {}
+        });
+
+      if (settingsError) {
+        console.error('Error saving API key:', settingsError);
+        // Continue anyway since this is not critical
+      }
+    }
+
+    return newLesson;
+  } catch (error) {
+    console.error('Error creating lesson:', error);
     return null;
   }
-  
-  // Insert the initial slide
-  const { error: slideError } = await supabase
-    .from('slides')
-    .insert(dbData.slides);
-    
-  if (slideError) {
-    console.error('Error creating slides:', slideError);
-    // Clean up the presentation if slide insertion fails
-    await supabase.from('presentations').delete().eq('id', lessonId);
-    return null;
-  }
-  
-  return newLesson;
 };
 
 // Get all lessons for a user
