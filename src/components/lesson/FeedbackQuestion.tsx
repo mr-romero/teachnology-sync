@@ -585,7 +585,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                         {getOptionLabel(index) && (
                           <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
                         )}
-                        {option}
+                        <MarkdownWithMath content={preprocessContent(option)} />
                         {!isStudentView && Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && " (correct)"}
                       </Label>
                     </div>
@@ -615,7 +615,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                         {getOptionLabel(index) && (
                           <span className="font-medium mr-1">{getOptionLabel(index)}.</span>
                         )}
-                        {option}
+                        <MarkdownWithMath content={preprocessContent(option)} />
                         {!isStudentView && option === block.correctAnswer && " (correct)"}
                       </Label>
                     </div>
@@ -738,7 +738,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                 {block.correctAnswer && !isStudentView ? (
                   <div className="border border-dashed p-3 rounded-md">
                     <p className="text-sm font-medium">Sample answer:</p>
-                    <p>{block.correctAnswer as string}</p>
+                    <MarkdownWithMath content={preprocessContent(block.correctAnswer as string)} />
                   </div>
                 ) : (
                   <p className="text-muted-foreground">Free response question</p>
