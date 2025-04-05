@@ -666,7 +666,12 @@ export const getActiveSessionForLesson = async (lessonId: string): Promise<{ id:
     // Attempt to find an active session for this lesson
     const { data, error } = await supabase
       .from('presentation_sessions')
-      .select('id, join_code, current_slide')
+      .select(`
+        id,
+        join_code,
+        current_slide,
+        presentation_id
+      `)
       .eq('presentation_id', lessonId)
       .is('ended_at', null)
       .order('started_at', { ascending: false })
