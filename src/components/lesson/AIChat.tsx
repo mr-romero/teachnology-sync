@@ -205,7 +205,7 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
         model: block.modelName || 'openai/gpt-4',  // Default to GPT-4 for better image understanding
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl  // Pass the image URL to the API
-      }, sessionId); // Add sessionId parameter
+      }, sessionId?.toString()); // Ensure sessionId is a string
       
       if (aiResponse) {
         console.log('Received AI feedback:', aiResponse);
@@ -272,7 +272,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         model: block.modelName || 'openai/gpt-4',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl // Pass the image URL for context
-      }, sessionId); // Add sessionId parameter
+      }, sessionId?.toString()); // Ensure sessionId is a string
       
       if (aiResponse) {
         // Add the AI response to visible messages
@@ -326,7 +326,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         model: block.modelName || 'openai/gpt-3.5-turbo',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         temperature: 0.7
-      }, sessionId); // Add sessionId parameter
+      }, sessionId?.toString()); // Ensure sessionId is a string
       
       if (aiResponse) {
         const assistantMessage: Message = { 

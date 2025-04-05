@@ -411,16 +411,14 @@ ${imageInfo}`;
         ...updatedMessages
       ];
       
-      const aiResponse = await fetchChatCompletion(
-        apiMessages,
-        {
-          model: block.modelName || 'openai/gpt-4',
-          endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-          imageUrl: block.imageUrl
-        },
-        sessionId  // Pass sessionId to fetchChatCompletion
-      );
-      
+      // Ensure sessionId is passed as a string
+      const aiResponse = await fetchChatCompletion({
+        messages: apiMessages,
+        model: block.modelName || 'openai/gpt-4',
+        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        imageUrl: block.imageUrl
+      }, sessionId?.toString());  // Convert sessionId to string
+
       if (aiResponse) {
         const assistantMessage: Message = { 
           role: 'assistant', 
@@ -479,15 +477,12 @@ Image description: ${block.imageAlt || 'No description provided'}`
         content: `Please evaluate the student's answer and provide helpful feedback. ${block.correctAnswer ? `The correct answer is: ${block.correctAnswer}` : ''}`
       });
       
-      const feedbackContent = await fetchChatCompletion(
+      const feedbackContent = await fetchChatCompletion({
         messages,
-        {
-          model: block.modelName || 'openai/gpt-4',
-          endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
-          imageUrl: block.imageUrl || undefined
-        },
-        sessionId  // Add the sessionId parameter here
-      );
+        model: block.modelName || 'openai/gpt-4',
+        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        imageUrl: block.imageUrl
+      }, sessionId?.toString());
 
       if (!feedbackContent) {
         throw new Error('No feedback content received from AI');

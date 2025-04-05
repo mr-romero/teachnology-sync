@@ -569,12 +569,14 @@ const getApiKey = async (sessionId?: string): Promise<string | null> => {
   try {
     // If we have a sessionId, try to get teacher's key from the presentation first
     if (sessionId) {
+      console.log('Getting API key for session:', sessionId);
+      
       // First get the presentation_id from the session
       const { data: sessionData, error: sessionError } = await supabase
         .from('presentation_sessions')
         .select('presentation_id')
         .eq('id', sessionId)
-        .single();
+        .maybeSingle(); // Use maybeSingle instead of single to avoid errors if not found
       
       if (sessionError) {
         console.error('Error getting session:', sessionError);
@@ -584,7 +586,7 @@ const getApiKey = async (sessionId?: string): Promise<string | null> => {
           .from('presentations')
           .select('settings')
           .eq('id', sessionData.presentation_id)
-          .single();
+          .maybeSingle();
           
         if (presentationError) {
           console.error('Error getting presentation settings:', presentationError);
