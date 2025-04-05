@@ -328,7 +328,7 @@ When responding with mathematical content:
     if (!block.modelName) {
       onUpdate({
         ...block,
-        modelName: 'openai/gpt-4',  // Default to GPT-4 for better image understanding
+        modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',  // Default to free Mistral model
         feedbackSystemPrompt: `You are a helpful mathematics tutor providing feedback on a student's answer.
 
 ${block.imageUrl ? `When analyzing this problem:

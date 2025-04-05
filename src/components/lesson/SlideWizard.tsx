@@ -43,7 +43,7 @@ interface ModelOption {
 const SlideWizard: React.FC<SlideWizardProps> = ({ 
   onComplete, 
   onCancel,
-  model: initialModel = 'mistralai/mistral-small' // Change default to Mistral
+  model: initialModel = 'mistralai/mistral-small-3.1-24b-instruct:free' // Default to free Mistral model
 }) => {
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
