@@ -307,16 +307,27 @@ export const startPresentationSession = async (lessonId: string, classroomId?: s
       paced_slides: [] // Initialize with empty array
     };
 
-    // Create session - presentation_settings will be created by the database trigger
+    // Create session (trigger will handle settings)
     const { data: sessionResult, error: sessionError } = await supabase
       .from('presentation_sessions')
       .insert(sessionData)
       .select('id')
       .single();
-      
+
     if (sessionError || !sessionResult) {
       console.error('Error creating presentation session:', sessionError);
       return null;
+    }
+
+    // Get settings created by trigger
+    const { data: settings, error: settingsError } = await supabase
+      .from('presentation_settings')
+      .select('openrouter_api_key')
+      .eq('session_id', sessionResult.id)
+      .single();
+
+    if (settingsError) {
+      console.error('Error fetching presentation settings:', settingsError);
     }
 
     // If we have classroom students, create inactive session participants for them
