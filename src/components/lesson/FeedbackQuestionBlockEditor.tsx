@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FeedbackQuestionBlock, QuestionType, MATH_FORMATTING_GUIDE } from '@/types/lesson';
+import { LessonBlock, FeedbackQuestionBlock, QuestionType, MATH_FORMATTING_GUIDE } from '@/types/lesson';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -39,8 +39,9 @@ const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
 
 interface FeedbackQuestionBlockEditorProps {
   block: FeedbackQuestionBlock;
-  onUpdate: (updatedBlock: FeedbackQuestionBlock) => void;
+  onUpdate: (updatedBlock: LessonBlock) => void;
   onDelete: () => void;
+  previewMode?: boolean;
 }
 
 interface ModelOption {

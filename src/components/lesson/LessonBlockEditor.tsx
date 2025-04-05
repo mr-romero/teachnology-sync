@@ -84,6 +84,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
               block={block as FeedbackQuestionBlock}
               onUpdate={onUpdate}
               onDelete={onDelete}
+              previewMode
             />
             <div className="border-t pt-4 mt-4">
               <FeedbackBlockSplitter
