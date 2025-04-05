@@ -43,7 +43,8 @@ export const convertAppLessonToDbFormat = (lesson: Lesson) => {
       user_id: lesson.createdBy,
       is_public: false,
       created_at: lesson.createdAt,
-      updated_at: lesson.updatedAt
+      updated_at: lesson.updatedAt,
+      settings: lesson.settings || {}
     },
     slides: slidesForDb
   };
@@ -74,10 +75,19 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
   const dbData = convertAppLessonToDbFormat(newLesson);
   
   try {
-    // Insert the presentation
+    // Get teacher's API key first
+    const apiKey = await getOpenRouterApiKey(userId);
+
+    // Insert the presentation with the API key in settings
     const { error: presentationError } = await supabase
       .from('presentations')
-      .insert(dbData.presentation);
+      .insert({
+        ...dbData.presentation,
+        settings: {
+          ...dbData.presentation.settings,
+          openrouter_api_key: apiKey || null
+        }
+      });
       
     if (presentationError) {
       throw presentationError;
@@ -92,25 +102,6 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
       // If slide insertion fails, delete the presentation
       await supabase.from('presentations').delete().eq('id', lessonId);
       throw slideError;
-    }
-
-    // Get teacher's API key
-    const apiKey = await getOpenRouterApiKey(userId);
-
-    // Store API key in presentation_settings if available
-    if (apiKey) {
-      const { error: settingsError } = await supabase
-        .from('presentation_settings')
-        .insert({
-          session_id: lessonId,
-          openrouter_api_key: apiKey,
-          settings: {}
-        });
-
-      if (settingsError) {
-        console.error('Error saving API key:', settingsError);
-        // Continue anyway since this is not critical
-      }
     }
 
     return newLesson;
