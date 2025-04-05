@@ -592,42 +592,40 @@ Return only the JSON object, no additional text or markdown.`;
 };
 
 // Function to get API key, prioritizing session settings for students
-const getApiKey = async (sessionId?: string) => {
+const getApiKey = async (sessionId?: string): Promise<string | null> => {
   try {
-    // First check presentation settings if we have a session ID
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // First try to get user's own API key
+    if (user?.id) {
+      const userKey = await getOpenRouterApiKey(user.id);
+      if (userKey) return userKey;
+    }
+    
+    // If no user key and we have a sessionId, try to get teacher's key
     if (sessionId) {
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('presentation_settings')
-        .select('openrouter_api_key')
-        .eq('session_id', sessionId)
+      // Get the presentation_id from the session first
+      const { data: session } = await supabase
+        .from('presentation_sessions')
+        .select('presentation_id')
+        .eq('id', sessionId)
         .single();
-
-      if (settingsError) {
-        console.error('Error getting presentation settings:', settingsError);
-      } else if (settingsData?.openrouter_api_key) {
-        return settingsData.openrouter_api_key;
+      
+      if (session?.presentation_id) {
+        // Then get the openrouter_api_key from the presentation
+        const { data: presentation } = await supabase
+          .from('presentations')
+          .select('openrouter_api_key')
+          .eq('id', session.presentation_id)
+          .single();
+        
+        if (presentation?.openrouter_api_key) {
+          return presentation.openrouter_api_key;
+        }
       }
     }
-
-    // If no session key found or there was an error, try user settings
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      console.error('Error getting current user:', userError);
-      return null;
-    }
-
-    const { data: userSettings, error: settingsError } = await supabase
-      .from('user_settings')
-      .select('openrouter_api_key')
-      .eq('user_id', user.id)
-      .single();
-
-    if (settingsError) {
-      console.error('Error getting user settings:', settingsError);
-      return null;
-    }
-
-    return userSettings?.openrouter_api_key || null;
+    
+    return null;
   } catch (error) {
     console.error('Error in getApiKey:', error);
     return null;
