@@ -492,8 +492,8 @@ Remember to:
 
   return (
     <>
-      <Card className="border shadow-sm">
-        <CardContent className="p-4">
+      <Card className="border shadow-sm min-w-[300px] min-h-[400px]">
+        <CardContent className="p-4 flex flex-col gap-4 h-full">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-medium text-lg">Feedback Question Block</h3>
             <div className="flex items-center gap-2">
@@ -525,7 +525,7 @@ Remember to:
             </TabsList>
             
             {/* Question Tab */}
-            <TabsContent value="question" className="space-y-4 py-4">
+            <TabsContent value="question" className="space-y-4 py-4 h-[calc(400px-80px)] overflow-y-auto">
               <div className="space-y-4">
                 <div>
                   <Label>Question Type</Label>
@@ -736,7 +736,7 @@ Remember to:
             </TabsContent>
             
             {/* Image Tab */}
-            <TabsContent value="image" className="space-y-4 py-4">
+            <TabsContent value="image" className="space-y-4 py-4 h-[calc(400px-80px)] overflow-y-auto">
               <div className="space-y-4">
                 <div>
                   <Label>Image (Optional)</Label>
@@ -780,7 +780,7 @@ Remember to:
             </TabsContent>
             
             {/* Feedback Tab */}
-            <TabsContent value="feedback" className="space-y-4 py-4">
+            <TabsContent value="feedback" className="space-y-4 py-4 h-[calc(400px-80px)] overflow-y-auto">
               <Tabs defaultValue="content">
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="content">Content</TabsTrigger>
