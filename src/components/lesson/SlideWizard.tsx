@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Alert } from '@/components/ui/alert';
 import ImageUploader from './ImageUploader';
-import { ImageAnalysisResult, analyzeQuestionImage } from '@/services/aiService';
-import { Loader2 } from 'lucide-react';
+import { ImageAnalysisResult, analyzeQuestionImage, fetchAvailableModels } from '@/services/aiService';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 // Add type for ImageUploader props
@@ -29,16 +32,54 @@ interface SlideWizardProps {
   model?: string; // Make model configurable
 }
 
+interface ModelOption {
+  id: string;
+  name: string;
+  context_length?: number;
+  pricing?: any;
+}
+
 const SlideWizard: React.FC<SlideWizardProps> = ({ 
   onComplete, 
   onCancel,
-  model = 'openai/gpt-4o-mini' // Default to gpt-4o-mini but allow override
+  model: initialModel = 'openai/gpt-4o-mini' // Default to gpt-4o-mini but allow override
 }) => {
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Model selection state
+  const [model, setModel] = useState(initialModel);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelsFetched, setModelsFetched] = useState(false);
+
+  // Load available models when component mounts
+  useEffect(() => {
+    loadAvailableModels();
+  }, []);
+
+  const loadAvailableModels = async () => {
+    setIsLoadingModels(true);
+    try {
+      const models = await fetchAvailableModels();
+      if (models && models.length > 0) {
+        setAvailableModels(models);
+        setModelsFetched(true);
+      }
+    } catch (error) {
+      console.error('Error loading models:', error);
+      toast({
+        title: "Error Loading Models",
+        description: "Could not fetch available models. Please check your API key.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
 
   const handleImageUploaded = async (url: string, path: string) => {
     setImageUrl(url);
@@ -84,12 +125,58 @@ const SlideWizard: React.FC<SlideWizardProps> = ({
             </p>
           </div>
 
-          <ImageUploader
-            onImageUploaded={handleImageUploaded}
-            existingUrl={imageUrl}
-            existingAlt={imageAlt}
-            onUpdateAlt={(alt) => setImageAlt(alt)}
-          />
+          <div className="space-y-4">
+            <div>
+              <Label>AI Model</Label>
+              {availableModels.length > 0 ? (
+                <Select value={model} onValueChange={setModel}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a model" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-80">
+                    {availableModels.map((model) => (
+                      <SelectItem key={model.id} value={model.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{model.name}</span>
+                          {model.context_length && (
+                            <span className="text-xs text-muted-foreground">
+                              ({Math.round(model.context_length / 1000)}k ctx)
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="w-full mt-2" 
+                  onClick={loadAvailableModels}
+                  disabled={isLoadingModels}
+                >
+                  {isLoadingModels ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Loading models...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Load Available Models
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+
+            <ImageUploader
+              onImageUploaded={handleImageUploaded}
+              existingUrl={imageUrl}
+              existingAlt={imageAlt}
+              onUpdateAlt={(alt) => setImageAlt(alt)}
+            />
+          </div>
 
           {isAnalyzing && (
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">

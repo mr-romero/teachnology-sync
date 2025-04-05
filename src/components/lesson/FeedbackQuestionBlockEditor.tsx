@@ -35,6 +35,8 @@ import FeedbackBlockSplitter from './FeedbackBlockSplitter';
 import SlideWizard from './SlideWizard';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
+const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
+
 interface FeedbackQuestionBlockEditorProps {
   block: FeedbackQuestionBlock;
   onUpdate: (updatedBlock: FeedbackQuestionBlock) => void;
@@ -53,43 +55,69 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   onUpdate,
   onDelete
 }): JSX.Element => {  // Add explicit return type
+  // Load saved state or use defaults
+  const loadSavedState = (key: string, defaultValue: any) => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`);
+    return saved ? JSON.parse(saved) : defaultValue;
+  };
+
   // Question state
-  const [questionText, setQuestionText] = useState(block.questionText || 'Enter your question here');
-  const [questionType, setQuestionType] = useState<QuestionType>(block.questionType || 'multiple-choice');
-  const [options, setOptions] = useState<string[]>(block.options || ['Option 1', 'Option 2', 'Option 3']);
-  const [correctAnswer, setCorrectAnswer] = useState<string | number | boolean | string[] | undefined>(
-    block.correctAnswer
+  const [questionText, setQuestionText] = useState(() => 
+    loadSavedState('questionText', block.questionText || 'Enter your question here')
   );
-  const [optionStyle, setOptionStyle] = useState<'A-D' | 'F-J' | 'text'>(block.optionStyle || 'A-D'); // Add option style state
-  const [allowAnswerChange, setAllowAnswerChange] = useState<boolean>(block.allowAnswerChange || false);
-  const [allowMultipleAnswers, setAllowMultipleAnswers] = useState<boolean>(block.allowMultipleAnswers || false);
+  const [questionType, setQuestionType] = useState(() => 
+    loadSavedState('questionType', block.questionType || 'multiple-choice')
+  );
+  const [options, setOptions] = useState(() => 
+    loadSavedState('options', block.options || ['Option 1', 'Option 2', 'Option 3'])
+  );
+  const [correctAnswer, setCorrectAnswer] = useState(() => 
+    loadSavedState('correctAnswer', block.correctAnswer || '')
+  );
+  const [optionStyle, setOptionStyle] = useState(() => 
+    loadSavedState('optionStyle', block.optionStyle || 'A-D')
+  );
+  const [allowAnswerChange, setAllowAnswerChange] = useState(() => 
+    loadSavedState('allowAnswerChange', block.allowAnswerChange || false)
+  );
+  const [allowMultipleAnswers, setAllowMultipleAnswers] = useState(() => 
+    loadSavedState('allowMultipleAnswers', block.allowMultipleAnswers || false)
+  );
 
   // Image state
-  const [imageUrl, setImageUrl] = useState(block.imageUrl || '');
-  const [imageAlt, setImageAlt] = useState(block.imageAlt || '');
+  const [imageUrl, setImageUrl] = useState(() => 
+    loadSavedState('imageUrl', block.imageUrl || '')
+  );
+  const [imageAlt, setImageAlt] = useState(() => 
+    loadSavedState('imageAlt', block.imageAlt || '')
+  );
   
   // AI Feedback state
-  const [feedbackInstructions, setFeedbackInstructions] = useState(
-    block.feedbackInstructions || 'Your AI tutor will help explain the answer.'
+  const [feedbackInstructions, setFeedbackInstructions] = useState(() => 
+    loadSavedState('feedbackInstructions', block.feedbackInstructions || 'Your AI tutor will help explain the answer.')
   );
-  const [feedbackSystemPrompt, setFeedbackSystemPrompt] = useState(
-    block.feedbackSystemPrompt || `You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.
+  const [feedbackSystemPrompt, setFeedbackSystemPrompt] = useState(() => 
+    loadSavedState('feedbackSystemPrompt', block.feedbackSystemPrompt || `You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.
 
 When responding with mathematical content:
 - Use \\( and \\) for inline math expressions
 - Use \\[ and \\] for displayed math expressions
 - Format equations and mathematical symbols properly
-- Be consistent with LaTeX notation throughout the response`
+- Be consistent with LaTeX notation throughout the response`)
   );
-  const [feedbackSentenceStarters, setFeedbackSentenceStarters] = useState<string[]>(
-    block.feedbackSentenceStarters || ['Can you explain...?', 'Why is that...?', 'What about...?']
+  const [feedbackSentenceStarters, setFeedbackSentenceStarters] = useState(() => 
+    loadSavedState('feedbackSentenceStarters', block.feedbackSentenceStarters || ['Can you explain...?', 'Why is that...?', 'What about...?'])
   );
   const [newStarter, setNewStarter] = useState('');
-  const [apiEndpoint, setApiEndpoint] = useState(block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions');
+  const [apiEndpoint, setApiEndpoint] = useState(() => 
+    loadSavedState('apiEndpoint', block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions')
+  );
   const [modelSearch, setModelSearch] = useState('');
-  const [modelName, setModelName] = useState(block.modelName || 'gpt-4o-mini'); // Updated default model
-  const [repetitionPrevention, setRepetitionPrevention] = useState(
-    block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights."
+  const [modelName, setModelName] = useState(() => 
+    loadSavedState('modelName', block.modelName || 'gpt-4o-mini')
+  );
+  const [repetitionPrevention, setRepetitionPrevention] = useState(() => 
+    loadSavedState('repetitionPrevention', block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights.")
   );
   const [includeMathFormatting, setIncludeMathFormatting] = useState(
     block.feedbackSystemPrompt?.includes('When responding with mathematical content') || false
@@ -359,6 +387,63 @@ Remember to:
     imageUrl,
     imageAlt
   ]);
+
+  // Save state when it changes
+  useEffect(() => {
+    const saveState = (key: string, value: any) => {
+      localStorage.setItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`, JSON.stringify(value));
+    };
+
+    // Save all form fields
+    saveState('questionText', questionText);
+    saveState('questionType', questionType);
+    saveState('options', options);
+    saveState('correctAnswer', correctAnswer);
+    saveState('optionStyle', optionStyle);
+    saveState('allowAnswerChange', allowAnswerChange);
+    saveState('allowMultipleAnswers', allowMultipleAnswers);
+    saveState('feedbackInstructions', feedbackInstructions);
+    saveState('feedbackSystemPrompt', feedbackSystemPrompt);
+    saveState('feedbackSentenceStarters', feedbackSentenceStarters);
+    saveState('apiEndpoint', apiEndpoint);
+    saveState('modelName', modelName);
+    saveState('repetitionPrevention', repetitionPrevention);
+    saveState('imageUrl', imageUrl);
+    saveState('imageAlt', imageAlt);
+  }, [
+    block.id,
+    questionText,
+    questionType,
+    options,
+    correctAnswer,
+    optionStyle,
+    allowAnswerChange,
+    allowMultipleAnswers,
+    feedbackInstructions,
+    feedbackSystemPrompt,
+    feedbackSentenceStarters,
+    apiEndpoint,
+    modelName,
+    repetitionPrevention,
+    imageUrl,
+    imageAlt
+  ]);
+
+  // Clean up storage when component unmounts
+  useEffect(() => {
+    return () => {
+      const keys = [
+        'questionText', 'questionType', 'options', 'correctAnswer', 'optionStyle',
+        'allowAnswerChange', 'allowMultipleAnswers', 'feedbackInstructions',
+        'feedbackSystemPrompt', 'feedbackSentenceStarters', 'apiEndpoint',
+        'modelName', 'repetitionPrevention', 'imageUrl', 'imageAlt'
+      ];
+      
+      keys.forEach(key => {
+        localStorage.removeItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`);
+      });
+    };
+  }, [block.id]);
 
   // Add new state for wizard dialog
   const [wizardOpen, setWizardOpen] = useState(false);
