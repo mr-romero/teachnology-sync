@@ -54,6 +54,8 @@ const SlideWizard: React.FC<SlideWizardProps> = ({
   // Model selection state
   const [model, setModel] = useState<string>('mistralai/mistral-small-3.1-24b-instruct:free');
   const [modelSearch, setModelSearch] = useState('');
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelsFetched, setModelsFetched] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([
     {
       id: 'mistralai/mistral-small-3.1-24b-instruct:free',
