@@ -227,7 +227,7 @@ export async function fetchChatCompletion(
 ): Promise<string | null> {
   const {
     messages,
-    model = 'google/palm-2', // Free default model
+    model = 'mistralai/mistral-small-3.1-24b-instruct:free', // Updated default model
     temperature = 0.7,
     endpoint = 'https://openrouter.ai/api/v1/chat/completions',
     imageUrl
@@ -490,7 +490,7 @@ export interface ImageAnalysisResult {
 
 export const analyzeQuestionImage = async (
   imageUrl: string,
-  model: string = 'openai/gpt-4o-mini'
+  model: string = 'mistralai/mistral-small-3.1-24b-instruct:free'
 ): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:

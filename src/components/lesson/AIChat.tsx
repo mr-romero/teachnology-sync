@@ -202,8 +202,8 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
       
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4',  // Default to GPT-4 for better image understanding
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        model: 'mistralai/mistral-small-3.1-24b-instruct:free',
+        endpoint: 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl  // Pass the image URL to the API
       }, sessionId?.toString()); // Ensure sessionId is a string
       
@@ -269,7 +269,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'openai/gpt-4',
+        model: 'mistralai/mistral-small-3.1-24b-instruct:free',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl // Pass the image URL for context
       }, sessionId?.toString()); // Ensure sessionId is a string
