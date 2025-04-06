@@ -17,7 +17,7 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
   // Get current layout or initialize with defaults
   const [layout, setLayout] = useState<SlideLayout>(
     slide.layout || {
-      gridRows: 3, // Default to 3 rows instead of 1
+      gridRows: 2, // Changed from 3 to 2 rows
       gridColumns: 1,
       blockPositions: {},
       blockSpans: {}
@@ -31,7 +31,7 @@ const SlideLayoutManager: React.FC<SlideLayoutManagerProps> = ({
   // Update layout when slide changes
   useEffect(() => {
     setLayout(slide.layout || {
-      gridRows: 3, // Default to 3 rows instead of 1
+      gridRows: 2, // Changed from 3 to 2 rows to match initial state
       gridColumns: 1,
       blockPositions: {},
       blockSpans: {}

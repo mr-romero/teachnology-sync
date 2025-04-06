@@ -993,7 +993,7 @@ When responding with mathematical content:
     // Make sure layout exists with 1x1 grid initially
     if (!updatedSlide.layout) {
       updatedSlide.layout = {
-        gridRows: 1,
+        gridRows: 2, // Changed from default of 1 to 2 rows
         gridColumns: 1,
         blockPositions: {},
       };

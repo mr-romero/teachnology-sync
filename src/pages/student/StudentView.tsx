@@ -139,14 +139,8 @@ const StudentView: React.FC<StudentViewProps> = () => {
     if (sessionData && !sessionLoading && lesson) {
       // Skip session handling if in preview mode
       if (isPreview) {
-        return;  // Don't update state in preview mode
-      }
-
-      // Handle sync mode
-      if (sessionData.is_synced) {
-        setCurrentSlideIndex(Number(sessionData.current_slide));
-        setAllowedSlides([]);
-        return;  // Exit early for sync mode
+        setCurrentSlideIndex(0); // Start at first slide in preview mode
+        return;
       }
 
       // Get stored slide from localStorage first
@@ -159,65 +153,92 @@ const StudentView: React.FC<StudentViewProps> = () => {
           storedPosition = Number(stored);
           // Validate stored position
           if (isNaN(storedPosition) || storedPosition < 0 || storedPosition >= lesson.slides.length) {
+            console.log('Stored position invalid:', storedPosition);
             storedPosition = null;
+          } else {
+            console.log('Found valid stored slide position:', storedPosition);
           }
         } catch (e) {
           console.error('Error parsing stored slide data:', e);
         }
       }
 
-      // Handle paced slides mode
-      if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
-        setAllowedSlides(sessionData.paced_slides);
-        
-        // Use stored position if it's valid and in allowed slides
-        if (storedPosition !== null && sessionData.paced_slides.includes(storedPosition)) {
-          setCurrentSlideIndex(storedPosition);
-          if (user) {
-            updateStudentSlide(sessionId, user.id, storedPosition);
-          }
-        } else {
-          // Find nearest allowed slide
-          const currentSlide = Number(sessionData.current_slide);
-          let targetSlide = currentSlide;
-
-          // Find the closest allowed slide
-          const nextAllowedSlides = sessionData.paced_slides.filter(index => index >= currentSlide);
-          const prevAllowedSlides = sessionData.paced_slides.filter(index => index < currentSlide);
-          
-          if (nextAllowedSlides.length > 0) {
-            targetSlide = nextAllowedSlides[0];
-          } else if (prevAllowedSlides.length > 0) {
-            targetSlide = prevAllowedSlides[prevAllowedSlides.length - 1];
-          } else if (sessionData.paced_slides.length > 0) {
-            targetSlide = sessionData.paced_slides[0];
-          }
-          
-          setCurrentSlideIndex(targetSlide);
-          if (user) {
-            updateStudentSlide(sessionId, user.id, targetSlide);
-          }
-        }
-      } else {
-        // Free navigation mode
+      if (sessionData.is_synced) {
+        // In sync mode, always use teacher's position
+        console.log('Sync mode active, using teacher slide:', sessionData.current_slide);
+        setCurrentSlideIndex(Number(sessionData.current_slide));
         setAllowedSlides([]);
+      } else {
+        console.log('Non-sync mode active');
         
-        if (storedPosition !== null) {
-          setCurrentSlideIndex(storedPosition);
-          if (user) {
-            updateStudentSlide(sessionId, user.id, storedPosition);
+        if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
+          setAllowedSlides(sessionData.paced_slides);
+          
+          // If we have a valid stored position AND it's in allowed slides, use it
+          if (storedPosition !== null && 
+              storedPosition >= 0 && 
+              storedPosition < lesson.slides.length && 
+              sessionData.paced_slides.includes(storedPosition)) {
+            console.log('Using stored slide position:', storedPosition);
+            setCurrentSlideIndex(storedPosition);
+            // Update the database to match localStorage
+            if (user) {
+              updateStudentSlide(sessionId, user.id, storedPosition);
+            }
+          } else {
+            // Find nearest allowed slide
+            const currentSlide = Number(sessionData.current_slide);
+            let targetSlide = currentSlide;
+
+            // Find the closest allowed slide
+            const nextAllowedSlides = sessionData.paced_slides.filter(index => index >= currentSlide);
+            const prevAllowedSlides = sessionData.paced_slides.filter(index => index < currentSlide);
+            
+            if (nextAllowedSlides.length > 0) {
+              targetSlide = nextAllowedSlides[0];
+            } else if (prevAllowedSlides.length > 0) {
+              targetSlide = prevAllowedSlides[prevAllowedSlides.length - 1];
+            } else if (sessionData.paced_slides.length > 0) {
+              targetSlide = sessionData.paced_slides[0];
+            }
+            
+            console.log('Using calculated paced slide position:', targetSlide);
+            setCurrentSlideIndex(targetSlide);
+            if (user) {
+              updateStudentSlide(sessionId, user.id, targetSlide);
+            }
           }
         } else {
-          // Use session position as fallback
-          setCurrentSlideIndex(Number(sessionData.current_slide));
-          if (user) {
-            updateStudentSlide(sessionId, user.id, Number(sessionData.current_slide));
+          // Free navigation mode
+          console.log('Free navigation mode');
+          setAllowedSlides([]);
+          
+          // Use stored position if valid
+          if (storedPosition !== null) {
+            console.log('Using stored slide position:', storedPosition);
+            setCurrentSlideIndex(storedPosition);
+            // Update the database to match localStorage
+            if (user) {
+              updateStudentSlide(sessionId, user.id, storedPosition);
+            }
+          } else {
+            // Only use session's current_slide if we don't have a valid stored position
+            const sessionSlide = Number(sessionData.current_slide);
+            if (!isNaN(sessionSlide) && sessionSlide >= 0 && sessionSlide < lesson.slides.length) {
+              console.log('Using session current slide:', sessionSlide);
+              setCurrentSlideIndex(sessionSlide);
+            } else {
+              console.log('Using default slide position: 0');
+              setCurrentSlideIndex(0);
+            }
           }
         }
       }
 
       // Update pause state
-      setIsPaused(!!sessionData.is_paused);
+      if (sessionData.is_paused !== undefined) {
+        setIsPaused(!!sessionData.is_paused);
+      }
     }
   }, [sessionData, sessionLoading, sessionId, lesson, user, isPreview]);
   
@@ -432,7 +453,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
     }
   }, [user]);
 
-  // Add effect to handle preview mode with lessonId and slide parameter
+  // Add effect to handle preview mode with lessonId
   useEffect(() => {
     const loadPreviewLesson = async () => {
       if (isPreview && urlLessonId && !lesson) {
@@ -441,12 +462,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
           const lessonData = await getLessonById(urlLessonId);
           if (lessonData) {
             setLesson(lessonData);
-            // Get slide index from URL
-            const slideParam = searchParams.get('slide');
-            const slideIndex = slideParam ? parseInt(slideParam, 10) : 0;
-            // Validate slide index
-            const validIndex = Math.min(Math.max(0, slideIndex), lessonData.slides.length - 1);
-            setCurrentSlideIndex(validIndex);
+            setCurrentSlideIndex(0);
           } else {
             toast.error('Failed to load lesson for preview');
             navigate('/dashboard');
@@ -462,7 +478,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
     };
 
     loadPreviewLesson();
-  }, [isPreview, urlLessonId, lesson, searchParams, navigate]);
+  }, [isPreview, urlLessonId, lesson, navigate]);
 
   // Update the join session handler to properly initialize the slide position
   const handleJoinSession = async () => {
@@ -841,10 +857,10 @@ const StudentView: React.FC<StudentViewProps> = () => {
 
     return (
       <div className="flex flex-col h-screen">
-        {/* Header bar with navigation - fixed position */}
+        {/* Header bar - fixed height */}
         <div className="bg-background shadow-sm border-b p-4">
-          <div className="container mx-auto">
-            <div className="flex justify-between items-center mb-4">
+          <div className="container mx-auto flex flex-col space-y-4">
+            <div className="flex justify-between items-center">
               <h1 className="text-xl font-semibold">{lesson.title}</h1>
               <div className="flex items-center space-x-4">
                 {isPreview && (
@@ -856,34 +872,16 @@ const StudentView: React.FC<StudentViewProps> = () => {
                   </button>
                 )}
                 {!isPreview && isSynced && (
-                  <div className="flex items-center text-sm text-muted-foreground">
-                    <LockIcon className="h-4 w-4 mr-1" />
-                    <span>Teacher controlled</span>
+                  <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-md text-sm font-medium flex items-center gap-2">
+                    <ArrowUpDown className="h-4 w-4" />
+                    Navigation controlled by teacher
                   </div>
-                )}
-                <div className="text-sm font-medium bg-muted/20 px-3 py-1 rounded-md">
-                  Slide {currentSlideIndex + 1} of {lesson.slides.length}
-                </div>
-                {!isPreview && (
-                  <div className="text-sm">
-                    <span className="font-medium">Code: </span> 
-                    <span className="ml-1 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
-                  </div>
-                )}
-                {!isPreview && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => navigate('/student')}
-                  >
-                    Dashboard
-                  </Button>
                 )}
               </div>
             </div>
 
-            {/* Navigation Controls */}
-            <div className="flex justify-between items-center">
+            {/* Navigation controls - moved to header */}
+            <div className="flex items-center justify-between">
               <Button 
                 onClick={handlePreviousSlide} 
                 disabled={
@@ -896,7 +894,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Previous
               </Button>
-
+              
               {/* If in paced mode, show current position in sequence */}
               {isPacedMode && !isSynced && !isPreview && (
                 <div className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md flex items-center">
@@ -905,7 +903,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
                     "Outside of selected slides"}
                 </div>
               )}
-
+              
               <Button 
                 onClick={handleNextSlide} 
                 disabled={
@@ -922,7 +920,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
           </div>
         </div>
 
-        {/* Main content area - scrollable */}
+        {/* Main content */}
         <div className="flex-1 overflow-auto">
           <div className="container mx-auto p-4">
             {/* Add paced slides info if enabled */}
@@ -937,16 +935,17 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 </div>
               </div>
             )}
-
+            
             <div className="mb-4">
               <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
             </div>
-
+            
             <div className="bg-white rounded-lg border p-6">
               <LessonSlideView 
                 slide={currentSlide} 
                 isStudentView={true}
                 studentId={user?.id}
+                studentName={user?.name}
                 studentClass={user?.class}
                 onAnswerSubmit={isPreview ? undefined : handleSubmitAnswer}
                 answeredBlocks={answeredBlocks}
@@ -963,90 +962,9 @@ const StudentView: React.FC<StudentViewProps> = () => {
     );
   };
   
-  useEffect(() => {
-    if (!user || !sessionId) return;
-
-    // Only set up the state management if necessary
-    if (isPreview) {
-      // For preview mode, we only need to handle the URL slide parameter once
-      const slideParam = searchParams.get('slide');
-      const slideIndex = slideParam ? parseInt(slideParam, 10) : 0;
-      const validIndex = lesson ? Math.min(Math.max(0, slideIndex), lesson.slides.length - 1) : 0;
-      setCurrentSlideIndex(validIndex);
-      return;
-    }
-
-    // For active sessions, manage slide state
-    const handleSlideState = async () => {
-      if (!sessionData || !lesson) return;
-
-      let targetSlide = currentSlideIndex;
-
-      // Handle sync mode
-      if (sessionData.is_synced) {
-        targetSlide = Number(sessionData.current_slide);
-      } else if (sessionData.paced_slides?.length > 0) {
-        // Handle paced slides mode
-        if (currentSlideIndex === null || !sessionData.paced_slides.includes(currentSlideIndex)) {
-          // Find nearest allowed slide
-          const nextAllowedSlides = sessionData.paced_slides.filter(index => index >= (currentSlideIndex || 0));
-          const prevAllowedSlides = sessionData.paced_slides.filter(index => index < (currentSlideIndex || 0));
-          
-          if (nextAllowedSlides.length > 0) {
-            targetSlide = nextAllowedSlides[0];
-          } else if (prevAllowedSlides.length > 0) {
-            targetSlide = prevAllowedSlides[prevAllowedSlides.length - 1];
-          } else if (sessionData.paced_slides.length > 0) {
-            targetSlide = sessionData.paced_slides[0];
-          }
-        }
-        setAllowedSlides(sessionData.paced_slides);
-      } else {
-        // Free navigation mode - use stored position if available
-        const storedData = localStorage.getItem(`student_session_${sessionId}`);
-        if (storedData) {
-          try {
-            const { currentSlideIndex: stored } = JSON.parse(storedData);
-            if (stored >= 0 && stored < lesson.slides.length) {
-              targetSlide = stored;
-            }
-          } catch (e) {
-            console.error('Error parsing stored slide data:', e);
-          }
-        }
-        setAllowedSlides([]);
-      }
-
-      // Only update if the target slide is different
-      if (targetSlide !== null && targetSlide !== currentSlideIndex) {
-        setCurrentSlideIndex(targetSlide);
-        // Update server state if needed
-        if (!sessionData.is_synced) {
-          await updateStudentSlide(sessionId, user.id, targetSlide);
-        }
-      }
-
-      // Update pause state
-      setIsPaused(!!sessionData.is_paused);
-    };
-
-    handleSlideState();
-  }, [user, sessionId, sessionData, lesson, isPreview, searchParams]);
-
-  // Store slide position when it changes
-  useEffect(() => {
-    if (sessionId && currentSlideIndex !== null && !isPreview) {
-      localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
-        currentSlideIndex,
-        timestamp: new Date().toISOString()
-      }));
-    }
-  }, [sessionId, currentSlideIndex, isPreview]);
-
   return (
-    <div className={isJoined || isPreview ? "h-screen overflow-hidden" : "container mx-auto px-4 py-8"}>
-      {(!isJoined && !isPreview) ? renderJoinForm() : renderLessonView()}
-      
+    <div className={isJoined || isPreview ? "overflow-hidden" : "container mx-auto px-4 py-8"}>
+      {isJoined || isPreview ? renderLessonView() : renderJoinForm()}
       <CelebrationConfigDialog
         open={showCelebrationConfig}
         onOpenChange={setShowCelebrationConfig}

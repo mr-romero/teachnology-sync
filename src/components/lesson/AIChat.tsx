@@ -362,7 +362,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
   };
 
   return (
-    <div className="flex flex-col rounded-md border shadow-sm">
+    <div className="flex flex-col h-full">
       {/* Instructions section */}
       <div className="p-3 border-b bg-muted/20">
         <div className="flex items-start gap-2">
@@ -379,79 +379,84 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       </div>
       
       {/* Chat messages area */}
-      <ScrollArea className="h-[300px] p-4 flex-grow">
-        {visibleMessages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
-            <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
-            {isPreviewMode && questionContext ? (
-              <>
-                <p className="text-sm mb-1">Submit your answer to get AI feedback</p>
-                <p className="text-xs">The AI will analyze your response and provide personalized help</p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm mb-1">Start a conversation with the AI</p>
-                <p className="text-xs">Use the sentence starters below or type your own message</p>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {visibleMessages.map((message, index) => (
-              <div
-                key={index}
-                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
+      <div className="flex-1 mb-4 overflow-hidden">
+        <div 
+          className="h-[400px] overflow-y-auto p-4 border rounded-lg bg-muted/10"
+          ref={messagesEndRef}
+        >
+          {visibleMessages.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
+              <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
+              {isPreviewMode && questionContext ? (
+                <>
+                  <p className="text-sm mb-1">Submit your answer to get AI feedback</p>
+                  <p className="text-xs">The AI will analyze your response and provide personalized help</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm mb-1">Start a conversation with the AI</p>
+                  <p className="text-xs">Use the sentence starters below or type your own message</p>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {visibleMessages.map((message, index) => (
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
+                  key={index}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.role === 'assistant' ? (
-                    <div className="text-sm markdown-content">
-                      <MarkdownWithMath content={message.content} />
-                    </div>
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  )}
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                  <div className="flex items-center">
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    <span className="text-sm">Thinking...</span>
+                  <div
+                    className={`max-w-[80%] rounded-lg p-3 ${
+                      message.role === 'user'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {message.role === 'assistant' ? (
+                      <div className="text-sm markdown-content">
+                        <MarkdownWithMath content={message.content} />
+                      </div>
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    )}
                   </div>
                 </div>
-              </div>
-            )}
-            {error && (
-              <div className="flex justify-center">
-                <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
-                  {error}
+              ))}
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="max-w-[80%] rounded-lg p-3 bg-muted">
+                    <div className="flex items-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span className="text-sm">Thinking...</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-            {showPracticeSimilar && (
-              <div className="flex justify-center my-4">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-1 text-xs"
-                  onClick={handlePracticeSimilar}
-                >
-                  Practice a similar problem <ChevronRight className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </ScrollArea>
+              )}
+              {error && (
+                <div className="flex justify-center">
+                  <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
+                    {error}
+                  </div>
+                </div>
+              )}
+              {showPracticeSimilar && (
+                <div className="flex justify-center my-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="flex items-center gap-1 text-xs"
+                    onClick={handlePracticeSimilar}
+                  >
+                    Practice a similar problem <ChevronRight className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+      </div>
       
       {/* Sentence starters */}
       {block.sentenceStarters && block.sentenceStarters.length > 0 && !isAnswered && (
