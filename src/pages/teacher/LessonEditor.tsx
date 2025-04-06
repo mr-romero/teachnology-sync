@@ -34,6 +34,7 @@ const LessonEditor: React.FC = () => {
   const [isPresentationDialogOpen, setIsPresentationDialogOpen] = useState(false);
   const [isBlocksCollapsed, setIsBlocksCollapsed] = useState(false);
   const [copiedSlide, setCopiedSlide] = useState<LessonSlide | null>(null);
+  const [llmOutput, setLlmOutput] = useState<string | null>(null); // For logging LLM output
   
   // Initialize lesson data
   useEffect(() => {
@@ -198,12 +199,14 @@ const LessonEditor: React.FC = () => {
           options: ['Option 1', 'Option 2', 'Option 3'],
           correctAnswer: 'Option 1',
           feedbackInstructions: 'Ask me questions about this topic.',
-          feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer.',
+          feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
           feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
           modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
           optionStyle: 'A-D',
-          repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.'
+          repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.',
+          imageUrl: '',
+          imageAlt: ''
         }],
         layout: {
           gridRows: 1,
@@ -351,6 +354,74 @@ const LessonEditor: React.FC = () => {
       });
       
       toast.success(`Added ${type} block`);
+    }
+  };
+
+  // Handle image drop on feedback-question block
+  const handleImageDropOnFeedbackBlock = (imageUrl: string, imageAlt: string, blockId: string, slideId: string) => {
+    if (lesson) {
+      const currentSlide = lesson.slides.find(slide => slide.id === slideId);
+      if (!currentSlide) return;
+      
+      const blockIndex = currentSlide.blocks.findIndex(block => block.id === blockId);
+      if (blockIndex === -1) return;
+      
+      const block = currentSlide.blocks[blockIndex];
+      if (block.type !== 'feedback-question') return;
+      
+      // Update the block with the image
+      const updatedBlock = {
+        ...block,
+        imageUrl,
+        imageAlt
+      };
+      
+      // Update the lesson state
+      const updatedSlides = lesson.slides.map(slide => {
+        if (slide.id === slideId) {
+          const updatedBlocks = [...slide.blocks];
+          updatedBlocks[blockIndex] = updatedBlock;
+          return {
+            ...slide,
+            blocks: updatedBlocks
+          };
+        }
+        return slide;
+      });
+      
+      setLesson({
+        ...lesson,
+        slides: updatedSlides,
+        updatedAt: new Date().toISOString()
+      });
+      
+      // Log LLM feedback generation for debugging
+      console.log('Image added to feedback block:', {
+        blockId,
+        imageUrl,
+        slideId
+      });
+      
+      // Simulate LLM processing
+      setTimeout(() => {
+        const mockLlmOutput = {
+          suggestedQuestion: "What key feature does this image demonstrate?",
+          suggestedOptions: [
+            "Feature A", 
+            "Feature B", 
+            "Feature C", 
+            "Feature D"
+          ],
+          correctAnswer: "Feature B",
+          explanation: "The image clearly shows Feature B which is important because..."
+        };
+        
+        setLlmOutput(JSON.stringify(mockLlmOutput, null, 2));
+        console.log('LLM Output for Image Analysis:', mockLlmOutput);
+        
+        // You would integrate with actual LLM here
+        toast.success('Image added to feedback block');
+      }, 1000);
     }
   };
 
@@ -546,6 +617,71 @@ const LessonEditor: React.FC = () => {
                 </span>
               )}
             </div>
+          </div>
+        );
+      case 'feedback-question':
+        return (
+          <div className="my-2 p-3 bg-indigo-50 rounded-md" 
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.add('border-2', 'border-indigo-400');
+            }}
+            onDragLeave={(e) => {
+              e.currentTarget.classList.remove('border-2', 'border-indigo-400');
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.classList.remove('border-2', 'border-indigo-400');
+              
+              // Process dropped files (images)
+              if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                if (file.type.startsWith('image/')) {
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    if (event.target?.result) {
+                      handleImageDropOnFeedbackBlock(
+                        event.target.result as string,
+                        file.name,
+                        block.id,
+                        activeSlide
+                      );
+                    }
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }
+            }}
+          >
+            <p className="font-medium mb-2">Feedback Question</p>
+            {block.imageUrl && (
+              <div className="mb-2">
+                <img 
+                  src={block.imageUrl} 
+                  alt={block.imageAlt || 'Question image'} 
+                  className="max-h-40 rounded"
+                />
+              </div>
+            )}
+            {!block.imageUrl && (
+              <div className="border-2 border-dashed border-indigo-200 rounded-md p-4 text-center mb-2">
+                <p className="text-sm text-indigo-500">Drag and drop an image here</p>
+              </div>
+            )}
+            <p className="text-sm font-medium">{block.questionText}</p>
+            {block.questionType === 'multiple-choice' && (
+              <ul className="space-y-1 list-disc list-inside">
+                {block.options?.map((option, index) => (
+                  <li 
+                    key={index}
+                    className={option === block.correctAnswer ? "text-green-600 font-medium" : ""}
+                  >
+                    {option}
+                    {option === block.correctAnswer && " (correct)"}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         );
       default:
@@ -910,7 +1046,7 @@ const LessonEditor: React.FC = () => {
                   ghost.style.opacity = '0.5';
                   document.body.appendChild(ghost);
                   e.dataTransfer.setDragImage(ghost, 0, 0);
-                  setTimeout(() => document.body.removeChild(ghost), 0);
+                  setTimeout(() => document.body removeChild(ghost), 0);
                 }}
               >
                 <div className="h-8 w-8 flex items-center justify-center rounded-md bg-green-100 text-green-600 mb-2">
@@ -1018,6 +1154,23 @@ const LessonEditor: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* LLM Output Debug Panel */}
+      {llmOutput && (
+        <div className="mt-4 p-4 bg-gray-100 rounded-md">
+          <div className="flex justify-between mb-2">
+            <h3 className="font-medium">LLM Output</h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setLlmOutput(null)}
+            >
+              Close
+            </Button>
+          </div>
+          <pre className="text-xs overflow-auto p-2 bg-white rounded border">{llmOutput}</pre>
+        </div>
+      )}
       
       {/* Add Presentation Dialog */}
       {lessonId && (
