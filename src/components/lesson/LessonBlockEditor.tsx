@@ -46,6 +46,15 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
   onUpdate, 
   onDelete 
 }) => {
+  // Set all settings to collapsed by default
+  const [showStyleSettings, setShowStyleSettings] = useState(false);
+  const [showQuestionSettings, setShowQuestionSettings] = useState(false);
+  const [showFeedbackSettings, setShowFeedbackSettings] = useState(false);
+  const [showCalculatorSettings, setShowCalculatorSettings] = useState(false);
+  const [showAISettings, setShowAISettings] = useState(false);
+  const [showLayoutSettings, setShowLayoutSettings] = useState(false);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
+
   const [expanded, setExpanded] = useState(true);
   
   // Handler for splitting feedback blocks

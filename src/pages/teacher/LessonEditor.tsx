@@ -185,15 +185,35 @@ const LessonEditor: React.FC = () => {
 
   const handleAddSlide = () => {
     if (lesson) {
+      const newSlideId = uuidv4();
+      const blockId = `block-${Date.now()}`;
       const newSlide: LessonSlide = {
-        id: uuidv4(),
+        id: newSlideId,
         title: `Slide ${lesson.slides.length + 1}`,
-        blocks: [],
+        blocks: [{
+          id: blockId,
+          type: 'feedback-question',
+          questionText: 'Enter your question here',
+          questionType: 'multiple-choice',
+          options: ['Option 1', 'Option 2', 'Option 3'],
+          correctAnswer: 'Option 1',
+          feedbackInstructions: 'Ask me questions about this topic.',
+          feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer.',
+          feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
+          apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+          modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+          optionStyle: 'A-D',
+          repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.'
+        }],
         layout: {
-          gridRows: 2,
+          gridRows: 1,
           gridColumns: 1,
-          blockPositions: {},
-          blockSpans: {}
+          blockPositions: {
+            [blockId]: {
+              row: 0,
+              column: 0
+            }
+          }
         }
       };
       

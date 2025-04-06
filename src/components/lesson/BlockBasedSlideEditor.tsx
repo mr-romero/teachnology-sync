@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { LessonSlide, LessonBlock, GridPosition, GridSpan } from '@/types/lesson';
+import { LessonSlide, LessonBlock, GridPosition, GridSpan, FeedbackQuestionBlock } from '@/types/lesson';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
@@ -1316,17 +1316,24 @@ When responding with mathematical content:
   // Update drop handling in the DroppableCell component
   const handleDropInCell = (blockId: string, position: GridPosition, dataTransfer?: DataTransfer) => {
     // Check if this is an image being dropped on a feedback block
-    const existingBlock = slide.blocks.find(block => 
-      block.type === 'feedback-question' && 
-      slide.layout?.blockPositions?.[block.id]?.row === position.row && 
-      slide.layout?.blockPositions?.[block.id]?.column === position.column
-    );
+    if (dataTransfer?.items?.[0]?.type.startsWith('image/')) {
+      const existingBlock = slide.blocks.find(block => {
+        const blockPos = slide.layout?.blockPositions?.[block.id];
+        return block.type === 'feedback-question' && 
+          blockPos?.row === position.row && 
+          blockPos?.column === position.column;
+      });
 
-    if (existingBlock && 
-        existingBlock.type === 'feedback-question' && 
-        dataTransfer?.items?.[0]?.type.startsWith('image/')) {
-      // Let the feedback block handle the image drop
-      return;
+      if (existingBlock && existingBlock.type === 'feedback-question') {
+        // Let the wizard handle the image drop
+        if (window.showBlockSettings) {
+          // Use setTimeout to ensure the drop event finishes first
+          setTimeout(() => {
+            window.showBlockSettings(existingBlock.id);
+          }, 100);
+        }
+        return;
+      }
     }
 
     // Handle regular block drops
