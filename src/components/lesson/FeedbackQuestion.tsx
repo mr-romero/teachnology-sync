@@ -22,7 +22,7 @@ interface Message {
   content: string;
 }
 
-// Update the preprocessContent function to handle markdown elements properly
+// Combine both approaches for preprocessing content
 const preprocessContent = (content: string): string => {
   // Remove JSON blocks from the content
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
@@ -40,6 +40,14 @@ const preprocessContent = (content: string): string => {
     .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
     .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2');
 
+  // Handle currency amounts with different formats
+  content = content
+    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
+    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
+    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
+    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
+    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
+
   // Handle LaTeX delimiters
   content = content
     // Convert standalone $ to inline LaTeX delimiters with proper spacing
@@ -51,14 +59,6 @@ const preprocessContent = (content: string): string => {
     // Fix escaped LaTeX delimiters
     .replace(/\\\\\(/g, '\\(')
     .replace(/\\\\\)/g, '\\)');
-
-  // Handle currency amounts with different formats
-  content = content
-    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
-    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
-    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
-    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
-    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
 
   // Convert asterisks to HTML for proper markdown rendering
   content = content
