@@ -841,47 +841,87 @@ const StudentView: React.FC<StudentViewProps> = () => {
 
     return (
       <div className="flex flex-col h-screen">
-        {/* Header bar - fixed height */}
+        {/* Header bar with navigation - fixed position */}
         <div className="bg-background shadow-sm border-b p-4">
-          <div className="container mx-auto flex justify-between items-center">
-            <h1 className="text-xl font-semibold">{lesson.title}</h1>
-            <div className="flex items-center space-x-4">
-              {isPreview && (
-                <button 
-                  className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors cursor-pointer"
-                  onClick={handleReturnToEditor}
-                >
-                  Exit Preview Mode
-                </button>
-              )}
-              {!isPreview && isSynced && (
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <LockIcon className="h-4 w-4 mr-1" />
-                  <span>Teacher controlled</span>
+          <div className="container mx-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-xl font-semibold">{lesson.title}</h1>
+              <div className="flex items-center space-x-4">
+                {isPreview && (
+                  <button 
+                    className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-md text-sm font-medium hover:bg-yellow-200 transition-colors cursor-pointer"
+                    onClick={handleReturnToEditor}
+                  >
+                    Exit Preview Mode
+                  </button>
+                )}
+                {!isPreview && isSynced && (
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <LockIcon className="h-4 w-4 mr-1" />
+                    <span>Teacher controlled</span>
+                  </div>
+                )}
+                <div className="text-sm font-medium bg-muted/20 px-3 py-1 rounded-md">
+                  Slide {currentSlideIndex + 1} of {lesson.slides.length}
                 </div>
-              )}
-              <div className="text-sm font-medium bg-muted/20 px-3 py-1 rounded-md">
-                Slide {currentSlideIndex + 1} of {lesson.slides.length}
+                {!isPreview && (
+                  <div className="text-sm">
+                    <span className="font-medium">Code: </span> 
+                    <span className="ml-1 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
+                  </div>
+                )}
+                {!isPreview && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => navigate('/student')}
+                  >
+                    Dashboard
+                  </Button>
+                )}
               </div>
-              {!isPreview && (
-                <div className="text-sm">
-                  <span className="font-medium">Code: </span> 
-                  <span className="ml-1 bg-primary/10 text-primary font-mono px-2 py-1 rounded">{joinCode}</span>
+            </div>
+
+            {/* Navigation Controls */}
+            <div className="flex justify-between items-center">
+              <Button 
+                onClick={handlePreviousSlide} 
+                disabled={
+                  currentSlideIndex === 0 || 
+                  (isSynced && !isPreview) || 
+                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0)
+                }
+                className="flex items-center"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous
+              </Button>
+
+              {/* If in paced mode, show current position in sequence */}
+              {isPacedMode && !isSynced && !isPreview && (
+                <div className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md flex items-center">
+                  {allowedSlides.indexOf(currentSlideIndex) !== -1 ? 
+                    `${allowedSlides.indexOf(currentSlideIndex) + 1} of ${allowedSlides.length} selected slides` :
+                    "Outside of selected slides"}
                 </div>
               )}
-              {!isPreview && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => navigate('/student')}
-                >
-                  Dashboard
-                </Button>
-              )}
+
+              <Button 
+                onClick={handleNextSlide} 
+                disabled={
+                  currentSlideIndex === lesson.slides.length - 1 || 
+                  (isSynced && !isPreview) || 
+                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1)
+                }
+                className="flex items-center"
+              >
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           </div>
         </div>
-        
+
         {/* Main content area - scrollable */}
         <div className="flex-1 overflow-auto">
           <div className="container mx-auto p-4">
@@ -897,17 +937,16 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 </div>
               </div>
             )}
-            
+
             <div className="mb-4">
               <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
             </div>
-            
+
             <div className="bg-white rounded-lg border p-6">
               <LessonSlideView 
                 slide={currentSlide} 
                 isStudentView={true}
                 studentId={user?.id}
-                studentName={user?.name}
                 studentClass={user?.class}
                 onAnswerSubmit={isPreview ? undefined : handleSubmitAnswer}
                 answeredBlocks={answeredBlocks}
@@ -915,49 +954,9 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 showCalculator={lesson.settings?.showCalculator ?? false}
                 isPreviewMode={isPreview}
                 studentAnswers={studentAnswers}
-                sessionId={sessionId} // Add sessionId prop
+                sessionId={sessionId}
               />
             </div>
-          </div>
-        </div>
-        
-        {/* Footer bar - fixed height */}
-        <div className="bg-background border-t p-4">
-          <div className="container mx-auto flex justify-between items-center">
-            <Button 
-              onClick={handlePreviousSlide} 
-              disabled={
-                currentSlideIndex === 0 || 
-                (isSynced && !isPreview) || 
-                (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0)
-              }
-              className="flex items-center"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Previous
-            </Button>
-            
-            {/* If in paced mode, show current position in sequence */}
-            {isPacedMode && !isSynced && !isPreview && (
-              <div className="text-xs bg-blue-50 text-blue-700 px-3 py-1 rounded-md flex items-center">
-                {allowedSlides.indexOf(currentSlideIndex) !== -1 ? 
-                  `${allowedSlides.indexOf(currentSlideIndex) + 1} of ${allowedSlides.length} selected slides` :
-                  "Outside of selected slides"}
-              </div>
-            )}
-            
-            <Button 
-              onClick={handleNextSlide} 
-              disabled={
-                currentSlideIndex === lesson.slides.length - 1 || 
-                (isSynced && !isPreview) || 
-                (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1)
-              }
-              className="flex items-center"
-            >
-              Next
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
           </div>
         </div>
       </div>

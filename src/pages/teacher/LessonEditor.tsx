@@ -63,7 +63,18 @@ const LessonEditor: React.FC = () => {
           
           if (fetchedLesson) {
             setLesson(fetchedLesson);
-            setActiveSlide(fetchedLesson.slides[0].id);
+            // Get stored state
+            const storedData = localStorage.getItem('currentEditorState');
+            if (storedData) {
+              const { lessonId: storedLessonId, activeSlide: storedSlideId } = JSON.parse(storedData);
+              if (storedLessonId === lessonId && fetchedLesson.slides.find(s => s.id === storedSlideId)) {
+                setActiveSlide(storedSlideId);
+              } else {
+                setActiveSlide(fetchedLesson.slides[0].id);
+              }
+            } else {
+              setActiveSlide(fetchedLesson.slides[0].id);
+            }
           } else {
             toast.error("Lesson not found");
             navigate('/dashboard');
@@ -177,7 +188,13 @@ const LessonEditor: React.FC = () => {
       const newSlide: LessonSlide = {
         id: uuidv4(),
         title: `Slide ${lesson.slides.length + 1}`,
-        blocks: []
+        blocks: [],
+        layout: {
+          gridRows: 2,
+          gridColumns: 1,
+          blockPositions: {},
+          blockSpans: {}
+        }
       };
       
       // Clear the stored state first

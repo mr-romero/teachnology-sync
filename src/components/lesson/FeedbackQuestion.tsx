@@ -821,12 +821,11 @@ Image description: ${block.imageAlt || 'No description provided'}`
         </div>
       );
     }
-    
+
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm",
-        isGrouped && "border-2 border-purple-200",
-        "min-h-[400px]" // Add minimum height
+        "flex flex-col rounded-md border shadow-sm h-[400px]", // Fixed height container
+        isGrouped && "border-2 border-purple-200"
       )}>
         {isGrouped && groupId && (
           <div className="text-xs font-medium text-purple-600 p-2 border-b uppercase tracking-wide">
@@ -834,21 +833,23 @@ Image description: ${block.imageAlt || 'No description provided'}`
           </div>
         )}
         {/* Instructions section */}
-        <div className="p-3 border-b bg-muted/20">
+        <div className="p-3 border-b bg-muted/20 flex-shrink-0">
           <div className="flex items-start gap-2">
             <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
             <div>
               <h4 className="text-sm font-medium mb-1">AI Tutor Chat</h4>
-              <p className="text-xs text-muted-foreground">Ask questions or request additional explanations about the problem.</p>
+              <p className="text-xs text-muted-foreground">
+                {block.feedbackInstructions || "Ask questions or request additional explanations about this problem."}
+              </p>
             </div>
           </div>
         </div>
-        
-        {/* Chat messages area with height matching content */}
-        <ScrollArea className="flex-1 p-4 bg-white">
-          <div className="flex flex-col min-h-[300px]">
+
+        {/* Chat messages area with scrolling */}
+        <ScrollArea className="flex-1 p-4">
+          <div className="space-y-4">
             {visibleMessages.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[200px]">
                 <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
                 {hasAnswered ? (
                   <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>
@@ -857,7 +858,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                 )}
               </div>
             ) : (
-              <div className="space-y-4 mb-4">
+              <div className="space-y-4">
                 {visibleMessages.map((message, index) => (
                   <div
                     key={index}
@@ -918,10 +919,10 @@ Image description: ${block.imageAlt || 'No description provided'}`
             )}
           </div>
         </ScrollArea>
-        
+
         {/* Sentence starters */}
         {block.feedbackSentenceStarters && block.feedbackSentenceStarters.length > 0 && hasAnswered && (
-          <div className="px-4 py-2 border-t flex flex-wrap gap-2">
+          <div className="px-4 py-2 border-t flex flex-wrap gap-2 flex-shrink-0">
             {block.feedbackSentenceStarters.map((starter, index) => (
               <Button
                 key={index}
@@ -936,9 +937,9 @@ Image description: ${block.imageAlt || 'No description provided'}`
             ))}
           </div>
         )}
-        
+
         {/* Input area */}
-        <div className="p-3 border-t">
+        <div className="p-3 border-t flex-shrink-0">
           {isPaused ? (
             <div className="bg-amber-50 text-amber-800 p-2 text-xs rounded-md">
               The teacher has paused interaction. Please wait...
