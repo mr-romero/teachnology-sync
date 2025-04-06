@@ -28,6 +28,7 @@ const LessonEditor: React.FC = () => {
   const { user } = useAuth();
   
   const [activeSlide, setActiveSlide] = useState<string>('');
+  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPresentationDialogOpen, setIsPresentationDialogOpen] = useState(false);
@@ -872,7 +873,7 @@ const LessonEditor: React.FC = () => {
                   ghost.style.opacity = '0.5';
                   document.body.appendChild(ghost);
                   e.dataTransfer.setDragImage(ghost, 0, 0);
-                  setTimeout(() => document.body removeChild(ghost), 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
                 }}
               >
                 <div className="h-8 w-8 flex items-center justify-center rounded-md bg-green-100 text-green-600 mb-2">
@@ -927,7 +928,7 @@ const LessonEditor: React.FC = () => {
                   ghost.style.opacity = '0.5';
                   document.body.appendChild(ghost);
                   e.dataTransfer.setDragImage(ghost, 0, 0);
-                  setTimeout(() => document.body removeChild(ghost), 0);
+                  setTimeout(() => document.body.removeChild(ghost), 0);
                 }}
               >
                 <div className="h-8 w-8 flex items-center justify-center rounded-md bg-indigo-100 text-indigo-600 mb-2">
