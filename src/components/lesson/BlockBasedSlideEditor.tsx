@@ -542,7 +542,7 @@ const DroppableCell = ({
   span = { columnSpan: 1, rowSpan: 1 }
 }: { 
   position: GridPosition; 
-  onDrop: (blockId: string, position: GridPosition) => void;
+  onDrop: (blockId: string, position: GridPosition, dataTransfer?: DataTransfer) => void;
   isEmpty: boolean;
   children: React.ReactNode;
   span?: GridSpan;
@@ -569,7 +569,7 @@ const DroppableCell = ({
         e.preventDefault();
         const blockId = e.dataTransfer.getData('text/plain');
         if (blockId) {
-          onDrop(blockId, position);
+          onDrop(blockId, position, e.dataTransfer);
         }
       }}
     >
@@ -909,6 +909,38 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
     let newBlock: LessonBlock;
     const blockId = `block-${Date.now()}`;
     
+    // If it's a feedback block, create it with default layout and trigger wizard
+    if (blockType === 'feedback-question') {
+      const feedbackBlock: FeedbackQuestionBlock = {
+        id: blockId,
+        type: 'feedback-question',
+        questionText: 'Enter your question here',
+        questionType: 'multiple-choice',
+        options: ['Option 1', 'Option 2', 'Option 3'],
+        correctAnswer: 'Option 1',
+        feedbackInstructions: 'Ask me questions about this topic.',
+        feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer.',
+        feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
+        apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+        modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+        optionStyle: 'A-D',
+        repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.'
+      };
+
+      // Add the block to the slide
+      handleDropBlock(feedbackBlock, position);
+
+      // After a short delay, show the block settings dialog
+      setTimeout(() => {
+        if (window.showBlockSettings) {
+          window.showBlockSettings(blockId);
+        }
+      }, 100);
+
+      return;
+    }
+
+    // Create a new block based on the type
     switch (blockType) {
       case 'text':
         newBlock = {
@@ -1281,6 +1313,34 @@ When responding with mathematical content:
     };
   }, [slide, onUpdateSlide]);
 
+  // Update drop handling in the DroppableCell component
+  const handleDropInCell = (blockId: string, position: GridPosition, dataTransfer?: DataTransfer) => {
+    // Check if this is an image being dropped on a feedback block
+    const existingBlock = slide.blocks.find(block => 
+      block.type === 'feedback-question' && 
+      slide.layout?.blockPositions?.[block.id]?.row === position.row && 
+      slide.layout?.blockPositions?.[block.id]?.column === position.column
+    );
+
+    if (existingBlock && 
+        existingBlock.type === 'feedback-question' && 
+        dataTransfer?.items?.[0]?.type.startsWith('image/')) {
+      // Let the feedback block handle the image drop
+      return;
+    }
+
+    // Handle regular block drops
+    if (blockId.startsWith('block-')) {
+      if (isInSingleColumnWithMultipleBlocks && position.column === 1) {
+        handleDropInNewColumn(blockId);
+      } else {
+        handlePositionBlock(blockId, position);
+      }
+    } else if (['text', 'image', 'question', 'graph', 'ai-chat', 'feedback-question'].includes(blockId)) {
+      handleDropNewBlockType(blockId, position);
+    }
+  };
+
   return (
     <div className="w-full">
       <BlockConnectionManager 
@@ -1421,20 +1481,7 @@ When responding with mathematical content:
                   key={position}
                   position={cellPosition}
                   span={cellSpan}
-                  onDrop={(blockId, position) => {
-                    // If this is a block ID, it's an existing block being moved
-                    if (blockId.startsWith('block-')) {
-                      // Check if we should handle this as a special case for creating columns
-                      if (isInSingleColumnWithMultipleBlocks && col === 1 && row === 0) {
-                        handleDropInNewColumn(blockId);
-                      } else {
-                        handlePositionBlock(blockId, position);
-                      }
-                    } else if (['text', 'image', 'question', 'graph', 'ai-chat', 'feedback-question'].includes(blockId)) {
-                      // This is a block type, create a new block
-                      handleDropNewBlockType(blockId, position);
-                    }
-                  }}
+                  onDrop={handleDropInCell}
                   isEmpty={blocksInPosition.length === 0}
                 >
                   {blocksInPosition.length === 0 ? (
