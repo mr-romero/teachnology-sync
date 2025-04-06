@@ -139,8 +139,14 @@ const StudentView: React.FC<StudentViewProps> = () => {
     if (sessionData && !sessionLoading && lesson) {
       // Skip session handling if in preview mode
       if (isPreview) {
-        setCurrentSlideIndex(0); // Start at first slide in preview mode
-        return;
+        return;  // Don't update state in preview mode
+      }
+
+      // Handle sync mode
+      if (sessionData.is_synced) {
+        setCurrentSlideIndex(Number(sessionData.current_slide));
+        setAllowedSlides([]);
+        return;  // Exit early for sync mode
       }
 
       // Get stored slide from localStorage first
@@ -153,92 +159,65 @@ const StudentView: React.FC<StudentViewProps> = () => {
           storedPosition = Number(stored);
           // Validate stored position
           if (isNaN(storedPosition) || storedPosition < 0 || storedPosition >= lesson.slides.length) {
-            console.log('Stored position invalid:', storedPosition);
             storedPosition = null;
-          } else {
-            console.log('Found valid stored slide position:', storedPosition);
           }
         } catch (e) {
           console.error('Error parsing stored slide data:', e);
         }
       }
 
-      if (sessionData.is_synced) {
-        // In sync mode, always use teacher's position
-        console.log('Sync mode active, using teacher slide:', sessionData.current_slide);
-        setCurrentSlideIndex(Number(sessionData.current_slide));
-        setAllowedSlides([]);
-      } else {
-        console.log('Non-sync mode active');
+      // Handle paced slides mode
+      if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
+        setAllowedSlides(sessionData.paced_slides);
         
-        if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
-          setAllowedSlides(sessionData.paced_slides);
-          
-          // If we have a valid stored position AND it's in allowed slides, use it
-          if (storedPosition !== null && 
-              storedPosition >= 0 && 
-              storedPosition < lesson.slides.length && 
-              sessionData.paced_slides.includes(storedPosition)) {
-            console.log('Using stored slide position:', storedPosition);
-            setCurrentSlideIndex(storedPosition);
-            // Update the database to match localStorage
-            if (user) {
-              updateStudentSlide(sessionId, user.id, storedPosition);
-            }
-          } else {
-            // Find nearest allowed slide
-            const currentSlide = Number(sessionData.current_slide);
-            let targetSlide = currentSlide;
-
-            // Find the closest allowed slide
-            const nextAllowedSlides = sessionData.paced_slides.filter(index => index >= currentSlide);
-            const prevAllowedSlides = sessionData.paced_slides.filter(index => index < currentSlide);
-            
-            if (nextAllowedSlides.length > 0) {
-              targetSlide = nextAllowedSlides[0];
-            } else if (prevAllowedSlides.length > 0) {
-              targetSlide = prevAllowedSlides[prevAllowedSlides.length - 1];
-            } else if (sessionData.paced_slides.length > 0) {
-              targetSlide = sessionData.paced_slides[0];
-            }
-            
-            console.log('Using calculated paced slide position:', targetSlide);
-            setCurrentSlideIndex(targetSlide);
-            if (user) {
-              updateStudentSlide(sessionId, user.id, targetSlide);
-            }
+        // Use stored position if it's valid and in allowed slides
+        if (storedPosition !== null && sessionData.paced_slides.includes(storedPosition)) {
+          setCurrentSlideIndex(storedPosition);
+          if (user) {
+            updateStudentSlide(sessionId, user.id, storedPosition);
           }
         } else {
-          // Free navigation mode
-          console.log('Free navigation mode');
-          setAllowedSlides([]);
+          // Find nearest allowed slide
+          const currentSlide = Number(sessionData.current_slide);
+          let targetSlide = currentSlide;
+
+          // Find the closest allowed slide
+          const nextAllowedSlides = sessionData.paced_slides.filter(index => index >= currentSlide);
+          const prevAllowedSlides = sessionData.paced_slides.filter(index => index < currentSlide);
           
-          // Use stored position if valid
-          if (storedPosition !== null) {
-            console.log('Using stored slide position:', storedPosition);
-            setCurrentSlideIndex(storedPosition);
-            // Update the database to match localStorage
-            if (user) {
-              updateStudentSlide(sessionId, user.id, storedPosition);
-            }
-          } else {
-            // Only use session's current_slide if we don't have a valid stored position
-            const sessionSlide = Number(sessionData.current_slide);
-            if (!isNaN(sessionSlide) && sessionSlide >= 0 && sessionSlide < lesson.slides.length) {
-              console.log('Using session current slide:', sessionSlide);
-              setCurrentSlideIndex(sessionSlide);
-            } else {
-              console.log('Using default slide position: 0');
-              setCurrentSlideIndex(0);
-            }
+          if (nextAllowedSlides.length > 0) {
+            targetSlide = nextAllowedSlides[0];
+          } else if (prevAllowedSlides.length > 0) {
+            targetSlide = prevAllowedSlides[prevAllowedSlides.length - 1];
+          } else if (sessionData.paced_slides.length > 0) {
+            targetSlide = sessionData.paced_slides[0];
+          }
+          
+          setCurrentSlideIndex(targetSlide);
+          if (user) {
+            updateStudentSlide(sessionId, user.id, targetSlide);
+          }
+        }
+      } else {
+        // Free navigation mode
+        setAllowedSlides([]);
+        
+        if (storedPosition !== null) {
+          setCurrentSlideIndex(storedPosition);
+          if (user) {
+            updateStudentSlide(sessionId, user.id, storedPosition);
+          }
+        } else {
+          // Use session position as fallback
+          setCurrentSlideIndex(Number(sessionData.current_slide));
+          if (user) {
+            updateStudentSlide(sessionId, user.id, Number(sessionData.current_slide));
           }
         }
       }
 
       // Update pause state
-      if (sessionData.is_paused !== undefined) {
-        setIsPaused(!!sessionData.is_paused);
-      }
+      setIsPaused(!!sessionData.is_paused);
     }
   }, [sessionData, sessionLoading, sessionId, lesson, user, isPreview]);
   
@@ -453,7 +432,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
     }
   }, [user]);
 
-  // Add effect to handle preview mode with lessonId
+  // Add effect to handle preview mode with lessonId and slide parameter
   useEffect(() => {
     const loadPreviewLesson = async () => {
       if (isPreview && urlLessonId && !lesson) {
@@ -462,7 +441,12 @@ const StudentView: React.FC<StudentViewProps> = () => {
           const lessonData = await getLessonById(urlLessonId);
           if (lessonData) {
             setLesson(lessonData);
-            setCurrentSlideIndex(0);
+            // Get slide index from URL
+            const slideParam = searchParams.get('slide');
+            const slideIndex = slideParam ? parseInt(slideParam, 10) : 0;
+            // Validate slide index
+            const validIndex = Math.min(Math.max(0, slideIndex), lessonData.slides.length - 1);
+            setCurrentSlideIndex(validIndex);
           } else {
             toast.error('Failed to load lesson for preview');
             navigate('/dashboard');
@@ -478,7 +462,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
     };
 
     loadPreviewLesson();
-  }, [isPreview, urlLessonId, lesson, navigate]);
+  }, [isPreview, urlLessonId, lesson, searchParams, navigate]);
 
   // Update the join session handler to properly initialize the slide position
   const handleJoinSession = async () => {

@@ -556,8 +556,9 @@ const LessonEditor: React.FC = () => {
       try {
         // Save the lesson before navigating to student view
         await saveLesson(lesson);
-        // Navigate to student view with preview mode
-        navigate(`/student/view/${lessonId}?preview=true`);
+        // Navigate to student view with preview mode and current slide index
+        const currentSlideIndex = lesson.slides.findIndex(slide => slide.id === activeSlide);
+        navigate(`/student/view/${lessonId}?preview=true&slide=${currentSlideIndex}`);
       } catch (error) {
         console.error('Error saving lesson before preview:', error);
         toast.error("Failed to save lesson before preview");
