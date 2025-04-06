@@ -22,36 +22,48 @@ interface Message {
   content: string;
 }
 
-// Helper function to preprocess content for proper LaTeX rendering
+// Update the preprocessContent function to handle markdown elements properly
 const preprocessContent = (content: string): string => {
   // Remove JSON blocks from the content
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
   content = content.replace(jsonRegex, '');
 
-  // Handle currency amounts with different formats
+  // Add line breaks before markdown headers and special keywords
   content = content
-    // Currency with spaces and optional decimals
-    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
-    // Currency in ranges or lists
-    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
-    // Currency with operations
-    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
-    // Currency followed by percentage
-    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
-    // Currency with thousands separators
-    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
+    // Ensure headers start on new lines
+    .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
+    // Ensure special keywords start on new lines
+    .replace(/([^\n])(Problem:|Steps:|Hint:|Steps to solve)/g, '$1\n\n$2')
+    // Add line break after headings
+    .replace(/(#{1,6}\s.*?)([^\n])/g, '$1\n$2')
+    // Ensure ordered and unordered lists start on new lines
+    .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
+    .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2');
 
   // Handle LaTeX delimiters
   content = content
-    // Convert standalone $ to inline LaTeX delimiters
-    .replace(/\$\s*([^$\n]+?)\s*\$/g, '\\($1\\)')
-    // Convert $$ to display LaTeX delimiters
-    .replace(/\$\$\s*([^$\n]+?)\s*\$\$/g, '\\[$1\\]')
+    // Convert standalone $ to inline LaTeX delimiters with proper spacing
+    .replace(/([^\s\\])\$/g, '$1 $')
+    .replace(/\$([^\s\\])/g, '$ $1')
+    .replace(/\$\s*([^$\n]+?)\s*\$/g, ' \\($1\\) ')
+    // Convert $$ to inline LaTeX delimiters (no longer force new lines)
+    .replace(/\$\$\s*([^$\n]+?)\s*\$\$/g, ' \\($1\\) ')
     // Fix escaped LaTeX delimiters
     .replace(/\\\\\(/g, '\\(')
-    .replace(/\\\\\)/g, '\\)')
-    .replace(/\\\\\[/g, '\\[')
-    .replace(/\\\\\]/g, '\\]');
+    .replace(/\\\\\)/g, '\\)');
+
+  // Handle currency amounts with different formats
+  content = content
+    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
+    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
+    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
+    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
+    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
+
+  // Convert asterisks to HTML for proper markdown rendering
+  content = content
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
   return content;
 }
@@ -94,24 +106,60 @@ const parseLatexExpressions = (text: string): { text: string, isLatex: boolean }
   return parts;
 };
 
-// Update the MarkdownWithMath component to properly handle markdown
-// and update the markdown styles
+// Update the MarkdownWithMath component to handle block and inline elements properly
 const MarkdownWithMath = ({ content }: { content: string }) => {
   const parts = parseLatexExpressions(content);
   
+  // Helper function to detect if text starts with block-level markdown
+  const isBlockLevel = (text: string): boolean => {
+    const blockPatterns = [
+      /^#{1,6}\s/, // Headers
+      /^\s*[-*+]\s/, // Unordered lists
+      /^\s*\d+\.\s/, // Ordered lists
+      /^\s*>.+/, // Blockquotes
+      /^Problem:/, // Special case for "Problem:" keyword
+      /^Steps:/, // Special case for "Steps:" keyword
+      /^Hint:/, // Special case for "Hint:" keyword
+      /^\s*\n/, // Empty lines
+      /^Steps to solve/, // Special case for step instructions
+    ];
+    return blockPatterns.some(pattern => pattern.test(text.trimStart()));
+  };
+
   return (
-    <div className="prose prose-sm max-w-none">
+    <div className="prose prose-sm max-w-none space-y-2">
       {parts.map((part, index) => 
         part.isLatex ? (
-          <MathDisplay key={index} latex={part.text} className="inline" />
+          <span key={index} className="inline-flex items-center mx-1">
+            <MathDisplay latex={part.text} className="align-baseline" />
+          </span>
         ) : (
           <ReactMarkdown key={index} components={{
-            p: ({node, className, ...props}) => <span className="inline" {...props} />,
-            strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-            em: ({node, ...props}) => <em className="italic" {...props} />,
-            ol: ({node, ...props}) => <ol className="list-decimal list-inside my-2" {...props} />,
-            ul: ({node, ...props}) => <ul className="list-disc list-inside my-2" {...props} />,
-            li: ({node, ...props}) => <li className="ml-2" {...props} />,
+            // Handle block-level elements
+            p: ({node, ...props}) => {
+              const content = (props.children as any)[0] || '';
+              const isBlock = typeof content === 'string' && isBlockLevel(content);
+              return isBlock ? (
+                <div className="block my-2" {...props} />
+              ) : (
+                <span className="inline" {...props} />
+              );
+            },
+            h1: ({node, ...props}) => <h1 className="text-2xl font-bold mt-4 mb-2 block" {...props} />,
+            h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-3 mb-2 block" {...props} />,
+            h3: ({node, ...props}) => <h3 className="text-lg font-bold mt-3 mb-1 block" {...props} />,
+            h4: ({node, ...props}) => <h4 className="text-base font-bold mt-2 mb-1 block" {...props} />,
+            // Lists should always be block
+            ul: ({node, ...props}) => <ul className="list-disc list-inside my-2 block" {...props} />,
+            ol: ({node, ...props}) => <ol className="list-decimal list-inside my-2 block" {...props} />,
+            li: ({node, ...props}) => <li className="ml-2 block" {...props} />,
+            // Inline elements
+            strong: ({node, ...props}) => <strong className="font-semibold inline" {...props} />,
+            em: ({node, ...props}) => <em className="italic inline" {...props} />,
+            // Block quotes
+            blockquote: ({node, ...props}) => (
+              <blockquote className="border-l-2 border-gray-300 pl-4 my-2 block" {...props} />
+            ),
           }}>
             {part.text}
           </ReactMarkdown>
