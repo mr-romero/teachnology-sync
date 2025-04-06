@@ -113,6 +113,40 @@ const LessonEditor: React.FC = () => {
     }
   }, [lessonId, activeSlide]);
 
+  useEffect(() => {
+    if (lessonId && activeSlide) {
+      localStorage.setItem('currentEditorState', JSON.stringify({
+        lessonId,
+        activeSlide,
+        selectedBlockId: selectedBlockId || null,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }, [lessonId, activeSlide, selectedBlockId]);
+
+  // Enhanced state restoration from localStorage
+  useEffect(() => {
+    // Get active slide from localStorage when component mounts
+    const storedData = localStorage.getItem('currentEditorState');
+    if (storedData) {
+      try {
+        const { lessonId: storedLessonId, activeSlide: storedActiveSlide, selectedBlockId } = JSON.parse(storedData);
+        if (storedLessonId === lessonId && lesson?.slides.find(s => s.id === storedActiveSlide)) {
+          setActiveSlide(storedActiveSlide);
+          if (selectedBlockId) {
+            // Only restore block selection if the block still exists
+            const slideWithBlock = lesson.slides.find(s => s.blocks.some(b => b.id === selectedBlockId));
+            if (slideWithBlock) {
+              setSelectedBlockId(selectedBlockId);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error restoring editor state:', error);
+      }
+    }
+  }, [lessonId, lesson]);
+
   const handleLessonTitleChange = async (title: string) => {
     if (lesson) {
       const updatedLesson = {
@@ -838,7 +872,7 @@ const LessonEditor: React.FC = () => {
                   ghost.style.opacity = '0.5';
                   document.body.appendChild(ghost);
                   e.dataTransfer.setDragImage(ghost, 0, 0);
-                  setTimeout(() => document.body.removeChild(ghost), 0);
+                  setTimeout(() => document.body removeChild(ghost), 0);
                 }}
               >
                 <div className="h-8 w-8 flex items-center justify-center rounded-md bg-green-100 text-green-600 mb-2">
@@ -893,7 +927,7 @@ const LessonEditor: React.FC = () => {
                   ghost.style.opacity = '0.5';
                   document.body.appendChild(ghost);
                   e.dataTransfer.setDragImage(ghost, 0, 0);
-                  setTimeout(() => document.body.removeChild(ghost), 0);
+                  setTimeout(() => document.body removeChild(ghost), 0);
                 }}
               >
                 <div className="h-8 w-8 flex items-center justify-center rounded-md bg-indigo-100 text-indigo-600 mb-2">

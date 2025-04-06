@@ -964,6 +964,86 @@ const StudentView: React.FC<StudentViewProps> = () => {
     );
   };
   
+  useEffect(() => {
+    if (!user || !sessionId) return;
+
+    // Only set up the state management if necessary
+    if (isPreview) {
+      // For preview mode, we only need to handle the URL slide parameter once
+      const slideParam = searchParams.get('slide');
+      const slideIndex = slideParam ? parseInt(slideParam, 10) : 0;
+      const validIndex = lesson ? Math.min(Math.max(0, slideIndex), lesson.slides.length - 1) : 0;
+      setCurrentSlideIndex(validIndex);
+      return;
+    }
+
+    // For active sessions, manage slide state
+    const handleSlideState = async () => {
+      if (!sessionData || !lesson) return;
+
+      let targetSlide = currentSlideIndex;
+
+      // Handle sync mode
+      if (sessionData.is_synced) {
+        targetSlide = Number(sessionData.current_slide);
+      } else if (sessionData.paced_slides?.length > 0) {
+        // Handle paced slides mode
+        if (currentSlideIndex === null || !sessionData.paced_slides.includes(currentSlideIndex)) {
+          // Find nearest allowed slide
+          const nextAllowedSlides = sessionData.paced_slides.filter(index => index >= (currentSlideIndex || 0));
+          const prevAllowedSlides = sessionData.paced_slides.filter(index => index < (currentSlideIndex || 0));
+          
+          if (nextAllowedSlides.length > 0) {
+            targetSlide = nextAllowedSlides[0];
+          } else if (prevAllowedSlides.length > 0) {
+            targetSlide = prevAllowedSlides[prevAllowedSlides.length - 1];
+          } else if (sessionData.paced_slides.length > 0) {
+            targetSlide = sessionData.paced_slides[0];
+          }
+        }
+        setAllowedSlides(sessionData.paced_slides);
+      } else {
+        // Free navigation mode - use stored position if available
+        const storedData = localStorage.getItem(`student_session_${sessionId}`);
+        if (storedData) {
+          try {
+            const { currentSlideIndex: stored } = JSON.parse(storedData);
+            if (stored >= 0 && stored < lesson.slides.length) {
+              targetSlide = stored;
+            }
+          } catch (e) {
+            console.error('Error parsing stored slide data:', e);
+          }
+        }
+        setAllowedSlides([]);
+      }
+
+      // Only update if the target slide is different
+      if (targetSlide !== null && targetSlide !== currentSlideIndex) {
+        setCurrentSlideIndex(targetSlide);
+        // Update server state if needed
+        if (!sessionData.is_synced) {
+          await updateStudentSlide(sessionId, user.id, targetSlide);
+        }
+      }
+
+      // Update pause state
+      setIsPaused(!!sessionData.is_paused);
+    };
+
+    handleSlideState();
+  }, [user, sessionId, sessionData, lesson, isPreview, searchParams]);
+
+  // Store slide position when it changes
+  useEffect(() => {
+    if (sessionId && currentSlideIndex !== null && !isPreview) {
+      localStorage.setItem(`student_session_${sessionId}`, JSON.stringify({
+        currentSlideIndex,
+        timestamp: new Date().toISOString()
+      }));
+    }
+  }, [sessionId, currentSlideIndex, isPreview]);
+
   return (
     <div className={isJoined || isPreview ? "h-screen overflow-hidden" : "container mx-auto px-4 py-8"}>
       {(!isJoined && !isPreview) ? renderJoinForm() : renderLessonView()}
