@@ -18,6 +18,7 @@ import {
   getLessonById, 
   saveLesson 
 } from '@/services/lessonService';
+import { analyzeQuestionImage } from '@/services/aiService';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -358,7 +359,7 @@ const LessonEditor: React.FC = () => {
   };
 
   // Handle image drop on feedback-question block
-  const handleImageDropOnFeedbackBlock = (imageUrl: string, imageAlt: string, blockId: string, slideId: string) => {
+  const handleImageDropOnFeedbackBlock = async (imageUrl: string, imageAlt: string, blockId: string, slideId: string) => {
     if (lesson) {
       const currentSlide = lesson.slides.find(slide => slide.id === slideId);
       if (!currentSlide) return;
@@ -369,14 +370,14 @@ const LessonEditor: React.FC = () => {
       const block = currentSlide.blocks[blockIndex];
       if (block.type !== 'feedback-question') return;
       
-      // Update the block with the image
+      // First update the block with the image
       const updatedBlock = {
         ...block,
         imageUrl,
         imageAlt
       };
       
-      // Update the lesson state
+      // Update the lesson state with the image
       const updatedSlides = lesson.slides.map(slide => {
         if (slide.id === slideId) {
           const updatedBlocks = [...slide.blocks];
@@ -395,33 +396,62 @@ const LessonEditor: React.FC = () => {
         updatedAt: new Date().toISOString()
       });
       
-      // Log LLM feedback generation for debugging
+      // Log that image was added
       console.log('Image added to feedback block:', {
         blockId,
         imageUrl,
         slideId
       });
       
-      // Simulate LLM processing
-      setTimeout(() => {
-        const mockLlmOutput = {
-          suggestedQuestion: "What key feature does this image demonstrate?",
-          suggestedOptions: [
-            "Feature A", 
-            "Feature B", 
-            "Feature C", 
-            "Feature D"
-          ],
-          correctAnswer: "Feature B",
-          explanation: "The image clearly shows Feature B which is important because..."
+      try {
+        // Show loading toast
+        toast.loading('Analyzing image and generating question...');
+        
+        // Call the analyze image function from SlideWizard
+        const result = await analyzeQuestionImage(imageUrl, updatedBlock.modelName);
+        
+        if (!result.questionText || !result.options || !result.correctAnswer) {
+          throw new Error('Incomplete analysis results from LLM');
+        }
+        
+        // Update the block with the LLM analysis results
+        const blockWithAnalysis = {
+          ...updatedBlock,
+          questionText: result.questionText,
+          options: result.options,
+          correctAnswer: result.correctAnswer,
+          questionType: 'multiple-choice' as const,
+          optionStyle: result.optionStyle || 'A-D'
         };
         
-        setLlmOutput(JSON.stringify(mockLlmOutput, null, 2));
-        console.log('LLM Output for Image Analysis:', mockLlmOutput);
+        // Update the lesson state with the complete analysis
+        const finalSlides = lesson.slides.map(slide => {
+          if (slide.id === slideId) {
+            const finalBlocks = [...slide.blocks];
+            finalBlocks[blockIndex] = blockWithAnalysis;
+            return {
+              ...slide,
+              blocks: finalBlocks
+            };
+          }
+          return slide;
+        });
         
-        // You would integrate with actual LLM here
-        toast.success('Image added to feedback block');
-      }, 1000);
+        setLesson({
+          ...lesson,
+          slides: finalSlides,
+          updatedAt: new Date().toISOString()
+        });
+        
+        // Log LLM analysis results
+        setLlmOutput(JSON.stringify(result, null, 2));
+        console.log('LLM Output for Image Analysis:', result);
+        
+        toast.success('Question generated from image');
+      } catch (error) {
+        console.error('Error analyzing image:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to analyze image');
+      }
     }
   };
 
