@@ -19,6 +19,7 @@ import {
   saveLesson 
 } from '@/services/lessonService';
 import { analyzeQuestionImage } from '@/services/aiService';
+import { uploadImage } from '@/services/imageService';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -667,18 +668,7 @@ const LessonEditor: React.FC = () => {
               if (e.dataTransfer.files.length > 0) {
                 const file = e.dataTransfer.files[0];
                 if (file.type.startsWith('image/')) {
-                  const reader = new FileReader();
-                  reader.onload = (event) => {
-                    if (event.target?.result) {
-                      handleImageDropOnFeedbackBlock(
-                        event.target.result as string,
-                        file.name,
-                        block.id,
-                        activeSlide
-                      );
-                    }
-                  };
-                  reader.readAsDataURL(file);
+                  handleDroppedFile(file, block.id, activeSlide);
                 }
               }
             }}
@@ -878,6 +868,40 @@ const LessonEditor: React.FC = () => {
       window.removeEventListener('keydown', handleKeyboardShortcuts);
     };
   }, [lesson, activeSlide, copiedSlide]);
+
+  // Move handleDroppedFile inside component
+  const handleDroppedFile = async (file: File, blockId: string, slideId: string) => {
+    if (!user) return;
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image file size must be less than 5MB");
+      return;
+    }
+
+    try {
+      // Show upload loading toast
+      toast.loading('Uploading image...');
+      
+      // Upload to Supabase
+      const result = await uploadImage(file, user.id);
+      
+      if ('error' in result) {
+        throw new Error(result.error);
+      }
+
+      // Generate alt text from filename
+      const suggestedAlt = file.name.split('.')[0].replace(/[_-]/g, ' ');
+      
+      // Process the uploaded image
+      await handleImageDropOnFeedbackBlock(result.url, suggestedAlt, blockId, slideId);
+      
+      toast.success('Image uploaded successfully');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload image');
+    }
+  };
 
   if (loading) {
     return (
