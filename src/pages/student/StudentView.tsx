@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import { LessonSlide } from '@/types/lesson';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
-import { ArrowRight, ArrowLeft, Pause } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Pause, ArrowUpDown } from 'lucide-react';
 import { LockIcon } from 'lucide-react';
 import { 
   joinPresentationSession,
@@ -940,7 +940,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
               <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
             </div>
             
-            <div className="bg-white rounded-lg border p-6">
+            <div className="bg-white rounded-lg border p-6 grid grid-rows-[auto_1fr] gap-4 min-h-[500px]">
               <LessonSlideView 
                 slide={currentSlide} 
                 isStudentView={true}
