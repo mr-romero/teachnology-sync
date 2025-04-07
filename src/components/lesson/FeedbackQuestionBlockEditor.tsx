@@ -34,7 +34,7 @@ import { Slider } from '@/components/ui/slider';
 import FeedbackBlockSplitter from './FeedbackBlockSplitter';
 import SlideWizard from './SlideWizard';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { supabase } from '@/utils/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 
 const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
 
