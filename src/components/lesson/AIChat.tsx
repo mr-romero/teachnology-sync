@@ -381,7 +381,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       {/* Chat messages area */}
       <div className="flex-1 mb-4 overflow-hidden">
         <div 
-          className="h-[400px] overflow-y-auto p-4 border rounded-lg bg-muted/10"
+          className="h-full min-h-[200px] overflow-y-auto p-4 border rounded-lg bg-muted/10"
           ref={messagesEndRef}
         >
           {visibleMessages.length === 0 ? (
