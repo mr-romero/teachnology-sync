@@ -1029,7 +1029,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
       
       <div className="grid grid-cols-2 gap-6">
         {/* Column 1: Image and Question stacked vertically */}
-        <div className="space-y-6">
+        <div className="space-y-6 row-span-2"> {/* Make this span 2 rows */}
           {/* Image */}
           {block.imageUrl && (
             <div className="w-full bg-white rounded-md border shadow-sm">
@@ -1051,7 +1051,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
         </div>
         
         {/* Column 2: Chat feedback at full height */}
-        <div className="h-full flex flex-col">
+        <div className="h-full row-span-2"> {/* Make this span 2 rows as well */}
           {/* AI Feedback chat */}
           <div className="h-full">
             {renderFeedback()}
