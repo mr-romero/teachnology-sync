@@ -35,6 +35,7 @@ import FeedbackBlockSplitter from './FeedbackBlockSplitter';
 import SlideWizard from './SlideWizard';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
+import { getUserSettings } from '@/services/userSettingsService';
 
 const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
 
@@ -58,7 +59,8 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   onDelete,
   previewMode
 }) => {
-  // Add teacher settings state
+  // Add loading state
+  const [isLoading, setIsLoading] = useState(true);
   const [teacherSettings, setTeacherSettings] = useState<{
     default_model?: string;
     openrouter_endpoint?: string;
@@ -67,32 +69,48 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   // Fetch teacher settings on mount
   useEffect(() => {
     const fetchTeacherSettings = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.id) {
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('default_model, openrouter_endpoint')
-          .eq('user_id', user.id)
-          .single();
-
-        if (settings) {
-          setTeacherSettings(settings);
-          // If block doesn't have a model set, use teacher's default
-          if (!block.modelName && settings.default_model) {
-            setModelName(settings.default_model);
-          }
-          // If block doesn't have an endpoint set, use teacher's default
-          if (!block.apiEndpoint && settings.openrouter_endpoint) {
-            setApiEndpoint(settings.openrouter_endpoint);
+      setIsLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) {
+          const settings = await getUserSettings(user.id);
+          if (settings) {
+            setTeacherSettings({
+              default_model: settings.default_model,
+              openrouter_endpoint: settings.openrouter_endpoint
+            });
+            
+            // Update block settings if they're using defaults
+            if (!block.modelName || !block.apiEndpoint) {
+              onUpdate({
+                ...block,
+                modelName: block.modelName || settings.default_model,
+                apiEndpoint: block.apiEndpoint || settings.openrouter_endpoint
+              });
+            }
           }
         }
+      } catch (error) {
+        console.error('Error fetching teacher settings:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchTeacherSettings();
   }, []);
 
-  // Load saved state or use defaults
+  // Update component state when teacher settings change
+  useEffect(() => {
+    if (teacherSettings.default_model && !block.modelName) {
+      setModelName(teacherSettings.default_model);
+    }
+    if (teacherSettings.openrouter_endpoint && !block.apiEndpoint) {
+      setApiEndpoint(teacherSettings.openrouter_endpoint);
+    }
+  }, [teacherSettings]);
+
+  // Load saved state or use defaults, preferring block values over teacher settings
   const loadSavedState = (key: string, defaultValue: any) => {
     try {
       const saved = sessionStorage.getItem(`${STORAGE_KEY_PREFIX}${block.id}_${key}`);
@@ -153,10 +171,10 @@ When responding with mathematical content:
   const [newStarter, setNewStarter] = useState('');
   const [modelSearch, setModelSearch] = useState('');
   const [modelName, setModelName] = useState(() => 
-    loadSavedState('modelName', block.modelName || teacherSettings.default_model || 'mistralai/mistral-small')
+    loadSavedState('modelName', block.modelName || teacherSettings.default_model)
   );
   const [apiEndpoint, setApiEndpoint] = useState(() => 
-    loadSavedState('apiEndpoint', block.apiEndpoint || teacherSettings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions')
+    loadSavedState('apiEndpoint', block.apiEndpoint || teacherSettings.openrouter_endpoint)
   );
   const [repetitionPrevention, setRepetitionPrevention] = useState(() => 
     loadSavedState('repetitionPrevention', block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights.")
@@ -526,6 +544,16 @@ Remember to:
     setImageAlt(result.imageAlt);
     setWizardOpen(false);
   };
+
+  // Show loading state while fetching settings
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="ml-2">Loading settings...</span>
+      </div>
+    );
+  }
 
   return (
     <>
