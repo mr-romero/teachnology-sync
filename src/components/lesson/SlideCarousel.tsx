@@ -43,10 +43,10 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   // Helper function to check if a slide has a marked correct answer
   const hasMarkedCorrectAnswer = (slide: LessonSlide): boolean => {
     return slide.blocks.some(block => 
-      block.type === 'question' && 
-      'correctOption' in block && 
-      block.correctOption !== undefined && 
-      block.correctOption !== null
+      (block.type === 'question' || block.type === 'feedback-question') && 
+      'correctAnswer' in block && 
+      block.correctAnswer !== undefined && 
+      block.correctAnswer !== null
     );
   };
 
@@ -59,7 +59,7 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   const renderMiniSlidePreview = (slide: LessonSlide, index: number) => {
     // Get representative content from the slide
     const title = slide.title || 'Slide ' + (index + 1);
-    const hasQuestion = slide.blocks.some(block => block.type === 'question');
+    const hasQuestion = slide.blocks.some(block => block.type === 'question' || block.type === 'feedback-question');
     const hasImage = slide.blocks.some(block => block.type === 'image');
     const hasText = slide.blocks.some(block => block.type === 'text');
     const hasGraph = slide.blocks.some(block => block.type === 'graph');
