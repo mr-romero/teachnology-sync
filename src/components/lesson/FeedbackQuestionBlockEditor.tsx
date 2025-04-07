@@ -36,6 +36,7 @@ import SlideWizard from './SlideWizard';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserSettings } from '@/services/userSettingsService';
+import { useAuth } from '@/context/AuthContext';
 
 const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
 
@@ -59,12 +60,30 @@ const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = 
   onDelete,
   previewMode
 }) => {
-  // Add loading state
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
   const [teacherSettings, setTeacherSettings] = useState<{
     default_model?: string;
     openrouter_endpoint?: string;
   }>({});
+
+  // Fetch teacher settings on mount
+  useEffect(() => {
+    const fetchTeacherSettings = async () => {
+      if (!user?.id) return;
+      const settings = await getUserSettings(user.id);
+      if (settings) {
+        setTeacherSettings({
+          default_model: settings.default_model,
+          openrouter_endpoint: settings.openrouter_endpoint
+        });
+      }
+    };
+
+    fetchTeacherSettings();
+  }, [user]);
+
+  // Add loading state
+  const [isLoading, setIsLoading] = useState(true);
 
   // Fetch teacher settings on mount
   useEffect(() => {
@@ -378,12 +397,12 @@ When responding with mathematical content:
     }
   }, [block.imageUrl]);
   
-  // Initialize model settings with GPT-4 by default for better image handling
+  // Initialize model settings using teacher's default model
   useEffect(() => {
-    if (!block.modelName) {
+    if (!block.modelName && teacherSettings.default_model) {
       onUpdate({
         ...block,
-        modelName: 'mistralai/mistral-small-3.1-24b-instruct',  // Default to free Mistral model
+        modelName: teacherSettings.default_model,
         feedbackSystemPrompt: `You are a helpful mathematics tutor providing feedback on a student's answer.
 
 ${block.imageUrl ? `When analyzing this problem:
@@ -407,7 +426,7 @@ Remember to:
 - Guide students through their thought process`
       });
     }
-  }, [block.imageUrl]);
+  }, [block.imageUrl, teacherSettings.default_model]);
 
   // Update the block whenever state changes
   useEffect(() => {

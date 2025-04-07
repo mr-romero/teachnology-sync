@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getImageAsBase64 } from "./imageService";
-import { getOpenRouterApiKey, getDefaultModel } from './userSettingsService';
+import { getOpenRouterApiKey, getDefaultModel, getModelSettings } from './userSettingsService';
 
 /**
  * Interface for OpenRouter.ai request parameters
@@ -39,26 +39,34 @@ export const sendLLMRequest = async (
   params: LLMRequestParams
 ): Promise<{ text: string } | { error: string }> => {
   try {
-    const { endpoint, apiKey, model, messages, max_tokens = 1024, temperature = 0.7 } = params;
-    
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
+    // Get user's default settings if no specific model/endpoint provided
+    const { data: { user } } = await supabase.auth.getUser();
+    let modelSettings = {
+      default_model: params.model,
+      openrouter_endpoint: params.endpoint
     };
     
-    // For OpenRouter, add HTTP_REFERER header
-    if (endpoint.includes('openrouter.ai')) {
+    if (user?.id && (!params.model || !params.endpoint)) {
+      modelSettings = await getModelSettings(user.id);
+    }
+
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${params.apiKey}`
+    };
+    
+    if (modelSettings.openrouter_endpoint.includes('openrouter.ai')) {
       headers["HTTP-Referer"] = window.location.origin;
     }
     
-    const response = await fetch(endpoint, {
+    const response = await fetch(modelSettings.openrouter_endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
-        model,
-        messages,
-        max_tokens,
-        temperature
+        model: modelSettings.default_model,
+        messages: params.messages,
+        max_tokens: params.max_tokens || 1024,
+        temperature: params.temperature || 0.7
       }),
     });
 
@@ -72,7 +80,7 @@ export const sendLLMRequest = async (
     let content: string | null = null;
     
     // Handle different response formats
-    if (endpoint.includes('openrouter.ai')) {
+    if (modelSettings.openrouter_endpoint.includes('openrouter.ai')) {
       // Add more robust error handling and logging
       if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
         console.error('Invalid response format from OpenRouter:', data);
@@ -103,7 +111,7 @@ export const sendLLMRequest = async (
       }
       
       console.log('Extracted content from OpenRouter format:', content);
-    } else if (endpoint.includes('openai.com')) {
+    } else if (modelSettings.openrouter_endpoint.includes('openai.com')) {
       if (!data.choices?.[0]?.message?.content) {
         console.error('Invalid OpenAI response format:', data);
         throw new Error('Invalid OpenAI response format');

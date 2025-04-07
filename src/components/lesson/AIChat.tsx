@@ -9,6 +9,8 @@ import { getDefaultModel } from '@/services/userSettingsService';
 import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import MathDisplay from './MathDisplay';
+import { useAuth } from '@/context/AuthContext';
+import { getUserSettings } from '@/services/userSettingsService';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -128,6 +130,7 @@ const AIChat: React.FC<AIChatProps> = ({
   isPreviewMode = false,
   sessionId // Add sessionId to destructuring
 }) => {
+  const { user } = useAuth();
   const [inputValue, setInputValue] = useState('');
   const [visibleMessages, setVisibleMessages] = useState<Message[]>([]);
   const [systemPrompt, setSystemPrompt] = useState<string>('');

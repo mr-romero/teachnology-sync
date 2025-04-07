@@ -16,6 +16,8 @@ import MathDisplay from './MathDisplay';
 import CelebrationOverlay from './CelebrationOverlay';
 import CelebrationConfigDialog from './CelebrationConfigDialog';
 import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings } from '@/services/userSettingsService';
+import { useAuth } from '@/hooks/useAuth';
+import { getUserSettings } from '@/services/userSettingsService';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -194,6 +196,37 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
   studentResponse, // Add this prop
   sessionId // Add sessionId to destructuring
 }) => {
+  const { user } = useAuth();
+  const [teacherSettings, setTeacherSettings] = useState<{
+    default_model?: string;
+    openrouter_endpoint?: string;
+  }>({});
+
+  // Fetch teacher settings on mount
+  useEffect(() => {
+    const fetchTeacherSettings = async () => {
+      if (!user?.id) return;
+      const settings = await getUserSettings(user.id);
+      if (settings) {
+        setTeacherSettings({
+          default_model: settings.default_model,
+          openrouter_endpoint: settings.openrouter_endpoint
+        });
+
+        // If block doesn't have model settings, update it with defaults
+        if (!block.modelName || !block.apiEndpoint) {
+          onAnswerSubmit?.(block.id, {
+            ...block,
+            modelName: block.modelName || settings.default_model,
+            apiEndpoint: block.apiEndpoint || settings.openrouter_endpoint
+          });
+        }
+      }
+    };
+
+    fetchTeacherSettings();
+  }, [user]);
+
   // Add this section at the start of the component to handle visual styles
   const getComponentStyle = () => {
     if (!isGrouped) return "";
@@ -449,8 +482,8 @@ ${imageInfo}`;
       // Ensure sessionId is passed as a string
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'mistralai/mistral-small-3.1-24b-instruct',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        model: block.modelName || teacherSettings?.default_model || 'mistralai/mistral-small-3.1-24b-instruct',
+        endpoint: block.apiEndpoint || teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: block.imageUrl
       }, sessionId?.toString());
 

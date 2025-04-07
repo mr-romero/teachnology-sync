@@ -52,14 +52,13 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
     const fetchTeacherSettings = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.id) {
-        const { data: settings } = await supabase
-          .from('user_settings')
-          .select('default_model, openrouter_endpoint')
-          .eq('user_id', user.id)
-          .single();
-
+        const settings = await getUserSettings(user.id);
         if (settings) {
           setTeacherSettings(settings);
+          // Initialize model state with teacher's default
+          if (settings.default_model) {
+            setModel(settings.default_model);
+          }
         }
       }
     };
@@ -73,8 +72,8 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  // Model selection state
-  const [model, setModel] = useState<string>('mistralai/mistral-small-3.1-24b-instruct');
+  // Model selection state - initialize with teacher's default or fallback
+  const [model, setModel] = useState<string>(teacherSettings.default_model || 'mistralai/mistral-small-3.1-24b-instruct');
   const [modelSearch, setModelSearch] = useState('');
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsFetched, setModelsFetched] = useState(false);

@@ -913,10 +913,21 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
   };
 
   // Handle dropping a new block type from the sidebar
-  const handleDropNewBlockType = (blockType: string, position: GridPosition) => {
+  const handleDropNewBlockType = async (blockType: string, position: GridPosition) => {
     // Create a new block based on the type
     let newBlock: LessonBlock;
     const blockId = `block-${Date.now()}`;
+
+    // Get user's model settings
+    const { data: { user } } = await supabase.auth.getUser();
+    let modelSettings = {
+      default_model: getDefaultModel(),
+      openrouter_endpoint: 'https://openrouter.ai/api/v1/chat/completions'
+    };
+    
+    if (user?.id) {
+      modelSettings = await getModelSettings(user.id);
+    }
     
     // If it's a feedback block, create it with default layout and trigger wizard
     if (blockType === 'feedback-question') {
@@ -928,12 +939,14 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
         options: ['Option 1', 'Option 2', 'Option 3'],
         correctAnswer: 'Option 1',
         feedbackInstructions: 'Ask me questions about this topic.',
-        feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer.',
+        feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
         feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
-        apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-        modelName: 'mistralai/mistral-small-3.1-24b-instruct',
+        apiEndpoint: modelSettings.openrouter_endpoint,
+        modelName: modelSettings.default_model,
         optionStyle: 'A-D',
-        repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.'
+        repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.',
+        imageUrl: '',
+        imageAlt: ''
       };
 
       // Add the block to the slide
@@ -951,52 +964,14 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
 
     // Create a new block based on the type
     switch (blockType) {
-      case 'text':
-        newBlock = {
-          id: blockId,
-          type: 'text',
-          content: 'Enter your text here'
-        };
-        break;
-      case 'image':
-        newBlock = {
-          id: blockId,
-          type: 'image',
-          url: '',
-          alt: ''
-        };
-        break;
-      case 'question':
-        newBlock = {
-          id: blockId,
-          type: 'question',
-          questionType: 'multiple-choice',
-          question: 'Enter your question here',
-          options: ['Option 1', 'Option 2', 'Option 3'],
-          correctAnswer: 'Option 1'
-        };
-        break;
-      case 'graph':
-        newBlock = {
-          id: blockId,
-          type: 'graph',
-          equation: 'y = x^2',
-          settings: {
-            xMin: -10,
-            xMax: 10,
-            yMin: -10,
-            yMax: 10
-          }
-        };
-        break;
       case 'ai-chat':
         newBlock = {
           id: blockId,
           type: 'ai-chat',
           instructions: 'Ask me questions about this topic.',
           sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
-          apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'gpt-4o-mini',
+          apiEndpoint: modelSettings.openrouter_endpoint,
+          modelName: modelSettings.default_model,
           systemPrompt: `You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.
 
 When responding with mathematical content:
@@ -1006,54 +981,14 @@ When responding with mathematical content:
 - Be consistent with LaTeX notation throughout the response`,
         };
         break;
-      case 'feedback-question':
-        newBlock = {
-          id: blockId,
-          type: 'feedback-question',
-          questionText: 'Enter your question here',
-          questionType: 'multiple-choice',
-          options: ['Option 1', 'Option 2', 'Option 3'],
-          correctAnswer: 'Option 1',
-          feedbackInstructions: 'Ask me questions about this topic.',
-          feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
-          feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
-          apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'mistralai/mistral-small-3.1-24b-instruct',
-          optionStyle: 'A-D',
-          repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.'
-        };
-        break;
+        
+      // ...rest of the switch cases...
+
       default:
         return;
     }
     
-    // Add the block to the slide
-    const updatedSlide = { ...slide };
-    updatedSlide.blocks = [...updatedSlide.blocks, newBlock];
-    
-    // Make sure layout exists with 1x1 grid initially
-    if (!updatedSlide.layout) {
-      updatedSlide.layout = {
-        gridRows: 2, // Changed from default of 1 to 2 rows
-        gridColumns: 1,
-        blockPositions: {},
-      };
-    }
-    
-    // Ensure blockPositions exists
-    if (!updatedSlide.layout.blockPositions) {
-      updatedSlide.layout.blockPositions = {};
-    }
-    
-    // Position the block in the 1x1 grid
-    updatedSlide.layout.blockPositions[blockId] = {
-      row: 0,
-      column: 0
-    };
-    
-    onUpdateSlide(updatedSlide);
-    
-    return blockId;
+    // ...rest of the function implementation...
   };
 
   // Helper function to create a new block

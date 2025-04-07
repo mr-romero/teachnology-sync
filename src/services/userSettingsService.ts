@@ -203,7 +203,19 @@ export const ensureUserSettings = async (userId: string) => {
 };
 
 export const getDefaultModel = (): string => {
-  return 'mistralai/mistral-small';
+  return 'mistralai/mistral-small-3.1-24b-instruct';
+};
+
+// Add function to get model settings
+export const getModelSettings = async (userId: string): Promise<{
+  default_model: string;
+  openrouter_endpoint: string;
+}> => {
+  const settings = await getUserSettings(userId);
+  return {
+    default_model: settings?.default_model || getDefaultModel(),
+    openrouter_endpoint: settings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions'
+  };
 };
 
 export const getOpenRouterApiKey = async (userId: string): Promise<string | null> => {
