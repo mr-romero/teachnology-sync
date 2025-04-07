@@ -502,7 +502,7 @@ Your task is to examine the image and extract:
 1. The question text with mathematical expressions properly formatted in LaTeX
 2. The answer choices (if multiple choice) with proper LaTeX formatting
 3. Determine which lettering system is used (A-D or F-J) if present
-4. The correct answer if marked or indicated
+4. Calculate the correct answer based on the question and options provided. Ensure the returned correctAnswer matches one of the provided options exactly, including LaTeX formatting.
 
 Return the result in valid JSON format with these fields:
 {
@@ -519,11 +519,12 @@ Important LaTeX formatting rules:
 - Even simple expressions like x^2 must be wrapped: "Find \\\\(x^2\\\\) when..."
 - Variable references like f(x) should be wrapped: "If \\\\(f(x)\\\\) equals..."
 - Multiple expressions in a sentence need separate wrapping: "If \\\\(x = 5\\\\) and \\\\(y = 3\\\\), find..."
+- Use \\\\mathrm{...} for units (e.g., \\\\mathrm{mm}^3\\\\) instead of \\\\text{...}.
 
 Examples:
 - Question with inline math: "If \\\\(f(x) = 6x^2 - 23x + 21\\\\), find the factors."
 - Answer with display math: "\\\\[f(x) = 3(x - 7)(2x - 1)\\\\]"
-- Multiple choice with LaTeX: ["\\\\(3x + 4\\\\)", "\\\\(3x - 4\\\\)", "\\\\(4x + 3\\\\)", "\\\\(4x - 3\\\\)"]
+- Multiple choice with LaTeX and units: ["\\\\(1150 \\\\mathrm{mm}^3\\\\)", "\\\\(863 \\\\mathrm{mm}^3\\\\)", "\\\\(6902 \\\\mathrm{mm}^3\\\\)", "\\\\(9203 \\\\mathrm{mm}^3\\\\)"]
 
 Return only the JSON object, no additional text or markdown.`;
 
