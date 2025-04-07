@@ -16,7 +16,7 @@ import MathDisplay from './MathDisplay';
 import CelebrationOverlay from './CelebrationOverlay';
 import CelebrationConfigDialog from './CelebrationConfigDialog';
 import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings } from '@/services/userSettingsService';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/context/AuthContext';
 import { getUserSettings } from '@/services/userSettingsService';
 
 interface Message {
