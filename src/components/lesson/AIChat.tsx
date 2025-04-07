@@ -383,6 +383,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         <div 
           className="h-full overflow-y-auto p-4 border rounded-lg bg-muted/10"
           ref={messagesEndRef}
+          style={{ height: 'calc(100% - 300px)' }} // Ensure chatbox height matches image + question block
         >
           {visibleMessages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
