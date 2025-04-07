@@ -480,7 +480,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
     loadPreviewLesson();
   }, [isPreview, urlLessonId, lesson, navigate]);
 
-  // Update the join session handler to properly initialize the slide position
+  // Update the join session handler to handle celebration config
   const handleJoinSession = async () => {
     if (!joinCode.trim() || !user) {
       toast.error('Please enter a valid join code');
@@ -497,7 +497,7 @@ const StudentView: React.FC<StudentViewProps> = () => {
         setLoading(false);
         return;
       }
-      
+
       setSessionId(result.sessionId);
       setPresentationId(result.presentationId);
       
@@ -507,27 +507,26 @@ const StudentView: React.FC<StudentViewProps> = () => {
         .select('current_slide, is_synced')
         .eq('id', result.sessionId)
         .single();
-
-      // Check if user has celebration settings configured
-      const settings = await getCelebrationSettings(user.id);
-      if (!settings) {
-        // Show celebration config immediately after joining
-        setShowCelebrationConfig(true);
-      } else {
-        setCelebrationStyle(settings);
-      }
         
       if (sessionData) {
         // Initialize the current slide from the session state
         setCurrentSlideIndex(Number(sessionData.current_slide));
       }
-      
+
       const lessonData = await getLessonById(result.presentationId);
       
       if (!lessonData) {
         toast.error('Failed to load lesson data');
         setLoading(false);
         return;
+      }
+
+      // Check for celebration settings and show config if needed
+      const settings = await getCelebrationSettings(user.id);
+      if (!settings) {
+        setShowCelebrationConfig(true);
+      } else {
+        setCelebrationStyle(settings);
       }
       
       // When joining, try to use stored position first
@@ -549,18 +548,12 @@ const StudentView: React.FC<StudentViewProps> = () => {
       setSessionId(result.sessionId);
       setJoinCode(joinCode);
       setPresentationId(result.presentationId);
+      setLesson(lessonData);
       setIsJoined(true);
       
       // Update the student's position in the database with either stored or initial position
       await updateStudentSlide(result.sessionId, user.id, initialSlide);
-      
-      setLesson(lessonData);
-      setIsJoined(true);
-      
-      // Update the student's position in the database
-      if (sessionData) {
-        await updateStudentSlide(result.sessionId, user.id, Number(sessionData.current_slide));
-      }
+
     } catch (error) {
       console.error('Error joining session:', error);
       toast.error('An error occurred while joining the session');

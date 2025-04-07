@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { CELEBRATION_PRESETS, CelebrationSettings } from '@/services/userSettingsService';
 import confetti from 'canvas-confetti';
+import { generateSuccessSound, generateChimeSound, generateApplauseSound } from '@/utils/generateSounds';
 
 interface CelebrationOverlayProps {
   show: boolean;
@@ -15,7 +16,6 @@ const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({
   style
 }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout>();
   const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -35,19 +35,28 @@ const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({
   };
 
   // Function to trigger sound effect
-  const playSound = () => {
-    if (!style?.effects?.sound || !audioRef.current) return;
+  const playSound = async () => {
+    if (!style?.effects?.sound) return;
     
-    if (style.type === 'preset') {
-      const preset = CELEBRATION_PRESETS.find(p => p.id === style.preset);
-      audioRef.current.src = `/sounds/${preset?.sound || 'success'}.mp3`;
-    } else {
-      audioRef.current.src = '/sounds/success.mp3';
-    }
-    
-    audioRef.current.play().catch(err => {
+    try {
+      if (style.type === 'preset') {
+        const preset = CELEBRATION_PRESETS.find(p => p.id === style.preset);
+        switch(preset?.sound) {
+          case 'chime':
+            await generateChimeSound();
+            break;
+          case 'applause':
+            await generateApplauseSound();
+            break;
+          default:
+            await generateSuccessSound();
+        }
+      } else {
+        await generateSuccessSound();
+      }
+    } catch (err) {
       console.error('Error playing celebration sound:', err);
-    });
+    }
   };
 
   // Add randomized confetti colors based on theme
@@ -195,9 +204,6 @@ const CelebrationOverlay: React.FC<CelebrationOverlayProps> = ({
         ref={confettiCanvasRef}
         className="fixed inset-0 w-full h-full pointer-events-none z-50"
       />
-      
-      {/* Audio element for sound effects */}
-      <audio ref={audioRef} />
       
       {/* Celebration text */}
       <div className={cn(
