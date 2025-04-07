@@ -379,9 +379,9 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       </div>
       
       {/* Chat messages area */}
-      <div className="flex-1 mb-4 overflow-hidden">
+      <div className="flex-1 mb-4 overflow-hidden relative">
         <div 
-          className="h-full min-h-[200px] overflow-y-auto p-4 border rounded-lg bg-muted/10"
+          className="absolute inset-0 overflow-y-auto p-4 border rounded-lg bg-muted/10"
           ref={messagesEndRef}
         >
           {visibleMessages.length === 0 ? (
@@ -460,7 +460,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       
       {/* Sentence starters */}
       {block.sentenceStarters && block.sentenceStarters.length > 0 && !isAnswered && (
-        <div className="px-4 py-2 border-t flex flex-wrap gap-2">
+        <div className="px-4 py-1 border-t flex flex-wrap gap-1">
           {block.sentenceStarters.map((starter, index) => (
             <Button
               key={index}
@@ -468,7 +468,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
               size="sm"
               onClick={() => handleStarterClick(starter)}
               disabled={isLoading || isPaused}
-              className="text-xs h-7"
+              className="text-xs h-6 px-2"
             >
               {starter}
             </Button>
