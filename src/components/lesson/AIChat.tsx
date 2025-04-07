@@ -133,8 +133,43 @@ const AIChat: React.FC<AIChatProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [showPracticeSimilar, setShowPracticeSimilar] = useState(false);
+  const [teacherSettings, setTeacherSettings] = useState<{
+    default_model?: string;
+    openrouter_endpoint?: string;
+  }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
+  // Fetch teacher settings when component mounts
+  useEffect(() => {
+    const fetchTeacherSettings = async () => {
+      if (sessionId) {
+        try {
+          const { data: sessionData } = await supabase
+            .from('presentation_sessions')
+            .select('user_id')
+            .eq('id', sessionId)
+            .single();
+
+          if (sessionData?.user_id) {
+            const { data: settings } = await supabase
+              .from('user_settings')
+              .select('default_model, openrouter_endpoint')
+              .eq('user_id', sessionData.user_id)
+              .single();
+
+            if (settings) {
+              setTeacherSettings(settings);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching teacher settings:', error);
+        }
+      }
+    };
+
+    fetchTeacherSettings();
+  }, [sessionId]);
+
   // Initialize or update the system prompt when it changes
   useEffect(() => {
     if (block.systemPrompt !== systemPrompt) {
@@ -307,26 +342,23 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
     }
     
     try {
-      // Create the system message with anti-repetition instructions if available
       const enhancedSystemPrompt = block.repetitionPrevention 
         ? `${systemPrompt}\n\n${block.repetitionPrevention}`
         : systemPrompt;
       
-      // Create a clean conversation history for the API request
       const apiMessages: Message[] = [
         { role: 'system', content: enhancedSystemPrompt }
       ];
       
-      // Add recent user and assistant messages for context
       const recentHistory = visibleMessages.slice(-6);
       apiMessages.push(...recentHistory, userMessage);
 
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'openai/gpt-3.5-turbo',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        model: block.modelName || teacherSettings.default_model || 'mistralai/mistral-small',
+        endpoint: block.apiEndpoint || teacherSettings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         temperature: 0.7
-      }, sessionId?.toString()); // Ensure sessionId is a string
+      }, sessionId?.toString());
       
       if (aiResponse) {
         const assistantMessage: Message = { 

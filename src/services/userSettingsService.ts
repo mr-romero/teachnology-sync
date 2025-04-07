@@ -79,6 +79,8 @@ export interface UserSettings {
   user_id: string;
   celebration_settings?: CelebrationSettings;
   openrouter_api_key?: string;
+  default_model?: string;
+  openrouter_endpoint?: string;
   settings?: Record<string, any>;
 }
 
@@ -103,6 +105,8 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
     const defaultSettings = {
       user_id: userId,
       settings: {},
+      default_model: 'mistralai/mistral-small',
+      openrouter_endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       celebration_settings: {
         type: 'default',
         effects: {

@@ -225,15 +225,37 @@ export async function fetchChatCompletion(
   },
   sessionId?: string
 ): Promise<string | null> {
-  const {
-    messages,
-    model = 'mistralai/mistral-small-3.1-24b-instruct:free', // Updated default model
-    temperature = 0.7,
-    endpoint = 'https://openrouter.ai/api/v1/chat/completions',
-    imageUrl
-  } = options;
-
   try {
+    // Get session data to fetch teacher settings if needed
+    let teacherSettings = null;
+    if (sessionId) {
+      const { data: sessionData } = await supabase
+        .from('presentation_sessions')
+        .select('user_id')
+        .eq('id', sessionId)
+        .single();
+
+      if (sessionData?.user_id) {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('default_model, openrouter_endpoint')
+          .eq('user_id', sessionData.user_id)
+          .single();
+
+        if (settings) {
+          teacherSettings = settings;
+        }
+      }
+    }
+
+    const {
+      messages,
+      model = teacherSettings?.default_model || 'mistralai/mistral-small',
+      endpoint = teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
+      temperature = 0.7,
+      imageUrl
+    } = options;
+
     // Get the API key using the getApiKey helper
     const apiKey = await getApiKey(sessionId);
     if (!apiKey) {
