@@ -25,16 +25,23 @@ const Settings = () => {
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
 
+  // Load settings and models when component mounts
   useEffect(() => {
-    const loadSettings = async () => {
+    const initialize = async () => {
       if (!user) return;
       
       try {
+        setLoading(true);
         const settings = await getUserSettings(user.id);
+        console.log('Loaded settings:', settings);
+        
         if (settings) {
           setOpenRouterKey(settings.openrouter_api_key || '');
-          setDefaultModel(settings.default_model || 'mistralai/mistral-small');
+          setDefaultModel(settings.default_model || 'mistralai/mistral-small-3.1-24b-instruct');
           setOpenrouterEndpoint(settings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions');
+          
+          // Load models after setting the API key
+          await loadAvailableModels();
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -44,7 +51,7 @@ const Settings = () => {
       }
     };
 
-    loadSettings();
+    initialize();
   }, [user]);
 
   const loadAvailableModels = async () => {

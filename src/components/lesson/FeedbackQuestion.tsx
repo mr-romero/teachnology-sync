@@ -472,6 +472,10 @@ ${imageInfo}`;
         : '';
         
       const systemPromptWithPrevention = enhancedSystemPrompt + repetitionPrevention;
+
+      // Get user's default model
+      const { data: { user } } = await supabase.auth.getUser();
+      const defaultModel = user?.id ? await getDefaultModel(user.id) : await getDefaultModel();
       
       // Include full conversation history for context
       const apiMessages: Message[] = [
@@ -479,10 +483,9 @@ ${imageInfo}`;
         ...updatedMessages
       ];
       
-      // Ensure sessionId is passed as a string
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || teacherSettings?.default_model || 'mistralai/mistral-small-3.1-24b-instruct',
+        model: block.modelName || teacherSettings?.default_model || defaultModel,
         endpoint: block.apiEndpoint || teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: block.imageUrl
       }, sessionId?.toString());
@@ -516,13 +519,17 @@ ${imageInfo}`;
       setIsLoading(true);
       setError(null);
       setHasAnswered(true); // Set this before generating feedback
+
+      // Get user's default model
+      const { data: { user } } = await supabase.auth.getUser();
+      const defaultModel = user?.id ? await getDefaultModel(user.id) : await getDefaultModel();
       
       // Create the messages array with proper typing
       const messages: Message[] = [
         {
-          role: 'system' as const,
+          role: 'system',
           content: block.feedbackSystemPrompt || `You are a helpful AI tutor providing feedback on student answers.
-Model: mistralai/mistral-small-3.1-24b-instruct`
+Model: ${defaultModel}`
         }
       ];
       
@@ -549,7 +556,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
       
       const feedbackContent = await fetchChatCompletion({
         messages,
-        model: block.modelName || teacherSettings?.default_model || 'mistralai/mistral-small',
+        model: block.modelName || teacherSettings?.default_model || defaultModel,
         endpoint: block.apiEndpoint || teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: block.imageUrl
       }, sessionId?.toString());

@@ -105,7 +105,7 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
     const defaultSettings = {
       user_id: userId,
       settings: {},
-      default_model: getDefaultModel(),
+      default_model: await getDefaultModel(),
       openrouter_endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       celebration_settings: {
         type: 'default',
@@ -202,8 +202,18 @@ export const ensureUserSettings = async (userId: string) => {
   }
 };
 
-export const getDefaultModel = (): string => {
-  return 'mistralai/mistral-small-3.1-24b-instruct';
+export const getDefaultModel = async (userId?: string): Promise<string> => {
+  if (!userId) {
+    return 'mistralai/mistral-small-3.1-24b-instruct';
+  }
+
+  try {
+    const settings = await getUserSettings(userId);
+    return settings?.default_model || 'mistralai/mistral-small-3.1-24b-instruct';
+  } catch (error) {
+    console.error('Error getting default model:', error);
+    return 'mistralai/mistral-small-3.1-24b-instruct';
+  }
 };
 
 // Add function to get model settings
@@ -213,7 +223,7 @@ export const getModelSettings = async (userId: string): Promise<{
 }> => {
   const settings = await getUserSettings(userId);
   return {
-    default_model: settings?.default_model || getDefaultModel(),
+    default_model: settings?.default_model || await getDefaultModel(),
     openrouter_endpoint: settings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions'
   };
 };

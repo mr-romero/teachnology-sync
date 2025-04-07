@@ -207,6 +207,10 @@ const AIChat: React.FC<AIChatProps> = ({
     setError(null);
     
     try {
+      // Get user's model settings
+      const { data: { user } } = await supabase.auth.getUser();
+      const defaultModel = user?.id ? await getDefaultModel(user.id) : await getDefaultModel();
+
       const feedbackPrompt = `You are a helpful mathematics tutor providing feedback on a student's answer.
 
 Question Context:
@@ -242,7 +246,7 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
       
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: getDefaultModel(),
+        model: defaultModel,
         endpoint: 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl  // Pass the image URL to the API
       }, sessionId?.toString()); // Ensure sessionId is a string
@@ -273,6 +277,10 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
     setError(null);
     
     try {
+      // Get user's default model
+      const { data: { user } } = await supabase.auth.getUser();
+      const defaultModel = user?.id ? await getDefaultModel(user.id) : await getDefaultModel();
+
       const similarProblemPrompt = `
 Create a new math practice problem similar to what the student just worked on.
 
@@ -309,7 +317,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: getDefaultModel(),
+        model: block.modelName || defaultModel,
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl // Pass the image URL for context
       }, sessionId?.toString()); // Ensure sessionId is a string
@@ -347,6 +355,10 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
     }
     
     try {
+      // Get user's model settings
+      const { data: { user } } = await supabase.auth.getUser();
+      const defaultModel = user?.id ? await getDefaultModel(user.id) : await getDefaultModel();
+      
       const enhancedSystemPrompt = block.repetitionPrevention 
         ? `${systemPrompt}\n\n${block.repetitionPrevention}`
         : systemPrompt;
@@ -360,7 +372,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
 
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || teacherSettings.default_model || getDefaultModel(),
+        model: block.modelName || teacherSettings.default_model || defaultModel,
         endpoint: block.apiEndpoint || teacherSettings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         temperature: 0.7
       }, sessionId?.toString());

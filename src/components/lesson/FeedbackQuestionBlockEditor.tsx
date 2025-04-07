@@ -35,7 +35,7 @@ import FeedbackBlockSplitter from './FeedbackBlockSplitter';
 import SlideWizard from './SlideWizard';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
-import { getUserSettings } from '@/services/userSettingsService';
+import { getUserSettings, getDefaultModel } from '@/services/userSettingsService';
 import { useAuth } from '@/context/AuthContext';
 
 const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
@@ -396,14 +396,16 @@ When responding with mathematical content:
       });
     }
   }, [block.imageUrl]);
-  
-  // Initialize model settings using teacher's default model
+
+  // Initialize block settings with default model
   useEffect(() => {
-    if (!block.modelName && teacherSettings.default_model) {
-      onUpdate({
-        ...block,
-        modelName: teacherSettings.default_model,
-        feedbackSystemPrompt: `You are a helpful mathematics tutor providing feedback on a student's answer.
+    const initializeBlockSettings = async () => {
+      if (!block.modelName && user?.id) {
+        const defaultModel = await getDefaultModel(user.id);
+        onUpdate({
+          ...block,
+          modelName: defaultModel,
+          feedbackSystemPrompt: `You are a helpful mathematics tutor providing feedback on a student's answer.
 
 ${block.imageUrl ? `When analyzing this problem:
 - The question includes a visual/mathematical image that is essential for understanding
@@ -424,9 +426,12 @@ Remember to:
 - Use clear mathematical notation
 - Reference visual elements when available
 - Guide students through their thought process`
-      });
-    }
-  }, [block.imageUrl, teacherSettings.default_model]);
+        });
+      }
+    };
+
+    initializeBlockSettings();
+  }, [block.imageUrl, user?.id]);
 
   // Update the block whenever state changes
   useEffect(() => {
