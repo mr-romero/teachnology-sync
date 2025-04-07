@@ -1,3 +1,4 @@
+// Direct sound playback functions
 export const generateSuccessSound = async () => {
   const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
   const oscillator = audioContext.createOscillator();
@@ -76,20 +77,20 @@ export async function generateCelebrationSounds() {
   const audioContext = new AudioContext();
 
   // Generate success sound
-  const successSound = generateSuccessSound(audioContext);
+  const successSound = createSuccessBuffer(audioContext);
   await saveSound(successSound, 'success');
 
   // Generate chime sound
-  const chimeSound = generateChimeSound(audioContext);
+  const chimeSound = createChimeBuffer(audioContext);
   await saveSound(chimeSound, 'chime');
 
   // Generate applause sound
-  const applauseSound = generateApplauseSound(audioContext);
+  const applauseSound = createApplauseBuffer(audioContext);
   await saveSound(applauseSound, 'applause');
 }
 
-// Helper function to generate a bright success sound
-function generateSuccessSound(ctx: AudioContext): AudioBuffer {
+// Helper function to generate a bright success sound buffer
+function createSuccessBuffer(ctx: AudioContext): AudioBuffer {
   const duration = 0.6;
   const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
   const channelData = buffer.getChannelData(0);
@@ -106,8 +107,8 @@ function generateSuccessSound(ctx: AudioContext): AudioBuffer {
   return buffer;
 }
 
-// Helper function to generate a gentle chime sound
-function generateChimeSound(ctx: AudioContext): AudioBuffer {
+// Helper function to generate a gentle chime sound buffer
+function createChimeBuffer(ctx: AudioContext): AudioBuffer {
   const duration = 1.0;
   const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
   const channelData = buffer.getChannelData(0);
@@ -126,8 +127,8 @@ function generateChimeSound(ctx: AudioContext): AudioBuffer {
   return buffer;
 }
 
-// Helper function to generate a crowd applause sound
-function generateApplauseSound(ctx: AudioContext): AudioBuffer {
+// Helper function to generate a crowd applause sound buffer
+function createApplauseBuffer(ctx: AudioContext): AudioBuffer {
   const duration = 1.5;
   const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
   const channelData = buffer.getChannelData(0);
