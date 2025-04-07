@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { LessonSlide, LessonBlock, GridPosition, GridSpan, FeedbackQuestionBlock } from '@/types/lesson';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/context/AuthContext'; // Added
+import { uploadImage } from '@/services/imageService'; // Added
+import { analyzeQuestionImage } from '@/services/aiService'; // Added
 import { toast } from '@/components/ui/sonner';
 import { 
   Trash, 
@@ -586,6 +589,7 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [directEditingBlock, setDirectEditingBlock] = useState<string | null>(null);
+  const { user } = useAuth(); // Added
   
   // Get grid size from slide layout or default to 1x1
   const gridSize = {
@@ -1313,30 +1317,105 @@ When responding with mathematical content:
     };
   }, [slide, onUpdateSlide]);
 
+  // New function to handle image drop specifically on feedback blocks
+  const handleImageDropOnFeedbackBlock = async (file: File, blockId: string, position: GridPosition) => {
+    if (!user) {
+      toast.error("You must be logged in to upload images.");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image file size must be less than 5MB");
+      return;
+    }
+
+    const loadingToastId = toast.loading('Uploading and analyzing image...');
+
+    try {
+      // Upload to Supabase
+      const uploadResult = await uploadImage(file, user.id);
+      
+      if ('error' in uploadResult) {
+        throw new Error(uploadResult.error);
+      }
+
+      // Generate alt text from filename
+      const suggestedAlt = file.name.split('.')[0].replace(/[_-]/g, ' ');
+      
+      // Find the target block
+      const targetBlock = slide.blocks.find(b => b.id === blockId);
+      if (!targetBlock || targetBlock.type !== 'feedback-question') {
+        throw new Error("Target feedback block not found.");
+      }
+
+      // Call the analyze image function
+      const analysisResult = await analyzeQuestionImage(uploadResult.url, targetBlock.modelName);
+      
+      if (!analysisResult.questionText || !analysisResult.options || !analysisResult.correctAnswer) {
+        throw new Error('Incomplete analysis results from LLM');
+      }
+      
+      // Update the block with the image and analysis results
+      const updatedBlock: FeedbackQuestionBlock = {
+        ...targetBlock,
+        imageUrl: uploadResult.url,
+        imageAlt: suggestedAlt, // Use generated alt text
+        questionText: analysisResult.questionText,
+        options: analysisResult.options,
+        correctAnswer: analysisResult.correctAnswer,
+        questionType: 'multiple-choice', // Ensure type is set
+        optionStyle: analysisResult.optionStyle || 'A-D' // Use analyzed or default style
+      };
+      
+      // Update the lesson state
+      const updatedSlide = {
+        ...slide,
+        blocks: slide.blocks.map(b => b.id === blockId ? updatedBlock : b)
+      };
+      
+      onUpdateSlide(updatedSlide);
+      
+      toast.success('Image processed and question generated!', { id: loadingToastId });
+
+    } catch (error) {
+      console.error('Error processing dropped image:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to process image', { id: loadingToastId });
+    }
+  };
+
   // Update drop handling in the DroppableCell component
   const handleDropInCell = (blockId: string, position: GridPosition, dataTransfer?: DataTransfer) => {
-    // Check if this is an image being dropped on a feedback block
+    // Check if this is an image being dropped
     if (dataTransfer?.items?.[0]?.type.startsWith('image/')) {
-      const existingBlock = slide.blocks.find(block => {
+      // Find if there's an existing feedback block in this cell
+      const existingFeedbackBlock = slide.blocks.find(block => {
         const blockPos = slide.layout?.blockPositions?.[block.id];
         return block.type === 'feedback-question' && 
-          blockPos?.row === position.row && 
-          blockPos?.column === position.column;
+               blockPos?.row === position.row && 
+               blockPos?.column === position.column;
       });
 
-      if (existingBlock && existingBlock.type === 'feedback-question') {
-        // Let the wizard handle the image drop
-        if (window.showBlockSettings) {
-          // Use setTimeout to ensure the drop event finishes first
-          setTimeout(() => {
-            window.showBlockSettings(existingBlock.id);
-          }, 100);
+      // If an image is dropped onto an existing feedback block, process it directly
+      if (existingFeedbackBlock && existingFeedbackBlock.type === 'feedback-question') {
+        const file = dataTransfer.files[0];
+        if (file) {
+          handleImageDropOnFeedbackBlock(file, existingFeedbackBlock.id, position);
+          return; // Stop further processing for this drop event
         }
-        return;
+      }
+      // If dropped on an empty cell or a non-feedback block, do nothing with the image for now
+      // (or potentially create a new image block in the future)
+      // For now, we just prevent the default browser behavior by returning early if it was an image drop
+      // unless it was handled above.
+      // This prevents the browser from trying to navigate to the image file.
+      if (dataTransfer?.files?.[0]) {
+         console.log("Image dropped on non-feedback block or empty cell, ignoring for now.");
+         return; 
       }
     }
 
-    // Handle regular block drops
+    // Handle regular block drops (moving existing blocks or dropping new types from sidebar)
     if (blockId.startsWith('block-')) {
       if (isInSingleColumnWithMultipleBlocks && position.column === 1) {
         handleDropInNewColumn(blockId);
