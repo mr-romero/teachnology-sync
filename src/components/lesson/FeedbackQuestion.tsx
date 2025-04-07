@@ -1116,9 +1116,9 @@ Image description: ${block.imageAlt || 'No description provided'}`
     )}>
       {renderGroupBadge()}
       
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-6 h-full">
         {/* Column 1: Image and Question stacked vertically */}
-        <div className="space-y-6 row-span-2"> {/* Make this span 2 rows */}
+        <div className="space-y-6 h-full"> {/* Remove row-span-2 */}
           {/* Image */}
           {block.imageUrl && (
             <div className="w-full bg-white rounded-md border shadow-sm">
@@ -1139,8 +1139,8 @@ Image description: ${block.imageAlt || 'No description provided'}`
           {renderQuestion()}
         </div>
         
-        {/* Column 2: Chat feedback at full height */}
-        <div className="h-full row-span-2"> {/* Make this span 2 rows as well */}
+        {/* Column 2: Chat feedback */}
+        <div className="h-full"> {/* Remove row-span-2 */}
           {/* AI Feedback chat */}
           <div className="h-full">
             {renderFeedback()}

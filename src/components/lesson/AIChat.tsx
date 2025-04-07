@@ -413,7 +413,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
   return (
     <div className="flex flex-col h-full">
       {/* Instructions section */}
-      <div className="p-3 border-b bg-muted/20">
+      <div className="p-3 border-b bg-muted/20 flex-shrink-0">
         <div className="flex items-start gap-2">
           <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div>
@@ -428,11 +428,11 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       </div>
       
       {/* Chat messages area */}
-      <div className="flex-1 overflow-hidden h-[600px]"> {/* Increased height */}
-        <ScrollArea className="h-full">
+      <div className="flex-1 relative overflow-hidden"> {/* Changed to use relative positioning */}
+        <ScrollArea className="absolute inset-0"> {/* Position ScrollArea absolutely within the container */}
           <div className="p-4">
             {visibleMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[200px]">
                 <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
                 {isPreviewMode && questionContext ? (
                   <>
