@@ -25,7 +25,7 @@ interface Message {
   content: string;
 }
 
-// Combine both approaches for preprocessing content
+// Helper function to preprocess content
 const preprocessContent = (content: string): string => {
   // Remove JSON blocks from the content
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
@@ -33,13 +33,9 @@ const preprocessContent = (content: string): string => {
 
   // Add line breaks before markdown headers and special keywords
   content = content
-    // Ensure headers start on new lines
     .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
-    // Ensure special keywords start on new lines
     .replace(/([^\n])(Problem:|Steps:|Hint:|Steps to solve)/g, '$1\n\n$2')
-    // Add line break after headings
     .replace(/(#{1,6}\s.*?)([^\n])/g, '$1\n$2')
-    // Ensure ordered and unordered lists start on new lines
     .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
     .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2');
 
@@ -51,20 +47,25 @@ const preprocessContent = (content: string): string => {
     .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
     .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
 
-  // Handle LaTeX delimiters
+  // Handle LaTeX delimiters while preserving spaces
   content = content
-    // Convert standalone $ to inline LaTeX delimiters with proper spacing
-    .replace(/([^\s\\])\$/g, '$1 $')
-    .replace(/\$([^\s\\])/g, '$ $1')
-    .replace(/\$\s*([^$\n]+?)\s*\$/g, ' \\($1\\) ')
-    // Convert $$ to inline LaTeX delimiters
-    .replace(/\$\$\s*([^$\n]+?)\s*\$\$/g, ' \\($1\\) ')
+    // First replace inline math with temporary markers
+    .replace(/\$([^\n$]+?)\$/g, (_, math) => {
+      // Preserve spaces around the math content
+      const trimmedMath = math.trim();
+      const leadingSpace = math.startsWith(' ') ? ' ' : '';
+      const trailingSpace = math.endsWith(' ') ? ' ' : '';
+      return `${leadingSpace}\\(${trimmedMath}\\)${trailingSpace}`;
+    })
+    // Then handle display math while preserving line breaks
+    .replace(/\$\$([^\n$]+?)\$\$/g, (_, math) => {
+      const trimmedMath = math.trim();
+      return `\n\\[${trimmedMath}\\]\n`;
+    })
     // Fix escaped LaTeX delimiters
     .replace(/\\\\\(/g, '\\(')
     .replace(/\\\\\)/g, '\\)');
 
-  // Keep markdown tags intact instead of converting to HTML
-  // The ReactMarkdown component will handle these properly
   return content;
 }
 

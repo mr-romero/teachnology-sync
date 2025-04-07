@@ -19,15 +19,46 @@ interface Message {
 
 // Helper function to preprocess content for proper LaTeX rendering
 const preprocessContent = (content: string): string => {
-  // Preserve currency symbols by escaping dollar signs intended as currency
-  // This regex looks for dollar signs that appear to be used as currency
-  return content
-    // Handle currency notation: $X.XX (ensure it's not interpreted as LaTeX)
-    .replace(/\$(\d+(\.\d+)?)/g, '\\$$1')
-    // Convert standard LaTeX dollar delimiters to explicit \(...\) notation
-    // This makes the delimiters more explicit and less prone to misinterpretation
-    .replace(/\$\$(.*?)\$\$/g, '\\[$1\\]')
-    .replace(/\$(.*?)\$/g, '\\($1\\)');
+  // Remove any JSON blocks that might be in the content
+  const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
+  content = content.replace(jsonRegex, '');
+
+  // Add line breaks for markdown formatting
+  content = content
+    .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
+    .replace(/([^\n])(Problem:|Steps:|Hint:|Steps to solve)/g, '$1\n\n$2')
+    .replace(/(#{1,6}\s.*?)([^\n])/g, '$1\n$2')
+    .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
+    .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2');
+
+  // Handle currency amounts with different formats
+  content = content
+    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
+    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
+    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
+    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
+    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
+
+  // Handle LaTeX delimiters while preserving spaces
+  content = content
+    // First replace inline math with temporary markers
+    .replace(/\$([^\n$]+?)\$/g, (_, math) => {
+      // Preserve spaces around the math content
+      const trimmedMath = math.trim();
+      const leadingSpace = math.startsWith(' ') ? ' ' : '';
+      const trailingSpace = math.endsWith(' ') ? ' ' : '';
+      return `${leadingSpace}\\(${trimmedMath}\\)${trailingSpace}`;
+    })
+    // Then handle display math while preserving line breaks
+    .replace(/\$\$([^\n$]+?)\$\$/g, (_, math) => {
+      const trimmedMath = math.trim();
+      return `\n\\[${trimmedMath}\\]\n`;
+    })
+    // Fix escaped LaTeX delimiters
+    .replace(/\\\\\(/g, '\\(')
+    .replace(/\\\\\)/g, '\\)');
+
+  return content;
 };
 
 // Helper function to parse latex expressions from markdown
