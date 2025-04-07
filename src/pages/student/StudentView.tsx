@@ -507,6 +507,15 @@ const StudentView: React.FC<StudentViewProps> = () => {
         .select('current_slide, is_synced')
         .eq('id', result.sessionId)
         .single();
+
+      // Check if user has celebration settings configured
+      const settings = await getCelebrationSettings(user.id);
+      if (!settings) {
+        // Show celebration config immediately after joining
+        setShowCelebrationConfig(true);
+      } else {
+        setCelebrationStyle(settings);
+      }
         
       if (sessionData) {
         // Initialize the current slide from the session state
