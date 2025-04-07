@@ -428,8 +428,8 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       </div>
       
       {/* Chat messages area */}
-      <div className="flex-1 relative overflow-hidden"> {/* Changed to use relative positioning */}
-        <ScrollArea className="absolute inset-0"> {/* Position ScrollArea absolutely within the container */}
+      <div className="flex-1 min-h-0"> {/* Add min-h-0 to enable proper flex behavior */}
+        <ScrollArea className="h-full"> {/* Use h-full instead of absolute positioning */}
           <div className="p-4">
             {visibleMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[200px]">

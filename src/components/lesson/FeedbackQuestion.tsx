@@ -943,63 +943,65 @@ Image description: ${block.imageAlt || 'No description provided'}`
         </div>
 
         {/* Chat messages area with scrolling */}
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
-            {visibleMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[400px]">
-                <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
-                {hasAnswered ? (
-                  <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>
-                ) : (
-                  <p className="text-sm mb-1">Answer the question to get feedback</p>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {visibleMessages.map((message, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
+        <div className="flex-1 min-h-0"> {/* Add min-h-0 to enable proper flex behavior */}
+          <ScrollArea className="h-full"> {/* Use h-full instead of absolute positioning */}
+            <div className="p-4 space-y-4">
+              {visibleMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[200px]">
+                  <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
+                  {hasAnswered ? (
+                    <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>
+                  ) : (
+                    <p className="text-sm mb-1">Answer the question to get feedback</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {visibleMessages.map((message, index) => (
                     <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}
+                      key={index}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      {message.role === 'assistant' ? (
-                        <div className="text-sm markdown-content">
-                          <MarkdownWithMath content={preprocessContent(message.content)} />
-                        </div>
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                      <div className="flex items-center">
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        <span className="text-sm">Thinking...</span>
+                      <div
+                        className={`max-w-[80%] rounded-lg p-3 ${
+                          message.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}
+                      >
+                        {message.role === 'assistant' ? (
+                          <div className="text-sm markdown-content">
+                            <MarkdownWithMath content={preprocessContent(message.content)} />
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        )}
                       </div>
                     </div>
-                  </div>
-                )}
-                {error && (
-                  <div className="flex justify-center">
-                    <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
-                      {error}
+                  ))}
+                  {isLoading && (
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] rounded-lg p-3 bg-muted">
+                        <div className="flex items-center">
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          <span className="text-sm">Thinking...</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+                  )}
+                  {error && (
+                    <div className="flex justify-center">
+                      <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
+                        {error}
+                      </div>
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
 
         {/* Input area */}
         <div className="p-3 border-t flex-shrink-0">
