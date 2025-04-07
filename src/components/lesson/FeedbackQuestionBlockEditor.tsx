@@ -34,6 +34,7 @@ import { Slider } from '@/components/ui/slider';
 import FeedbackBlockSplitter from './FeedbackBlockSplitter';
 import SlideWizard from './SlideWizard';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { supabase } from '@/utils/supabaseClient';
 
 const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
 
@@ -54,8 +55,43 @@ interface ModelOption {
 const FeedbackQuestionBlockEditor: React.FC<FeedbackQuestionBlockEditorProps> = ({
   block,
   onUpdate,
-  onDelete
-}): JSX.Element => {  // Add explicit return type
+  onDelete,
+  previewMode
+}) => {
+  // Add teacher settings state
+  const [teacherSettings, setTeacherSettings] = useState<{
+    default_model?: string;
+    openrouter_endpoint?: string;
+  }>({});
+
+  // Fetch teacher settings on mount
+  useEffect(() => {
+    const fetchTeacherSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('default_model, openrouter_endpoint')
+          .eq('user_id', user.id)
+          .single();
+
+        if (settings) {
+          setTeacherSettings(settings);
+          // If block doesn't have a model set, use teacher's default
+          if (!block.modelName && settings.default_model) {
+            setModelName(settings.default_model);
+          }
+          // If block doesn't have an endpoint set, use teacher's default
+          if (!block.apiEndpoint && settings.openrouter_endpoint) {
+            setApiEndpoint(settings.openrouter_endpoint);
+          }
+        }
+      }
+    };
+
+    fetchTeacherSettings();
+  }, []);
+
   // Load saved state or use defaults
   const loadSavedState = (key: string, defaultValue: any) => {
     try {
@@ -115,12 +151,12 @@ When responding with mathematical content:
     loadSavedState('feedbackSentenceStarters', block.feedbackSentenceStarters || ['Can you explain...?', 'Why is that...?', 'What about...?'])
   );
   const [newStarter, setNewStarter] = useState('');
-  const [apiEndpoint, setApiEndpoint] = useState(() => 
-    loadSavedState('apiEndpoint', block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions')
-  );
   const [modelSearch, setModelSearch] = useState('');
   const [modelName, setModelName] = useState(() => 
-    loadSavedState('modelName', block.modelName || 'mistralai/mistral-small-3.1-24b-instruct:free')
+    loadSavedState('modelName', block.modelName || teacherSettings.default_model || 'mistralai/mistral-small')
+  );
+  const [apiEndpoint, setApiEndpoint] = useState(() => 
+    loadSavedState('apiEndpoint', block.apiEndpoint || teacherSettings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions')
   );
   const [repetitionPrevention, setRepetitionPrevention] = useState(() => 
     loadSavedState('repetitionPrevention', block.repetitionPrevention || "Provide concise feedback on the student's answer. Explain why it is correct or incorrect and provide further insights.")

@@ -516,8 +516,8 @@ Image description: ${block.imageAlt || 'No description provided'}`
       
       const feedbackContent = await fetchChatCompletion({
         messages,
-        model: block.modelName || 'mistralai/mistral-small-3.1-24b-instruct:free',
-        endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        model: block.modelName || teacherSettings?.default_model || 'mistralai/mistral-small',
+        endpoint: block.apiEndpoint || teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: block.imageUrl
       }, sessionId?.toString());
 

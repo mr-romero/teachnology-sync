@@ -40,11 +40,33 @@ interface ModelOption {
   pricing?: any;
 }
 
-const SlideWizard: React.FC<SlideWizardProps> = ({ 
-  onComplete, 
-  onCancel,
-  model: initialModel = 'mistralai/mistral-small-3.1-24b-instruct:free' // Default to free Mistral model
-}) => {
+const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
+  // Add teacher settings state
+  const [teacherSettings, setTeacherSettings] = useState<{
+    default_model?: string;
+    openrouter_endpoint?: string;
+  }>({});
+
+  // Fetch teacher settings on mount
+  useEffect(() => {
+    const fetchTeacherSettings = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        const { data: settings } = await supabase
+          .from('user_settings')
+          .select('default_model, openrouter_endpoint')
+          .eq('user_id', user.id)
+          .single();
+
+        if (settings) {
+          setTeacherSettings(settings);
+        }
+      }
+    };
+
+    fetchTeacherSettings();
+  }, []);
+
   const [imageUrl, setImageUrl] = useState('');
   const [imageAlt, setImageAlt] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -96,7 +118,11 @@ const SlideWizard: React.FC<SlideWizardProps> = ({
     setError(null);
 
     try {
-      const result = await analyzeQuestionImage(url, model); // Pass model to analyzeQuestionImage
+      const result = await analyzeQuestionImage(
+        url, 
+        teacherSettings.default_model || 'mistralai/mistral-small-3.1-24b-instruct:free', // Use teacher's model settings
+        teacherSettings.openrouter_endpoint
+      );
       
       // Validate the result
       if (!result.questionText) {
