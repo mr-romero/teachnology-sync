@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Send, Sparkles, Loader2, Info, ChevronRight } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { fetchChatCompletion } from '@/services/aiService';
+import { getDefaultModel } from '@/services/userSettingsService';
+import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import MathDisplay from './MathDisplay';
 
@@ -237,7 +239,7 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
       
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: 'mistralai/mistral-small-3.1-24b-instruct:free',
+        model: getDefaultModel(),
         endpoint: 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl  // Pass the image URL to the API
       }, sessionId?.toString()); // Ensure sessionId is a string
@@ -304,7 +306,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: 'mistralai/mistral-small-3.1-24b-instruct:free',
+        model: getDefaultModel(),
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl // Pass the image URL for context
       }, sessionId?.toString()); // Ensure sessionId is a string
@@ -355,7 +357,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
 
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || teacherSettings.default_model || 'mistralai/mistral-small',
+        model: block.modelName || teacherSettings.default_model || getDefaultModel(),
         endpoint: block.apiEndpoint || teacherSettings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         temperature: 0.7
       }, sessionId?.toString());
