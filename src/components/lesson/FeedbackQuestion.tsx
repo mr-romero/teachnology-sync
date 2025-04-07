@@ -15,9 +15,10 @@ import { cn } from '@/lib/utils';
 import MathDisplay from './MathDisplay';
 import CelebrationOverlay from './CelebrationOverlay';
 import CelebrationConfigDialog from './CelebrationConfigDialog';
-import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings } from '@/services/userSettingsService';
+import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings, getDefaultModel } from '@/services/userSettingsService';
 import { useAuth } from '@/context/AuthContext';
 import { getUserSettings } from '@/services/userSettingsService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -596,6 +597,9 @@ Image description: ${block.imageAlt || 'No description provided'}`
     }
   };
   
+  // Add new state to track if feedback has been requested
+  const [feedbackRequested, setFeedbackRequested] = useState(false);
+
   // Render the question part of the block
   const renderQuestion = () => {
     // Function to get the option label based on option style
@@ -642,6 +646,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                           id={`${block.id}-option-${index}`}
                           checked={Array.isArray(response) ? response.includes(option) : response === option}
                           onChange={(e) => {
+                            if (!block.allowAnswerChange && hasAnswered) return;
                             if (e.target.checked) {
                               const newResponse = Array.isArray(response) 
                                 ? [...response, option] 
@@ -654,7 +659,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                               handleResponseChange(newResponse as string[]);
                             }
                           }}
-                          disabled={isPaused}
+                          disabled={isPaused || (!block.allowAnswerChange && hasAnswered)}
                           className="h-4 w-4 rounded border-gray-300 focus:ring-primary mt-1"
                         />
                         {getOptionLabel(index) && (
@@ -665,13 +670,13 @@ Image description: ${block.imageAlt || 'No description provided'}`
                         htmlFor={`${block.id}-option-${index}`}
                         className={cn(
                           "flex-1",
-                          Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && !isStudentView && "text-green-600 font-medium",
-                          Array.isArray(response) && response.includes(option) && 
+                          feedbackRequested && Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && !isStudentView && "text-green-600 font-medium",
+                          feedbackRequested && Array.isArray(response) && response.includes(option) && 
                           Array.isArray(block.correctAnswer) && !block.correctAnswer.includes(option) && "text-red-600"
                         )}
                       >
                         <MarkdownWithMath content={preprocessContent(option)} />
-                        {!isStudentView && Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && " (correct)"}
+                        {feedbackRequested && !isStudentView && Array.isArray(block.correctAnswer) && block.correctAnswer.includes(option) && " (correct)"}
                       </Label>
                     </div>
                   ))}
@@ -680,8 +685,11 @@ Image description: ${block.imageAlt || 'No description provided'}`
                 // Single selection with radio buttons
                 <RadioGroup 
                   value={Array.isArray(response) ? response[0] : response as string} 
-                  onValueChange={(value) => handleResponseChange(value)}
-                  disabled={isPaused}
+                  onValueChange={(value) => {
+                    if (!block.allowAnswerChange && hasAnswered) return;
+                    handleResponseChange(value);
+                  }}
+                  disabled={isPaused || (!block.allowAnswerChange && hasAnswered)}
                 >
                   {block.options?.map((option, index) => (
                     <div key={index} className="flex items-center space-x-2">
@@ -689,7 +697,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                         <RadioGroupItem 
                           value={option} 
                           id={`${block.id}-option-${index}`}
-                          disabled={isPaused}
+                          disabled={isPaused || (!block.allowAnswerChange && hasAnswered)}
                         />
                         {getOptionLabel(index) && (
                           <span className="font-medium text-sm">{getOptionLabel(index)}.</span>
@@ -699,12 +707,12 @@ Image description: ${block.imageAlt || 'No description provided'}`
                         htmlFor={`${block.id}-option-${index}`}
                         className={cn(
                           "pt-0.5", // Add slight padding to align with radio button
-                          option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
-                          option === response && option !== block.correctAnswer && "text-red-600"
+                          feedbackRequested && option === block.correctAnswer && !isStudentView && "text-green-600 font-medium",
+                          feedbackRequested && option === response && option !== block.correctAnswer && "text-red-600"
                         )}
                       >
                         <MarkdownWithMath content={preprocessContent(option)} />
-                        {!isStudentView && option === block.correctAnswer && " (correct)"}
+                        {feedbackRequested && !isStudentView && option === block.correctAnswer && " (correct)"}
                       </Label>
                     </div>
                   ))}
@@ -714,10 +722,11 @@ Image description: ${block.imageAlt || 'No description provided'}`
               {studentCanRespond && (
                 <Button
                   onClick={async () => {
-                    setHasAnswered(true); // Set this first
-                    await generateFeedback(); // Then generate feedback
+                    setFeedbackRequested(true);
+                    setHasAnswered(true);
+                    await generateFeedback();
                   }}
-                  disabled={isLoading || (Array.isArray(response) ? response.length === 0 : !response)}
+                  disabled={isLoading || (Array.isArray(response) ? response.length === 0 : !response) || (!block.allowAnswerChange && hasAnswered)}
                   size="sm"
                   className="mt-4 w-full flex items-center justify-center gap-2"
                 >
@@ -726,7 +735,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  Get Feedback
+                  {hasAnswered && !block.allowAnswerChange ? "Answer Submitted" : "Get Feedback"}
                 </Button>
               )}
             </div>
@@ -740,14 +749,17 @@ Image description: ${block.imageAlt || 'No description provided'}`
               <div className="space-y-2">
                 <RadioGroup 
                   value={response === true ? "true" : response === false ? "false" : ""} 
-                  onValueChange={(value) => handleResponseChange(value === "true")}
-                  disabled={isPaused}
+                  onValueChange={(value) => {
+                    if (!block.allowAnswerChange && hasAnswered) return;
+                    handleResponseChange(value === "true");
+                  }}
+                  disabled={isPaused || (!block.allowAnswerChange && hasAnswered)}
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem 
                       value="true" 
                       id={`${block.id}-true`}
-                      disabled={isPaused}
+                      disabled={isPaused || (!block.allowAnswerChange && hasAnswered)}
                     />
                     <Label htmlFor={`${block.id}-true`}>True</Label>
                   </div>
@@ -755,15 +767,19 @@ Image description: ${block.imageAlt || 'No description provided'}`
                     <RadioGroupItem 
                       value="false" 
                       id={`${block.id}-false`}
-                      disabled={isPaused}
+                      disabled={isPaused || (!block.allowAnswerChange && hasAnswered)}
                     />
                     <Label htmlFor={`${block.id}-false`}>False</Label>
                   </div>
                 </RadioGroup>
                 
                 <Button
-                  onClick={generateFeedback}
-                  disabled={isLoading || response === ''}
+                  onClick={async () => {
+                    setFeedbackRequested(true);
+                    setHasAnswered(true);
+                    await generateFeedback();
+                  }}
+                  disabled={isLoading || response === '' || (!block.allowAnswerChange && hasAnswered)}
                   size="sm"
                   className="mt-4 w-full flex items-center justify-center gap-2"
                 >
@@ -772,22 +788,22 @@ Image description: ${block.imageAlt || 'No description provided'}`
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  Get AI Feedback
+                  {hasAnswered && !block.allowAnswerChange ? "Answer Submitted" : "Get Feedback"}
                 </Button>
               </div>
             ) : (
               <div className="flex space-x-8">
-                <div className={`flex items-center space-x-2 ${block.correctAnswer === true && !isStudentView ? "text-green-600 font-medium" : ""}`}>
+                <div className={`flex items-center space-x-2 ${feedbackRequested && block.correctAnswer === true && !isStudentView ? "text-green-600 font-medium" : ""}`}>
                   <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center">
-                    {block.correctAnswer === true && !isStudentView && (
+                    {feedbackRequested && block.correctAnswer === true && !isStudentView && (
                       <div className="h-2 w-2 rounded-full bg-green-600" />
                     )}
                   </div>
                   <span>True</span>
                 </div>
-                <div className={`flex items-center space-x-2 ${block.correctAnswer === false && !isStudentView ? "text-green-600 font-medium" : ""}`}>
+                <div className={`flex items-center space-x-2 ${feedbackRequested && block.correctAnswer === false && !isStudentView ? "text-green-600 font-medium" : ""}`}>
                   <div className="h-4 w-4 rounded-full border-2 flex items-center justify-center">
-                    {block.correctAnswer === false && !isStudentView && (
+                    {feedbackRequested && block.correctAnswer === false && !isStudentView && (
                       <div className="h-2 w-2 rounded-full bg-green-600" />
                     )}
                   </div>
@@ -806,13 +822,20 @@ Image description: ${block.imageAlt || 'No description provided'}`
                 <Textarea
                   placeholder="Enter your answer here..."
                   value={response as string || ''}
-                  onChange={(e) => handleResponseChange(e.target.value)}
-                  disabled={isPaused}
+                  onChange={(e) => {
+                    if (!block.allowAnswerChange && hasAnswered) return;
+                    handleResponseChange(e.target.value);
+                  }}
+                  disabled={isPaused || (!block.allowAnswerChange && hasAnswered)}
                   className="min-h-[100px]"
                 />
                 <Button
-                  onClick={generateFeedback}
-                  disabled={isLoading || !response || (response as string).trim() === ''}
+                  onClick={async () => {
+                    setFeedbackRequested(true);
+                    setHasAnswered(true);
+                    await generateFeedback();
+                  }}
+                  disabled={isLoading || !response || (response as string).trim() === '' || (!block.allowAnswerChange && hasAnswered)}
                   size="sm"
                   className="w-full flex items-center justify-center gap-2"
                 >
@@ -821,12 +844,12 @@ Image description: ${block.imageAlt || 'No description provided'}`
                   ) : (
                     <Sparkles className="h-4 w-4" />
                   )}
-                  Get AI Feedback
+                  {hasAnswered && !block.allowAnswerChange ? "Answer Submitted" : "Get Feedback"}
                 </Button>
               </div>
             ) : (
               <div>
-                {block.correctAnswer && !isStudentView ? (
+                {feedbackRequested && block.correctAnswer && !isStudentView ? (
                   <div className="border border-dashed p-3 rounded-md">
                     <p className="text-sm font-medium">Sample answer:</p>
                     <MarkdownWithMath content={preprocessContent(block.correctAnswer as string)} />
