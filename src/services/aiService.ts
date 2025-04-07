@@ -346,7 +346,12 @@ export async function fetchChatCompletion(
                data.output;
     }
 
-    if (!content) {
+    // Log the raw data and the extracted content before the check
+    console.log('[fetchChatCompletion] Raw API response data:', JSON.stringify(data, null, 2));
+    console.log('[fetchChatCompletion] Extracted content before check:', content);
+
+    if (content === null || content === undefined || content === '') { // Check for null, undefined, or empty string
+      console.error('[fetchChatCompletion] No valid content extracted from response.'); // Log specific reason
       throw new Error('No valid content found in API response');
     }
 
