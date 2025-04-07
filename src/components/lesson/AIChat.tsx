@@ -432,7 +432,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         <div
           className="h-full overflow-y-auto p-4 border rounded-lg bg-muted/10"
           ref={messagesEndRef}
-          style={{ minHeight: '200px' }} // Ensure minimum height for empty states
+          style={{ minHeight: '400px' }} // Increased minimum height
         >
           {visibleMessages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
@@ -488,18 +488,6 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
                   <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
                     {error}
                   </div>
-                </div>
-              )}
-              {showPracticeSimilar && (
-                <div className="flex justify-center my-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="flex items-center gap-1 text-xs"
-                    onClick={handlePracticeSimilar}
-                  >
-                    Practice a similar problem <ChevronRight className="h-3 w-3" />
-                  </Button>
                 </div>
               )}
               <div ref={messagesEndRef} />

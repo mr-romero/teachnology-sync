@@ -904,7 +904,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
     if (!hasAnswered && isStudentView) {
       return (
         <div className={cn(
-          "p-3 border rounded-md bg-muted/20 min-h-[300px]",
+          "p-3 border rounded-md bg-muted/20 min-h-[400px]", // Increased minimum height
           isGrouped && "border-2 border-purple-200"
         )}>
           {isGrouped && groupId && (
@@ -921,7 +921,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
 
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm min-h-[300px] max-h-[400px]",
+        "flex flex-col rounded-md border shadow-sm min-h-[400px]", // Increased minimum height
         isGrouped && "border-2 border-purple-200"
       )}>
         {isGrouped && groupId && (
@@ -946,7 +946,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
         <ScrollArea className="flex-1 p-4">
           <div className="space-y-4">
             {visibleMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[200px]">
+              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[300px]">
                 <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
                 {hasAnswered ? (
                   <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>
@@ -993,22 +993,6 @@ Image description: ${block.imageAlt || 'No description provided'}`
                     <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
                       {error}
                     </div>
-                  </div>
-                )}
-                {showPracticeSimilar && hasAnswered && (
-                  <div className="flex justify-center my-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="flex items-center gap-1 text-xs"
-                      onClick={() => {
-                        setShowPracticeSimilar(false);
-                        setInputValue("Can I practice a similar problem?");
-                        setTimeout(() => handleSendMessage(), 100);
-                      }}
-                    >
-                      Practice a similar problem <ChevronRight className="h-3 w-3" />
-                    </Button>
                   </div>
                 )}
                 <div ref={messagesEndRef} />
