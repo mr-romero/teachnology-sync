@@ -383,7 +383,7 @@ When responding with mathematical content:
     if (!block.modelName) {
       onUpdate({
         ...block,
-        modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',  // Default to free Mistral model
+        modelName: 'mistralai/mistral-small-3.1-24b-instruct',  // Default to free Mistral model
         feedbackSystemPrompt: `You are a helpful mathematics tutor providing feedback on a student's answer.
 
 ${block.imageUrl ? `When analyzing this problem:

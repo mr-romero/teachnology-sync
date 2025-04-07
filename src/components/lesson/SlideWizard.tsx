@@ -74,14 +74,14 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
   const { toast } = useToast();
   
   // Model selection state
-  const [model, setModel] = useState<string>('mistralai/mistral-small-3.1-24b-instruct:free');
+  const [model, setModel] = useState<string>('mistralai/mistral-small-3.1-24b-instruct');
   const [modelSearch, setModelSearch] = useState('');
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelsFetched, setModelsFetched] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([
     {
-      id: 'mistralai/mistral-small-3.1-24b-instruct:free',
-      name: 'Mistral Small (Free)',
+      id: 'mistralai/mistral-small-3.1-24b-instruct',
+      name: 'Mistral Small',
       context_length: 32000
     }
   ]);
@@ -120,7 +120,7 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
     try {
       const result = await analyzeQuestionImage(
         url, 
-        teacherSettings.default_model || 'mistralai/mistral-small-3.1-24b-instruct:free', // Use teacher's model settings
+        teacherSettings.default_model || 'mistralai/mistral-small-3.1-24b-instruct', // Use teacher's model settings
         teacherSettings.openrouter_endpoint
       );
       

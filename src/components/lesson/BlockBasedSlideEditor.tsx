@@ -931,7 +931,7 @@ const BlockBasedSlideEditor: React.FC<BlockBasedSlideEditorProps> = ({
         feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer.',
         feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
         apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-        modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+        modelName: 'mistralai/mistral-small-3.1-24b-instruct',
         optionStyle: 'A-D',
         repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.'
       };
@@ -1018,7 +1018,7 @@ When responding with mathematical content:
           feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
           feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+          modelName: 'mistralai/mistral-small-3.1-24b-instruct',
           optionStyle: 'A-D',
           repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.'
         };
@@ -1128,7 +1128,7 @@ When responding with mathematical content:
           feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
           feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+          modelName: 'mistralai/mistral-small-3.1-24b-instruct',
           optionStyle: 'A-D',
           repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt. Focus on explaining the solution step by step.',
           ...overrides

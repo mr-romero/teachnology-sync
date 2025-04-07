@@ -449,7 +449,7 @@ ${imageInfo}`;
       // Ensure sessionId is passed as a string
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
-        model: block.modelName || 'mistralai/mistral-small-3.1-24b-instruct:free',
+        model: block.modelName || 'mistralai/mistral-small-3.1-24b-instruct',
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: block.imageUrl
       }, sessionId?.toString());
@@ -489,7 +489,7 @@ ${imageInfo}`;
         {
           role: 'system' as const,
           content: block.feedbackSystemPrompt || `You are a helpful AI tutor providing feedback on student answers.
-Model: mistralai/mistral-small-3.1-24b-instruct:free`
+Model: mistralai/mistral-small-3.1-24b-instruct`
         }
       ];
       

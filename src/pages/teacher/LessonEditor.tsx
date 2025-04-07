@@ -204,7 +204,7 @@ const LessonEditor: React.FC = () => {
           feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
           feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
           apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-          modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+          modelName: 'mistralai/mistral-small-3.1-24b-instruct',
           optionStyle: 'A-D',
           repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.',
           imageUrl: '',
@@ -338,7 +338,7 @@ const LessonEditor: React.FC = () => {
             feedbackInstructions: 'Ask for help if you need additional explanation.',
             feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
             feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
-            modelName: 'mistralai/mistral-small-3.1-24b-instruct:free',
+            modelName: 'mistralai/mistral-small-3.1-24b-instruct',
             apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions'
           };
           break;
