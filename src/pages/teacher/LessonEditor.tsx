@@ -248,11 +248,22 @@ const LessonEditor: React.FC = () => {
     }
   };
 
-  const handleAddBlock = (type: string) => {
+  const handleAddBlock = async (type: string) => {
     if (lesson) {
       const currentSlideIndex = lesson.slides.findIndex(slide => slide.id === activeSlide);
       
       if (currentSlideIndex === -1) return;
+
+      // Get user's model settings
+      const { data: { user } } = await supabase.auth.getUser();
+      let modelSettings = {
+        default_model: await getDefaultModel(),
+        openrouter_endpoint: 'https://openrouter.ai/api/v1/chat/completions'
+      };
+      
+      if (user?.id) {
+        modelSettings = await getModelSettings(user.id);
+      }
       
       let newBlock: LessonBlock;
       
@@ -292,7 +303,7 @@ const LessonEditor: React.FC = () => {
                 id: uuidv4(),
                 latex: 'y = x^2',
                 color: '#c74440',
-                visible: true  // Changed from isVisible to visible
+                visible: true
               }
             ],
             settings: {
@@ -310,7 +321,7 @@ const LessonEditor: React.FC = () => {
               xAxisLabel: '',
               yAxisLabel: '',
               backgroundColor: '#ffffff',
-              showCalculator: true  // Set to true by default
+              showCalculator: true
             }
           };
           break;
@@ -320,8 +331,8 @@ const LessonEditor: React.FC = () => {
             type: 'ai-chat',
             instructions: 'Ask me questions about this topic.',
             sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
-            apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-            modelName: 'mistralai/mistral-small',
+            apiEndpoint: modelSettings.openrouter_endpoint,
+            modelName: modelSettings.default_model,
             systemPrompt: 'You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding. Be encouraging and supportive.'
           };
           break;
@@ -333,13 +344,13 @@ const LessonEditor: React.FC = () => {
             questionType: 'multiple-choice',
             options: ['Option 1', 'Option 2', 'Option 3'],
             correctAnswer: 'Option 1',
-            imageUrl: '',
-            imageAlt: '',
             feedbackInstructions: 'Ask for help if you need additional explanation.',
             feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.',
             feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
-            modelName: 'mistralai/mistral-small-3.1-24b-instruct',
-            apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions'
+            modelName: modelSettings.default_model,
+            apiEndpoint: modelSettings.openrouter_endpoint,
+            imageUrl: '',
+            imageAlt: ''
           };
           break;
         default:

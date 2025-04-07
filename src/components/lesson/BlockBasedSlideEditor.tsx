@@ -1637,3 +1637,111 @@ When responding with mathematical content:
 };
 
 export default BlockBasedSlideEditor;
+
+export const createBlock = (type: string, overrides: any = {}, modelSettings?: { default_model: string; openrouter_endpoint: string }) => {
+  const blockId = overrides.id || `block-${Date.now()}`;
+  
+  switch (type) {
+    case 'text':
+      return {
+        id: blockId,
+        type: 'text',
+        content: 'Enter your text here',
+        ...overrides
+      };
+    case 'image':
+      return {
+        id: blockId,
+        type: 'image',
+        url: '',
+        alt: '',
+        ...overrides
+      };
+    case 'question':
+      return {
+        id: blockId,
+        type: 'question',
+        questionType: 'multiple-choice',
+        question: 'Enter your question here',
+        options: ['Option 1', 'Option 2', 'Option 3'],
+        correctAnswer: 'Option 1',
+        ...overrides
+      };
+    case 'graph':
+      return {
+        id: blockId,
+        type: 'graph',
+        equation: 'y = x^2',
+        equations: [
+          {
+            id: uuidv4(),
+            latex: 'y = x^2',
+            color: '#c74440',
+            visible: true
+          }
+        ],
+        settings: {
+          xMin: -10,
+          xMax: 10,
+          yMin: -10,
+          yMax: 10,
+          showGrid: true,
+          showAxes: true,
+          polarMode: false,
+          allowPanning: true,
+          allowZooming: true,
+          showXAxis: true,
+          showYAxis: true,
+          xAxisLabel: '',
+          yAxisLabel: '',
+          backgroundColor: '#ffffff',
+          showCalculator: true
+        },
+        ...overrides
+      };
+    case 'ai-chat':
+      return {
+        id: blockId,
+        type: 'ai-chat',
+        instructions: 'Ask me questions about this topic.',
+        sentenceStarters: ['What is...?', 'Can you explain...?', 'Why does...?'],
+        apiEndpoint: modelSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        modelName: modelSettings?.default_model,
+        systemPrompt: `You are a helpful AI assistant for education. Help the student understand the topic while guiding them toward the correct understanding.
+
+When responding with mathematical content:
+- Use \\( and \\) for inline math expressions
+- Use \\[ and \\] for displayed math expressions
+- Format equations and mathematical symbols properly
+- Be consistent with LaTeX notation throughout the response`,
+        ...overrides
+      };
+    case 'feedback-question':
+      return {
+        id: blockId,
+        type: 'feedback-question',
+        questionText: 'Enter your question here',
+        questionType: 'multiple-choice',
+        options: ['Option 1', 'Option 2', 'Option 3'],
+        correctAnswer: 'Option 1',
+        feedbackInstructions: 'Ask for help if you need additional explanation.',
+        feedbackSystemPrompt: `You are a helpful AI tutor. Provide encouraging and informative feedback on the student's answer. If they got it correct, explain why. If they got it wrong, guide them toward the correct understanding without directly giving the answer.
+
+When responding with mathematical content:
+- Use \\( and \\) for inline math expressions
+- Use \\[ and \\] for displayed math expressions
+- Format equations and mathematical symbols properly
+- Be consistent with LaTeX notation throughout the response`,
+        feedbackSentenceStarters: ['Can you explain why?', 'I need help with...', 'How did you get that?'],
+        apiEndpoint: modelSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
+        modelName: modelSettings?.default_model,
+        optionStyle: 'A-D',
+        repetitionPrevention: 'You should provide a direct answer to the question rather than repeating the prompt.',
+        imageUrl: '',
+        imageAlt: '',
+        ...overrides
+      };
+    default:
+      throw new Error(`Unknown block type: ${type}`);
+  }
+};
