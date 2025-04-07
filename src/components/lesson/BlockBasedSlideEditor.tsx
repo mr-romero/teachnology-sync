@@ -565,11 +565,12 @@ const DroppableCell = ({
           : `${position.column + 1}`
       }}
       onDragOver={(e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
+        e.preventDefault(); // Crucial: Allow dropping
+        e.dataTransfer.dropEffect = 'copy'; // Indicate copy is allowed (or 'move')
+        console.log('[DroppableCell] onDragOver triggered for cell:', position); // Log
       }}
       onDrop={(e) => {
-        e.preventDefault();
+        e.preventDefault(); // Prevent default drop behavior
         const blockId = e.dataTransfer.getData('text/plain');
         if (blockId) {
           onDrop(blockId, position, e.dataTransfer);
