@@ -510,6 +510,28 @@ ${imageInfo}`;
     }
   };
   
+  const checkAnswerCorrectness = () => {
+    let isResponseCorrect = false;
+    
+    if (Array.isArray(block.correctAnswer) && Array.isArray(response)) {
+      // For multiple correct answers, check if all selected answers are correct
+      // and if all correct answers have been selected
+      const correctAnswerArray = block.correctAnswer as string[];
+      const allSelectedAreCorrect = (response as string[]).every(r => correctAnswerArray.includes(r));
+      const allCorrectAreSelected = correctAnswerArray.every(c => (response as string[]).includes(c));
+      
+      // For strict matching, both conditions must be true
+      isResponseCorrect = allSelectedAreCorrect && allCorrectAreSelected;
+    } else {
+      // For single answer questions
+      isResponseCorrect = response === block.correctAnswer;
+    }
+    
+    setIsCorrect(isResponseCorrect);
+    return isResponseCorrect;
+  };
+
+  // Modify generateFeedback to check correctness
   const generateFeedback = async () => {
     if (!response) {
       setError('Please provide an answer first.');
@@ -519,7 +541,19 @@ ${imageInfo}`;
     try {
       setIsLoading(true);
       setError(null);
-      setHasAnswered(true); // Set this before generating feedback
+      setHasAnswered(true);
+
+      // Check answer correctness before generating feedback
+      const isResponseCorrect = checkAnswerCorrectness();
+      
+      // Show celebration if answer is correct
+      if (isResponseCorrect) {
+        if (!celebrationStyle) {
+          setShowCelebrationConfig(true);
+        } else {
+          setShowCelebration(true);
+        }
+      }
 
       // Get user's default model
       const { data: { user } } = await supabase.auth.getUser();
