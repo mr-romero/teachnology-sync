@@ -909,8 +909,8 @@ Image description: ${block.imageAlt || 'No description provided'}`
         )}>
           {isGrouped && groupId && (
             <div className="text-xs font-medium text-purple-600 mb-2 uppercase tracking-wide">
-              Group: {groupId}
-            </div>
+            Group: {groupId}
+          </div>
           )}
           <p className="text-sm text-muted-foreground text-center">
             Select an answer and click "Get AI Feedback" to start a conversation
@@ -921,7 +921,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
 
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm min-h-[400px]", // Increased minimum height
+        "flex flex-col rounded-md border shadow-sm h-[400px]", // Fixed height container
         isGrouped && "border-2 border-purple-200"
       )}>
         {isGrouped && groupId && (
@@ -943,10 +943,10 @@ Image description: ${block.imageAlt || 'No description provided'}`
         </div>
 
         {/* Chat messages area with scrolling */}
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
             {visibleMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[300px]">
+              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
                 <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
                 {hasAnswered ? (
                   <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>
