@@ -379,9 +379,9 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       </div>
       
       {/* Chat messages area */}
-      <div className="flex-1 mb-4 overflow-hidden relative">
+      <div className="flex-1 overflow-hidden">
         <div 
-          className="absolute inset-0 overflow-y-auto p-4 border rounded-lg bg-muted/10"
+          className="h-full overflow-y-auto p-4 border rounded-lg bg-muted/10"
           ref={messagesEndRef}
         >
           {visibleMessages.length === 0 ? (
@@ -458,26 +458,8 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         </div>
       </div>
       
-      {/* Sentence starters */}
-      {block.sentenceStarters && block.sentenceStarters.length > 0 && !isAnswered && (
-        <div className="px-4 py-1 border-t flex flex-wrap gap-1">
-          {block.sentenceStarters.map((starter, index) => (
-            <Button
-              key={index}
-              variant="outline"
-              size="sm"
-              onClick={() => handleStarterClick(starter)}
-              disabled={isLoading || isPaused}
-              className="text-xs h-6 px-2"
-            >
-              {starter}
-            </Button>
-          ))}
-        </div>
-      )}
-      
       {/* Input area */}
-      <div className="p-3 border-t">
+      <div className="p-3 pt-2 border-t">
         {isPaused ? (
           <div className="bg-amber-50 text-amber-800 p-2 text-xs rounded-md">
             The teacher has paused interaction. Please wait...
@@ -514,12 +496,13 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
               onKeyDown={handleKeyPress}
               placeholder="Type your message..."
               disabled={isLoading || isPaused}
-              className="flex-grow"
+              className="flex-grow text-sm"
             />
             <Button
               onClick={handleSendMessage}
               disabled={!inputValue.trim() || isLoading || isPaused}
               size="icon"
+              className="h-10"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -531,6 +514,30 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         )}
       </div>
       
+      {/* Remove the specified sentence starters */}
+      {block.sentenceStarters && block.sentenceStarters.length > 0 && !isAnswered && (
+        <div className="px-3 py-1 border-t flex flex-wrap gap-1">
+          {block.sentenceStarters
+            .filter(starter => 
+              !["Practice a similar problem", 
+                "Can you explain why?",
+                "I need help with...",
+                "How did you get that?"].includes(starter))
+            .map((starter, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                size="sm"
+                onClick={() => handleStarterClick(starter)}
+                disabled={isLoading || isPaused}
+                className="text-xs h-6 px-2"
+              >
+                {starter}
+              </Button>
+            ))}
+        </div>
+      )}
+
       {/* If the conversation has started, show a submit button for the teacher to mark it as done */}
       {hasStarted && isStudentView && !isAnswered && !isPaused && onAnswerSubmit && (
         <div className="p-3 pt-0">
