@@ -105,7 +105,7 @@ export const getUserSettings = async (userId: string): Promise<UserSettings | nu
     const defaultSettings = {
       user_id: userId,
       settings: {},
-      default_model: 'mistralai/mistral-small',
+      default_model: getDefaultModel(),
       openrouter_endpoint: 'https://openrouter.ai/api/v1/chat/completions',
       celebration_settings: {
         type: 'default',
@@ -200,6 +200,10 @@ export const ensureUserSettings = async (userId: string) => {
     console.error('Error in ensureUserSettings:', error);
     return false;
   }
+};
+
+export const getDefaultModel = (): string => {
+  return 'mistralai/mistral-small';
 };
 
 export const getOpenRouterApiKey = async (userId: string): Promise<string | null> => {

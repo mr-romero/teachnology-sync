@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getImageAsBase64 } from "./imageService";
-import { getOpenRouterApiKey } from './userSettingsService';
+import { getOpenRouterApiKey, getDefaultModel } from './userSettingsService';
 
 /**
  * Interface for OpenRouter.ai request parameters
@@ -250,7 +250,7 @@ export async function fetchChatCompletion(
 
     const {
       messages,
-      model = teacherSettings?.default_model || 'mistralai/mistral-small',
+      model = teacherSettings?.default_model || getDefaultModel(),
       endpoint = teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
       temperature = 0.7,
       imageUrl
@@ -530,7 +530,7 @@ export interface ImageAnalysisResult {
 
 export const analyzeQuestionImage = async (
   imageUrl: string,
-  model: string = 'mistralai/mistral-small-3.1-24b-instruct:free'
+  model: string = getDefaultModel()
 ): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:
