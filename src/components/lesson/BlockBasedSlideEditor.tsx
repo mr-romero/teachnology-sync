@@ -572,8 +572,12 @@ const DroppableCell = ({
       onDrop={(e) => {
         e.preventDefault(); // Prevent default drop behavior
         const blockId = e.dataTransfer.getData('text/plain');
-        if (blockId) {
-          onDrop(blockId, position, e.dataTransfer);
+        console.log('[DroppableCell] onDrop triggered for cell:', position, 'Data:', blockId, 'Files:', e.dataTransfer.files); // Added log
+        if (blockId || e.dataTransfer.files.length > 0) { // Check for files too
+          // Pass the blockId (if available) or a marker for file drop
+          onDrop(blockId || 'file_drop', position, e.dataTransfer); 
+        } else {
+          console.warn('[DroppableCell] onDrop triggered but no blockId or files found.'); // Added log
         }
       }}
     >
@@ -1320,63 +1324,63 @@ When responding with mathematical content:
 
   // New function to handle image drop specifically on feedback blocks
   const handleImageDropOnFeedbackBlock = async (file: File, blockId: string, position: GridPosition) => {
-    console.log('[handleImageDropOnFeedbackBlock] Starting for block:', blockId, 'File:', file.name, 'Position:', position); // Added log
+    console.log('[handleImageDropOnFeedbackBlock] Starting for block:', blockId, 'File:', file.name, 'Position:', position); 
     if (!user) {
-      console.error('[handleImageDropOnFeedbackBlock] User not logged in.'); // Added log
+      console.error('[handleImageDropOnFeedbackBlock] User not logged in.'); 
       toast.error("You must be logged in to upload images.");
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      console.warn('[handleImageDropOnFeedbackBlock] File too large:', file.size); // Added log
+      console.warn('[handleImageDropOnFeedbackBlock] File too large:', file.size); 
       toast.error("Image file size must be less than 5MB");
       return;
     }
 
     const loadingToastId = toast.loading('Uploading and analyzing image...');
-    console.log('[handleImageDropOnFeedbackBlock] Starting upload and analysis...'); // Added log
+    console.log('[handleImageDropOnFeedbackBlock] Starting upload and analysis...'); 
 
     try {
       // Upload to Supabase
-      console.log('[handleImageDropOnFeedbackBlock] Uploading image...'); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Uploading image...'); 
       const uploadResult = await uploadImage(file, user.id);
-      console.log('[handleImageDropOnFeedbackBlock] Raw upload result:', uploadResult); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Raw upload result:', uploadResult); 
       
       if ('error' in uploadResult) {
-        console.error('[handleImageDropOnFeedbackBlock] Upload error:', uploadResult.error); // Added log
+        console.error('[handleImageDropOnFeedbackBlock] Upload error:', uploadResult.error); 
         throw new Error(uploadResult.error);
       }
-      console.log('[handleImageDropOnFeedbackBlock] Image uploaded:', uploadResult.url); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Image uploaded:', uploadResult.url); 
 
       // Generate alt text from filename
       const suggestedAlt = file.name.split('.')[0].replace(/[_-]/g, ' ');
-      console.log('[handleImageDropOnFeedbackBlock] Generated alt text:', suggestedAlt); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Generated alt text:', suggestedAlt); 
       
       // Find the target block
       const targetBlock = slide.blocks.find(b => b.id === blockId);
       if (!targetBlock || targetBlock.type !== 'feedback-question') {
-        console.error('[handleImageDropOnFeedbackBlock] Target feedback block not found for ID:', blockId); // Added log
+        console.error('[handleImageDropOnFeedbackBlock] Target feedback block not found for ID:', blockId); 
         throw new Error("Target feedback block not found.");
       }
-      console.log('[handleImageDropOnFeedbackBlock] Found target block:', targetBlock); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Found target block:', targetBlock); 
 
       // Call the analyze image function
-      console.log('[handleImageDropOnFeedbackBlock] Analyzing image with model:', targetBlock.modelName); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Analyzing image with model:', targetBlock.modelName); 
       const analysisResult = await analyzeQuestionImage(uploadResult.url, targetBlock.modelName);
-      console.log('[handleImageDropOnFeedbackBlock] Raw analysis result:', analysisResult); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Raw analysis result:', analysisResult); 
       
       if (!analysisResult.questionText || !analysisResult.options || !analysisResult.correctAnswer) {
-        console.error('[handleImageDropOnFeedbackBlock] Incomplete analysis results:', analysisResult); // Added log
+        console.error('[handleImageDropOnFeedbackBlock] Incomplete analysis results:', analysisResult); 
         throw new Error('Incomplete analysis results from LLM');
       }
-      console.log('[handleImageDropOnFeedbackBlock] Image analysis successful.'); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Image analysis successful.'); 
       
       // Update the block with the image and analysis results
-      console.log('[handleImageDropOnFeedbackBlock] Preparing updated block data...'); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Preparing updated block data...'); 
       const updatedBlock: FeedbackQuestionBlock = {
         ...targetBlock,
-        imageUrl: uploadResult.url, // Ensure this is the correct URL property
+        imageUrl: uploadResult.url, 
         imageAlt: suggestedAlt,
         questionText: analysisResult.questionText,
         options: analysisResult.options,
@@ -1384,67 +1388,67 @@ When responding with mathematical content:
         questionType: 'multiple-choice',
         optionStyle: analysisResult.optionStyle || 'A-D'
       };
-      console.log('[handleImageDropOnFeedbackBlock] Updated block data:', updatedBlock); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Updated block data:', updatedBlock); 
       
       // Update the lesson state
-      console.log('[handleImageDropOnFeedbackBlock] Updating slide state...'); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Updating slide state...'); 
       const updatedSlide = {
         ...slide,
         blocks: slide.blocks.map(b => b.id === blockId ? updatedBlock : b)
       };
       
       onUpdateSlide(updatedSlide);
-      console.log('[handleImageDropOnFeedbackBlock] Slide state updated.'); // Added log
+      console.log('[handleImageDropOnFeedbackBlock] Slide state updated.'); 
       
       toast.success('Image processed and question generated!', { id: loadingToastId });
 
     } catch (error) {
-      console.error('[handleImageDropOnFeedbackBlock] Error:', error); // Updated log
+      console.error('[handleImageDropOnFeedbackBlock] Error:', error); 
       toast.error(error instanceof Error ? error.message : 'Failed to process image', { id: loadingToastId });
     }
   };
 
   // Update drop handling in the DroppableCell component
   const handleDropInCell = (blockId: string, position: GridPosition, dataTransfer?: DataTransfer) => {
-    console.log('[handleDropInCell] Drop event triggered on cell:', position, 'Dropped ID/Type:', blockId); // Added log
+    console.log('[handleDropInCell] Drop event triggered on cell:', position, 'Dropped ID/Type:', blockId); 
     
     // Check if this is an image being dropped
-    console.log('[handleDropInCell] Checking for image drop...'); // Added log
+    console.log('[handleDropInCell] Checking for image drop...'); 
     const isImageDrop = dataTransfer?.items?.[0]?.type.startsWith('image/');
-    console.log('[handleDropInCell] Is image drop?', isImageDrop); // Added log
+    console.log('[handleDropInCell] Is image drop?', isImageDrop); 
     
     if (isImageDrop) {
-      console.log('[handleDropInCell] Image detected. DataTransfer items:', dataTransfer?.items, 'Files:', dataTransfer?.files); // Added log
+      console.log('[handleDropInCell] Image detected. DataTransfer items:', dataTransfer?.items, 'Files:', dataTransfer?.files); 
       
       // Find if there's an existing feedback block in this cell
-      console.log('[handleDropInCell] Searching for existing feedback block in cell:', position); // Added log
+      console.log('[handleDropInCell] Searching for existing feedback block in cell:', position); 
       const existingFeedbackBlock = slide.blocks.find(block => {
         const blockPos = slide.layout?.blockPositions?.[block.id];
         return block.type === 'feedback-question' && 
                blockPos?.row === position.row && 
                blockPos?.column === position.column;
       });
-      console.log('[handleDropInCell] Found existing feedback block?', !!existingFeedbackBlock, 'ID:', existingFeedbackBlock?.id); // Added log
+      console.log('[handleDropInCell] Found existing feedback block?', !!existingFeedbackBlock, 'ID:', existingFeedbackBlock?.id); 
 
       // If an image is dropped onto an existing feedback block, process it directly
       if (existingFeedbackBlock && existingFeedbackBlock.type === 'feedback-question') {
         const file = dataTransfer.files[0];
         if (file) {
-          console.log('[handleDropInCell] Calling handleImageDropOnFeedbackBlock for block:', existingFeedbackBlock.id, 'File:', file.name); // Added log
+          console.log('[handleDropInCell] Calling handleImageDropOnFeedbackBlock for block:', existingFeedbackBlock.id, 'File:', file.name); 
           handleImageDropOnFeedbackBlock(file, existingFeedbackBlock.id, position);
           return; // Stop further processing for this drop event
         } else {
-          console.warn('[handleDropInCell] Image drop detected but no file found in dataTransfer.'); // Added log
+          console.warn('[handleDropInCell] Image drop detected but no file found in dataTransfer.'); 
         }
       }
       
       // If dropped on an empty cell or a non-feedback block, ignore the image drop for now
-      console.log("[handleDropInCell] Image dropped on non-feedback block or empty cell, ignoring."); // Updated log
+      console.log("[handleDropInCell] Image dropped on non-feedback block or empty cell, ignoring."); 
       return; // Prevent further processing for image drops not on feedback blocks
     }
 
     // Handle regular block drops (moving existing blocks or dropping new types from sidebar)
-    console.log('[handleDropInCell] Handling regular block drop for ID/Type:', blockId); // Added log
+    console.log('[handleDropInCell] Handling regular block drop for ID/Type:', blockId); 
     if (blockId.startsWith('block-')) {
       if (isInSingleColumnWithMultipleBlocks && position.column === 1) {
         handleDropInNewColumn(blockId);
