@@ -904,7 +904,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
     if (!hasAnswered && isStudentView) {
       return (
         <div className={cn(
-          "p-3 border rounded-md bg-muted/20",
+          "p-3 border rounded-md bg-muted/20 min-h-[300px]",
           isGrouped && "border-2 border-purple-200"
         )}>
           {isGrouped && groupId && (
@@ -921,7 +921,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
 
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm h-[400px]", // Fixed height container
+        "flex flex-col rounded-md border shadow-sm min-h-[300px] max-h-[400px]",
         isGrouped && "border-2 border-purple-200"
       )}>
         {isGrouped && groupId && (
@@ -1017,24 +1017,6 @@ Image description: ${block.imageAlt || 'No description provided'}`
           </div>
         </ScrollArea>
 
-        {/* Sentence starters */}
-        {block.feedbackSentenceStarters && block.feedbackSentenceStarters.length > 0 && hasAnswered && (
-          <div className="px-4 py-2 border-t flex flex-wrap gap-2 flex-shrink-0">
-            {block.feedbackSentenceStarters.map((starter, index) => (
-              <Button
-                key={index}
-                variant="outline"
-                size="sm"
-                onClick={() => handleStarterClick(starter)}
-                disabled={isLoading || isPaused}
-                className="text-xs h-7"
-              >
-                {starter}
-              </Button>
-            ))}
-          </div>
-        )}
-
         {/* Input area */}
         <div className="p-3 border-t flex-shrink-0">
           {isPaused ? (
@@ -1046,28 +1028,54 @@ Image description: ${block.imageAlt || 'No description provided'}`
               Please answer the question first to get feedback.
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Input
-                id="feedback-chat-input"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyPress}
-                placeholder="Type your message..."
-                disabled={isLoading || isPaused}
-                className="flex-grow"
-              />
-              <Button
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading || isPaused}
-                size="icon"
-              >
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
+            <>
+              <div className="flex gap-2">
+                <Input
+                  id="feedback-chat-input"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Type your message..."
+                  disabled={isLoading || isPaused}
+                  className="flex-grow"
+                />
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!inputValue.trim() || isLoading || isPaused}
+                  size="icon"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              
+              {/* Filter and show sentence starters */}
+              {block.feedbackSentenceStarters?.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {block.feedbackSentenceStarters
+                    .filter(starter => 
+                      !["Practice a similar problem", 
+                        "Can you explain why?",
+                        "I need help with...",
+                        "How did you get that?"].includes(starter))
+                    .map((starter, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleStarterClick(starter)}
+                        disabled={isLoading || isPaused}
+                        className="text-xs h-6 px-2"
+                      >
+                        {starter}
+                      </Button>
+                    ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
