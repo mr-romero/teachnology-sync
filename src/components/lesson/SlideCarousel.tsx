@@ -10,9 +10,15 @@ import { LessonSlide } from '@/types/lesson';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check, Trash, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Image, BarChart2, FileText, Check, Trash, Plus, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import StudentViewPreview from './StudentViewPreview';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface SlideCarouselProps {
   slides: LessonSlide[];
@@ -34,6 +40,21 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
   allowDeletion = true,
   onAddSlide
 }) => {
+  // Helper function to check if a slide has a marked correct answer
+  const hasMarkedCorrectAnswer = (slide: LessonSlide): boolean => {
+    return slide.blocks.some(block => 
+      block.type === 'question' && 
+      'correctOption' in block && 
+      block.correctOption !== undefined && 
+      block.correctOption !== null
+    );
+  };
+
+  // Helper function to check if a slide needs a correct answer
+  const needsCorrectAnswer = (slide: LessonSlide): boolean => {
+    return slide.blocks.some(block => block.type === 'question') && !hasMarkedCorrectAnswer(slide);
+  };
+
   // Function to generate a mini visual preview of a slide that resembles the actual student view
   const renderMiniSlidePreview = (slide: LessonSlide, index: number) => {
     // Get representative content from the slide
@@ -45,6 +66,7 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
     
     // Check if this slide is a paced slide (allowed for student navigation)
     const isPacedSlide = allowedSlides.length > 0 && allowedSlides.includes(index);
+    const missingCorrectAnswer = needsCorrectAnswer(slide);
     
     return (
       <Card 
@@ -59,24 +81,40 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
           "p-2 flex flex-col h-full w-full overflow-hidden",
           isPacedSlide && "bg-blue-50/50"
         )}>
-          {/* Slide number badge and title */}
+          {/* Slide number badge, warning indicator, and title */}
           <div className="flex justify-between items-center mb-1">
-            <Badge 
-              variant={
-                index === currentSlideIndex ? "default" : 
-                isPacedSlide ? "secondary" : "outline"
-              } 
-              className="h-5 p-1 flex items-center justify-center text-[10px]"
-            >
-              {isPacedSlide && allowedSlides.indexOf(index) !== -1 && (
-                <span className="flex items-center gap-0.5">
-                  {allowedSlides.indexOf(index) + 1}/{allowedSlides.length}
-                </span>
+            <div className="flex items-center gap-1">
+              <Badge 
+                variant={
+                  index === currentSlideIndex ? "default" : 
+                  isPacedSlide ? "secondary" : "outline"
+                } 
+                className="h-5 p-1 flex items-center justify-center text-[10px]"
+              >
+                {isPacedSlide && allowedSlides.indexOf(index) !== -1 && (
+                  <span className="flex items-center gap-0.5">
+                    {allowedSlides.indexOf(index) + 1}/{allowedSlides.length}
+                  </span>
+                )}
+                {!isPacedSlide && (
+                  <span>{index + 1}</span>
+                )}
+              </Badge>
+
+              {/* Warning indicator for missing correct answer */}
+              {missingCorrectAnswer && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Missing correct answer for question</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
-              {!isPacedSlide && (
-                <span>{index + 1}</span>
-              )}
-            </Badge>
+            </div>
             
             {/* Title */}
             <div className="text-[8px] font-medium truncate w-[70%] text-right">
@@ -192,13 +230,15 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
           </CarouselContent>
           <CarouselPrevious 
             className="-left-6 h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
-            icon={<ChevronLeft className="h-5 w-5" />}
-          />
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </CarouselPrevious>
           <div className="absolute -right-6 flex items-center gap-2">
             <CarouselNext 
               className="h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
-              icon={<ChevronRight className="h-5 w-5" />}
-            />
+            >
+              <ChevronRight className="h-5 w-5" />
+            </CarouselNext>
             {onAddSlide && (
               <Button
                 size="icon"
@@ -207,7 +247,6 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   onAddSlide();
-                  // The slide will be added at the end, so navigate to the last slide
                   onSlideClick(slides.length);
                 }}
               >
