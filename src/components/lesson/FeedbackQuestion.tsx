@@ -921,7 +921,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
 
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm h-[400px]", // Fixed height container
+        "flex flex-col rounded-md border shadow-sm h-[600px]", // Increased height to match AIChat
         isGrouped && "border-2 border-purple-200"
       )}>
         {isGrouped && groupId && (
@@ -946,7 +946,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-4">
             {visibleMessages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[400px]">
                 <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
                 {hasAnswered ? (
                   <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>

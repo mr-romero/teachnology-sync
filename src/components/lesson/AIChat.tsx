@@ -428,7 +428,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       </div>
       
       {/* Chat messages area */}
-      <div className="flex-1 overflow-hidden h-[400px]"> {/* Add fixed height */}
+      <div className="flex-1 overflow-hidden h-[600px]"> {/* Increased height */}
         <ScrollArea className="h-full">
           <div className="p-4">
             {visibleMessages.length === 0 ? (
