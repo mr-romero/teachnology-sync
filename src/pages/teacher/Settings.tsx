@@ -5,8 +5,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/context/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import { getUserSettings, updateUserSettings } from '@/services/userSettingsService';
-import { KeyRound, Bot, Link } from 'lucide-react';
+import { KeyRound, Bot, Link, Loader2, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { fetchAvailableModels } from '@/services/aiService';
+
+interface ModelOption {
+  id: string;
+  name: string;
+  context_length?: number;
+}
 
 const Settings = () => {
   const { user } = useAuth();
@@ -15,6 +22,8 @@ const Settings = () => {
   const [openrouterEndpoint, setOpenrouterEndpoint] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -38,6 +47,24 @@ const Settings = () => {
     loadSettings();
   }, [user]);
 
+  const loadAvailableModels = async () => {
+    setIsLoadingModels(true);
+    try {
+      const models = await fetchAvailableModels();
+      if (models && models.length > 0) {
+        setAvailableModels(models);
+        toast.success(`Successfully loaded ${models.length} available models`);
+      } else {
+        toast.error("Could not fetch available models. Please check your API key.");
+      }
+    } catch (error) {
+      console.error('Error loading models:', error);
+      toast.error("Failed to load models. Please check your API key and endpoint.");
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
+
   const handleSaveSettings = async () => {
     if (!user) return;
     
@@ -51,6 +78,8 @@ const Settings = () => {
 
       if (success) {
         toast.success('Settings saved successfully');
+        // After saving settings successfully, fetch available models
+        loadAvailableModels();
       } else {
         toast.error('Failed to save settings');
       }
@@ -109,16 +138,54 @@ const Settings = () => {
                 <SelectValue placeholder="Select a default model" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="mistralai/mistral-small">Mistral Small</SelectItem>
-                <SelectItem value="mistralai/mistral-medium">Mistral Medium</SelectItem>
-                <SelectItem value="anthropic/claude-2">Claude 2</SelectItem>
-                <SelectItem value="google/gemini-pro">Gemini Pro</SelectItem>
-                <SelectItem value="meta-llama/codellama-34b">CodeLlama 34B</SelectItem>
+                {availableModels.length > 0 ? (
+                  availableModels.map(model => (
+                    <SelectItem key={model.id} value={model.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{model.name}</span>
+                        {model.context_length && (
+                          <span className="text-xs text-muted-foreground">
+                            ({Math.round(model.context_length / 1000)}k ctx)
+                          </span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))
+                ) : (
+                  // Fallback default models
+                  <>
+                    <SelectItem value="mistralai/mistral-small">Mistral Small</SelectItem>
+                    <SelectItem value="mistralai/mistral-medium">Mistral Medium</SelectItem>
+                    <SelectItem value="anthropic/claude-2">Claude 2</SelectItem>
+                    <SelectItem value="google/gemini-pro">Gemini Pro</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              This model will be used as the default for new AI chat blocks
-            </p>
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-muted-foreground">
+                This model will be used as the default for new AI chat blocks
+              </p>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={loadAvailableModels}
+                disabled={isLoadingModels}
+                className="h-8"
+              >
+                {isLoadingModels ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh Models
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -141,8 +208,16 @@ const Settings = () => {
           <Button 
             onClick={handleSaveSettings}
             disabled={saving}
+            className="w-full"
           >
-            {saving ? 'Saving...' : 'Save Settings'}
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Saving...
+              </>
+            ) : (
+              'Save Settings'
+            )}
           </Button>
         </CardContent>
       </Card>

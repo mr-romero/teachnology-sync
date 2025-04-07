@@ -468,18 +468,31 @@ export async function getChatHistory({
  */
 export async function fetchAvailableModels(): Promise<{ id: string; name: string }[] | null> {
   try {
-    // Get session ID from URL, handling both full URLs and path segments
-    const pathSegments = window.location.pathname.split('/');
-    const sessionId = pathSegments[pathSegments.length - 1];
+    // Get user's settings to use their configured endpoint
+    const { data: { user } } = await supabase.auth.getUser();
+    let endpoint = 'https://openrouter.ai/api/v1/models'; // Default endpoint
 
-    // Use our getApiKey helper that will check both presentation and user settings
-    const apiKey = await getApiKey(sessionId);
-    
-    if (!apiKey) {
-      throw new Error('No API key found. Please add your OpenRouter API key in Settings or use a presentation with an API key configured.');
+    if (user?.id) {
+      const { data: settings } = await supabase
+        .from('user_settings')
+        .select('openrouter_endpoint')
+        .eq('user_id', user.id)
+        .single();
+
+      if (settings?.openrouter_endpoint) {
+        // Extract base URL from endpoint
+        const url = new URL(settings.openrouter_endpoint);
+        endpoint = `${url.protocol}//${url.host}/api/v1/models`;
+      }
     }
 
-    const response = await fetch('https://openrouter.ai/api/v1/models', {
+    // Get API key using existing helper
+    const apiKey = await getApiKey();
+    if (!apiKey) {
+      throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
+    }
+
+    const response = await fetch(endpoint, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
