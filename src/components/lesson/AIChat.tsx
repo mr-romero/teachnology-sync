@@ -23,6 +23,11 @@ const preprocessContent = (content: string): string => {
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
   content = content.replace(jsonRegex, '');
 
+  // Convert explicit \n to line breaks while preserving paragraph structure
+  content = content
+    .replace(/\\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n'); // Normalize multiple newlines to double newlines
+
   // Add line breaks for markdown formatting
   content = content
     .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
@@ -31,39 +36,25 @@ const preprocessContent = (content: string): string => {
     .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
     .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2');
 
-  // Handle currency amounts with different formats
+  // Handle math expressions with proper spacing
   content = content
-    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
-    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
-    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
-    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
-    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
-
-  // First, extract and save any paragraphs that contain math delimiters
-  const paragraphs = content.split(/\n\n+/);
-  const processedParagraphs = paragraphs.map(para => {
-    if (para.includes('$')) {
-      // Handle inline math while preserving spaces and text flow
-      para = para.replace(/\$([^\n$]+?)\$/g, (match, math) => {
-        const trimmedMath = math.trim();
-        const leadingSpace = math.startsWith(' ') ? ' ' : '';
-        const trailingSpace = math.endsWith(' ') ? ' ' : '';
-        return `${leadingSpace}\\(${trimmedMath}\\)${trailingSpace}`;
-      });
-    }
-    return para;
-  });
-
-  // Rejoin paragraphs and handle display math
-  content = processedParagraphs.join('\n\n')
     // Handle display math with proper spacing
-    .replace(/\$\$([^\n$]+?)\$\$/g, (_, math) => {
+    .replace(/\$\$([^$]+?)\$\$/g, (_, math) => {
       const trimmedMath = math.trim();
-      return `\n\\[${trimmedMath}\\]\n`;
+      return '\n\n\\[' + trimmedMath + '\\]\n\n';
     })
-    // Fix escaped LaTeX delimiters
-    .replace(/\\\\\(/g, '\\(')
-    .replace(/\\\\\)/g, '\\)');
+    // Handle inline math while preserving spaces and text flow
+    .replace(/\$([^\n$]+?)\$/g, (match, math) => {
+      const trimmedMath = math.trim();
+      const leadingSpace = math.startsWith(' ') ? ' ' : '';
+      const trailingSpace = math.endsWith(' ') ? ' ' : '';
+      return `${leadingSpace}\\(${trimmedMath}\\)${trailingSpace}`;
+    });
+
+  // Ensure consistent spacing around paragraphs
+  content = content
+    .replace(/([^\n])\n([^\n])/g, '$1\n\n$2')
+    .trim();
 
   return content;
 };
@@ -111,27 +102,40 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
   const parts = parseLatexExpressions(content);
   
   return (
-    <div className="space-y-2">
+    <div className="prose prose-sm max-w-none space-y-4">
       {parts.map((part, index) => 
         part.isLatex ? (
-          <MathDisplay key={index} latex={part.text} className="inline-block" />
+          <span key={index} className="mx-0.5 inline-block align-middle">
+            <MathDisplay latex={part.text} />
+          </span>
         ) : (
-          <ReactMarkdown key={index} components={{
-            p: ({node, ...props}) => <p className="mb-2" {...props} />,
-            h3: ({node, ...props}) => <h3 className="text-base font-bold mt-3 mb-1" {...props} />,
-            h4: ({node, ...props}) => <h4 className="text-sm font-bold mt-2 mb-1" {...props} />,
-            ul: ({node, ...props}) => <ul className="list-disc list-inside mb-2" {...props} />,
-            ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-2" {...props} />,
-            li: ({node, ...props}) => <li className="ml-2" {...props} />,
-            a: ({node, ...props}) => <a className="text-blue-600 hover:underline" {...props} />,
-            blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-gray-300 pl-2 italic my-2" {...props} />,
-            code: ({className, ...props}: any) => 
-              className?.includes('inline') 
-                ? <code className="bg-gray-100 rounded px-1 py-0.5" {...props} /> 
-                : <pre className="bg-gray-100 p-2 rounded overflow-x-auto my-2"><code {...props} /></pre>
-          }}>
-            {part.text}
-          </ReactMarkdown>
+          <span key={index} className="inline align-baseline">
+            <ReactMarkdown components={{
+              p: ({node, children, ...props}) => {
+                const text = typeof children[0] === 'string' ? children[0] : '';
+                return isBlockLevel(text) ? (
+                  <p className="block mb-4" {...props}>{children}</p>
+                ) : (
+                  <span className="inline" {...props}>{children}</span>
+                );
+              },
+              h1: ({node, ...props}) => <h1 className="text-2xl font-bold mt-6 mb-4 block" {...props} />,
+              h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-5 mb-3 block" {...props} />,
+              h3: ({node, ...props}) => <h3 className="text-lg font-bold mt-4 mb-2 block" {...props} />,
+              h4: ({node, ...props}) => <h4 className="text-base font-bold mt-3 mb-2 block" {...props} />,
+              ul: ({node, ...props}) => <ul className="list-disc list-inside my-4 block space-y-2 pl-4" {...props} />,
+              ol: ({node, ...props}) => <ol className="list-decimal list-inside my-4 block space-y-2 pl-4" {...props} />,
+              li: ({node, ...props}) => <li className="block mb-1" {...props} />,
+              strong: ({node, ...props}) => <span className="font-semibold" {...props} />,
+              em: ({node, ...props}) => <span className="italic" {...props} />,
+              blockquote: ({node, ...props}) => (
+                <blockquote className="border-l-2 border-gray-300 pl-4 my-4 block" {...props} />
+              ),
+              code: ({node, ...props}) => <code className="bg-muted rounded px-1" {...props} />
+            }}>
+              {part.text}
+            </ReactMarkdown>
+          </span>
         )
       )}
     </div>

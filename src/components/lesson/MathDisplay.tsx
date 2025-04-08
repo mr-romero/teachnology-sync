@@ -44,7 +44,7 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
               padding: 0 !important;
               margin: 0 !important;
               position: relative;
-              transform: translateY(-0.55em) !important;
+              transform: translateY(-0.6em) !important;
               line-height: normal !important;
             }
             
@@ -68,7 +68,7 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
               display: inline-block !important;
               margin: 0 0.125em !important;
               vertical-align: baseline !important;
-              transform: translateY(-0.55em) !important;
+              transform: translateY(-0.6em) !important;
             }
 
             /* Superscripts and subscripts */
@@ -76,7 +76,7 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
               vertical-align: super !important;
               position: relative;
               font-size: 0.85em;
-              top: -0.55em !important;
+              top: -0.6em !important;
             }
             .mathquill-rendered-math .mq-sub-only {
               vertical-align: sub !important;
@@ -89,7 +89,7 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
             .mathquill-rendered-math .mq-fraction {
               display: inline-block !important;
               vertical-align: middle !important;
-              transform: translateY(-0.55em) !important;
+              transform: translateY(-0.6em) !important;
             }
           `;
           document.head.appendChild(customStyle);
@@ -153,7 +153,7 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
       style={{ 
         display: 'inline-block',
         verticalAlign: 'baseline',
-        transform: 'translateY(-0.55em)'
+        transform: 'translateY(-0.6em)'
       }}
     />
   );

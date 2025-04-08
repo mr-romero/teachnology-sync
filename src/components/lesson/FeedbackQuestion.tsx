@@ -31,58 +31,24 @@ const preprocessContent = (content: string): string => {
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
   content = content.replace(jsonRegex, '');
 
-  // Handle display math - ensure it's properly wrapped and spaced
-  content = content.replace(/\$\$([^$]+?)\$\$/g, (_, math) => {
-    const trimmedMath = math.trim();
-    return '\n\n\\[' + trimmedMath + '\\]\n\n';
-  });
-
-  // Handle line breaks and spacing
+  // Convert explicit \n to line breaks while preserving paragraph structure
   content = content
-    // Normalize line endings
-    .replace(/\r\n/g, '\n')
-    // Ensure consistent spacing around display math
-    .replace(/([^\n])(\\\])/g, '$1\n$2')
-    .replace(/(\\\])\s*([^\n])/g, '$1\n\n$2')
-    .replace(/([^\n])(\\\[)/g, '$1\n\n$2')
-    .replace(/(\\\[)\s*([^\n])/g, '$1\n$2')
-    // Preserve paragraph breaks
-    .replace(/\n{3,}/g, '\n\n')
-    // Handle currency formatting
-    .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
-    .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
-    .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
-    .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
-    .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
+    .replace(/\\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n'); // Normalize multiple newlines to double newlines
 
-  // Extract and process paragraphs
-  const paragraphs = content.split(/\n\n+/);
-  const processedParagraphs = paragraphs.map(para => {
-    if (para.includes('$')) {
-      // Handle inline math while preserving spaces and text flow
-      para = para.replace(/\$([^\n$]+?)\$/g, (match, math) => {
-        const trimmedMath = math.trim();
-        const leadingSpace = math.startsWith(' ') ? ' ' : '';
-        const trailingSpace = math.endsWith(' ') ? ' ' : '';
-        return `${leadingSpace}\\(${trimmedMath}\\)${trailingSpace}`;
-      });
-    }
-    return para;
-  });
+  // Handle display math with proper spacing
+  content = content
+    .replace(/\$\$([^$]+?)\$\$/g, (_, math) => {
+      const trimmedMath = math.trim();
+      return '\n\n\\[' + trimmedMath + '\\]\n\n';
+    });
 
-  // Join paragraphs and handle special formatting
-  content = processedParagraphs.join('\n\n')
-    // Add line breaks before markdown headers and special keywords
-    .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
+  // Handle line breaks and spacing around sections
+  content = content
     .replace(/([^\n])(Problem:|Steps:|Hint:|Steps to solve)/g, '$1\n\n$2')
     .replace(/(#{1,6}\s.*?)([^\n])/g, '$1\n$2')
     .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
     .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2')
-    // Fix escaped LaTeX delimiters
-    .replace(/\\\\\(/g, '\\(')
-    .replace(/\\\\\)/g, '\\)')
-    .replace(/\\\\\[/g, '\\[')
-    .replace(/\\\\\]/g, '\\]')
     // Ensure consistent spacing
     .replace(/([^\n])\n([^\n])/g, '$1\n\n$2')
     .trim();
