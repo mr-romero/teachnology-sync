@@ -7,8 +7,9 @@ import { toast } from '@/components/ui/sonner';
 import { getUserSettings, updateUserSettings } from '@/services/userSettingsService';
 import { KeyRound, Bot, Link, Loader2, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { fetchAvailableModels } from '@/services/aiService';
-import { saveElevenLabsApiKey, getTTSSettings, saveTTSSettings } from '@/services/ttsService';
+import { saveElevenLabsApiKey, getTTSSettings, saveTTSSettings, getElevenLabsApiKey } from '@/services/ttsService';
 
 interface ModelOption {
   id: string;
@@ -50,9 +51,10 @@ const Settings = () => {
 
         const ttsSettings = await getTTSSettings(user.id);
         if (ttsSettings) {
-          setElevenLabsKey(ttsSettings.elevenlabs_api_key || '');
-          setTTSEnabled(ttsSettings.tts_enabled || false);
-          setSelectedVoice(ttsSettings.selected_voice || '');
+          const apiKey = await getElevenLabsApiKey(user.id);
+          setElevenLabsKey(apiKey || '');
+          setTTSEnabled(ttsSettings.enabled);
+          setSelectedVoice(ttsSettings.voice_id);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -103,13 +105,19 @@ const Settings = () => {
       }
 
       const ttsSuccess = await saveTTSSettings(user.id, {
-        elevenlabs_api_key: elevenLabsKey,
-        tts_enabled: ttsEnabled,
-        selected_voice: selectedVoice
+        enabled: ttsEnabled,
+        voice_id: selectedVoice,
+        auto_play: true
       });
 
       if (ttsSuccess) {
-        toast.success('TTS settings saved successfully');
+        // Save ElevenLabs API key separately
+        const apiKeySuccess = await saveElevenLabsApiKey(user.id, elevenLabsKey);
+        if (apiKeySuccess) {
+          toast.success('TTS settings saved successfully');
+        } else {
+          toast.error('Failed to save ElevenLabs API key');
+        }
       } else {
         toast.error('Failed to save TTS settings');
       }
@@ -250,7 +258,12 @@ const Settings = () => {
                     value={elevenLabsKey}
                     onChange={(e) => setElevenLabsKey(e.target.value)}
                   />
-                  <Button onClick={() => saveElevenLabsApiKey(elevenLabsKey)} disabled={!elevenLabsKey}>Save Key</Button>
+                  <Button 
+                    onClick={() => user && saveElevenLabsApiKey(user.id, elevenLabsKey)} 
+                    disabled={!elevenLabsKey || !user}
+                  >
+                    Save Key
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Get your API key from <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer" className="underline">ElevenLabs</a>

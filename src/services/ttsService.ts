@@ -5,6 +5,7 @@ interface TTSSettings {
   voice_id: string;
   auto_play: boolean;
   model_id?: string;
+  elevenlabs_api_key?: string;
 }
 
 // Get TTS settings for a user
