@@ -299,5 +299,3 @@ export const updateCelebrationSettings = async (
     celebration_settings: celebrationSettings
   });
 };
-
-export { getElevenLabsApiKey };
