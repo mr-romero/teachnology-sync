@@ -1,4 +1,3 @@
-import { Voice } from 'elevenlabs-node';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TTSSettings {
@@ -97,7 +96,7 @@ export const saveElevenLabsApiKey = async (
   }
 };
 
-// Text to speech conversion
+// Text to speech conversion using ElevenLabs REST API
 export const textToSpeech = async (
   text: string,
   userId: string
@@ -113,8 +112,31 @@ export const textToSpeech = async (
       return null;
     }
 
-    const voice = new Voice(apiKey, settings.voice_id);
-    const audioBuffer = await voice.textToSpeech(text);
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${settings.voice_id}/stream`, 
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': apiKey
+        },
+        body: JSON.stringify({
+          text,
+          model_id: settings.model_id || 'eleven_monolingual_v1',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`ElevenLabs API error: ${response.status}`);
+    }
+
+    const audioBuffer = await response.arrayBuffer();
     return audioBuffer;
   } catch (error) {
     console.error('Error in text to speech conversion:', error);
