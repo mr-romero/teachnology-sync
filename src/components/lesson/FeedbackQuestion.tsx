@@ -34,19 +34,28 @@ const preprocessContent = (content: string): string => {
   // Handle display math - ensure it's properly wrapped and spaced
   content = content.replace(/\$\$([^$]+?)\$\$/g, (_, math) => {
     const trimmedMath = math.trim();
-    return `\n\\[${trimmedMath}\\]\n`;
+    return '\n\n\\[' + trimmedMath + '\\]\n\n';
   });
 
-  // Handle inline LaTeX by wrapping bare LaTeX expressions that aren't already wrapped
+  // Handle line breaks and spacing
   content = content
-    // Handle currency formatting first to avoid conflicts
+    // Normalize line endings
+    .replace(/\r\n/g, '\n')
+    // Ensure consistent spacing around display math
+    .replace(/([^\n])(\\\])/g, '$1\n$2')
+    .replace(/(\\\])\s*([^\n])/g, '$1\n\n$2')
+    .replace(/([^\n])(\\\[)/g, '$1\n\n$2')
+    .replace(/(\\\[)\s*([^\n])/g, '$1\n$2')
+    // Preserve paragraph breaks
+    .replace(/\n{3,}/g, '\n\n')
+    // Handle currency formatting
     .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
     .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
     .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
     .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
     .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
 
-  // Extract and process paragraphs that contain math delimiters
+  // Extract and process paragraphs
   const paragraphs = content.split(/\n\n+/);
   const processedParagraphs = paragraphs.map(para => {
     if (para.includes('$')) {
@@ -61,8 +70,9 @@ const preprocessContent = (content: string): string => {
     return para;
   });
 
-  // Add line breaks before markdown headers and special keywords
+  // Join paragraphs and handle special formatting
   content = processedParagraphs.join('\n\n')
+    // Add line breaks before markdown headers and special keywords
     .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
     .replace(/([^\n])(Problem:|Steps:|Hint:|Steps to solve)/g, '$1\n\n$2')
     .replace(/(#{1,6}\s.*?)([^\n])/g, '$1\n$2')
@@ -72,7 +82,10 @@ const preprocessContent = (content: string): string => {
     .replace(/\\\\\(/g, '\\(')
     .replace(/\\\\\)/g, '\\)')
     .replace(/\\\\\[/g, '\\[')
-    .replace(/\\\\\]/g, '\\]');
+    .replace(/\\\\\]/g, '\\]')
+    // Ensure consistent spacing
+    .replace(/([^\n])\n([^\n])/g, '$1\n\n$2')
+    .trim();
 
   return content;
 }
