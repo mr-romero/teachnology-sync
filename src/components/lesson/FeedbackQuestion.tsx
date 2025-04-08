@@ -530,7 +530,18 @@ ${imageInfo}`;
     return isResponseCorrect;
   };
 
-  // Modify generateFeedback to check correctness
+  // Load TTS settings when component mounts
+  useEffect(() => {
+    const loadTTSSettings = async () => {
+      if (user?.id) {
+        const settings = await getTTSSettings(user.id);
+        setTTSEnabled(settings.enabled);
+      }
+    };
+    loadTTSSettings();
+  }, [user?.id]);
+
+  // Modified generateFeedback function to include TTS
   const generateFeedback = async () => {
     if (!response) {
       setError('Please provide an answer first.');
@@ -604,6 +615,11 @@ Image description: ${block.imageAlt || 'No description provided'}`
       setHasStarted(true);
       setFeedbackStarted(true);
       setShowPracticeSimilar(true);
+
+      // Play TTS for initial feedback
+      if (ttsEnabled) {
+        await playTTS(feedbackContent);
+      }
 
     } catch (error) {
       console.error('Error generating feedback:', error);
