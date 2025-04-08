@@ -31,23 +31,22 @@ const preprocessContent = (content: string): string => {
   const jsonRegex = /\{(?:[^{}]|\{[^{}]*\})*\}/g;
   content = content.replace(jsonRegex, '');
 
-  // Add line breaks before markdown headers and special keywords
-  content = content
-    .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
-    .replace(/([^\n])(Problem:|Steps:|Hint:|Steps to solve)/g, '$1\n\n$2')
-    .replace(/(#{1,6}\s.*?)([^\n])/g, '$1\n$2')
-    .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
-    .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2');
+  // Handle display math - ensure it's properly wrapped and spaced
+  content = content.replace(/\$\$([^$]+?)\$\$/g, (_, math) => {
+    const trimmedMath = math.trim();
+    return `\n\\[${trimmedMath}\\]\n`;
+  });
 
-  // Handle currency amounts with different formats
+  // Handle inline LaTeX by wrapping bare LaTeX expressions that aren't already wrapped
   content = content
+    // Handle currency formatting first to avoid conflicts
     .replace(/\$\s*(\d+(?:\.\d+)?)/g, '\\\\$$1')
     .replace(/\$(\d+(?:\.\d+)?)\s*(?:-|to|and)\s*\$(\d+(?:\.\d+)?)/g, '\\\\$$1 $2')
     .replace(/\$(\d+(?:\.\d+)?)\s*([+\-*/×÷])\s*\$?(\d+(?:\.\d+)?)/g, '\\\\$$1 $2 \\\\$$3')
     .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
     .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
 
-  // First, extract and save any paragraphs that contain math delimiters
+  // Extract and process paragraphs that contain math delimiters
   const paragraphs = content.split(/\n\n+/);
   const processedParagraphs = paragraphs.map(para => {
     if (para.includes('$')) {
@@ -62,16 +61,18 @@ const preprocessContent = (content: string): string => {
     return para;
   });
 
-  // Rejoin paragraphs and handle display math
+  // Add line breaks before markdown headers and special keywords
   content = processedParagraphs.join('\n\n')
-    // Handle display math with proper spacing
-    .replace(/\$\$([^\n$]+?)\$\$/g, (_, math) => {
-      const trimmedMath = math.trim();
-      return `\n\\[${trimmedMath}\\]\n`;
-    })
+    .replace(/([^\n])(#{1,6}\s)/g, '$1\n\n$2')
+    .replace(/([^\n])(Problem:|Steps:|Hint:|Steps to solve)/g, '$1\n\n$2')
+    .replace(/(#{1,6}\s.*?)([^\n])/g, '$1\n$2')
+    .replace(/([^\n])(\s*[-*+]\s)/g, '$1\n\n$2')
+    .replace(/([^\n])(\s*\d+\.\s)/g, '$1\n\n$2')
     // Fix escaped LaTeX delimiters
     .replace(/\\\\\(/g, '\\(')
-    .replace(/\\\\\)/g, '\\)');
+    .replace(/\\\\\)/g, '\\)')
+    .replace(/\\\\\[/g, '\\[')
+    .replace(/\\\\\]/g, '\\]');
 
   return content;
 }
