@@ -112,7 +112,7 @@ export const textToSpeech = async (
         .from('presentation_settings')
         .select('elevenlabs_api_key')
         .eq('session_id', sessionId)
-        .single();
+        .maybeSingle();
       
       if (!settingsError && settings?.elevenlabs_api_key) {
         apiKey = settings.elevenlabs_api_key;
@@ -134,7 +134,7 @@ export const textToSpeech = async (
     }
 
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${settings.voice_id}/stream`, 
+      `https://api.elevenlabs.io/v1/text-to-speech/${settings.voice_id}/stream`,
       {
         method: 'POST',
         headers: {
@@ -161,6 +161,6 @@ export const textToSpeech = async (
     return audioBuffer;
   } catch (error) {
     console.error('Error in text to speech conversion:', error);
-    return null;
+    throw error;  // Make sure we throw the error instead of returning null
   }
 };
