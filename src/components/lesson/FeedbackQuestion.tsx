@@ -149,7 +149,7 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
   };
 
   return (
-    <div className="prose prose-sm max-w-none">
+    <div className="prose prose-sm max-w-none space-y-4">
       {parts.map((part, index) => 
         part.isLatex ? (
           <span key={index} className="inline-block align-middle mx-1">
@@ -161,22 +161,22 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
               p: ({node, children, ...props}) => {
                 const text = typeof children[0] === 'string' ? children[0] : '';
                 return isBlockLevel(text) ? (
-                  <p className="block my-2" {...props}>{children}</p>
+                  <p className="block mb-4" {...props}>{children}</p>
                 ) : (
                   <span className="inline" {...props}>{children}</span>
                 );
               },
-              h1: ({node, ...props}) => <h1 className="text-2xl font-bold mt-4 mb-2 block" {...props} />,
-              h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-3 mb-2 block" {...props} />,
-              h3: ({node, ...props}) => <h3 className="text-lg font-bold mt-3 mb-1 block" {...props} />,
-              h4: ({node, ...props}) => <h4 className="text-base font-bold mt-2 mb-1 block" {...props} />,
-              ul: ({node, ...props}) => <ul className="list-disc list-inside my-2 block pl-4" {...props} />,
-              ol: ({node, ...props}) => <ol className="list-decimal list-inside my-2 block pl-4" {...props} />,
+              h1: ({node, ...props}) => <h1 className="text-2xl font-bold mt-6 mb-4 block" {...props} />,
+              h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-5 mb-3 block" {...props} />,
+              h3: ({node, ...props}) => <h3 className="text-lg font-bold mt-4 mb-2 block" {...props} />,
+              h4: ({node, ...props}) => <h4 className="text-base font-bold mt-3 mb-2 block" {...props} />,
+              ul: ({node, ...props}) => <ul className="list-disc list-inside my-4 block space-y-2 pl-4" {...props} />,
+              ol: ({node, ...props}) => <ol className="list-decimal list-inside my-4 block space-y-2 pl-4" {...props} />,
               li: ({node, ...props}) => <li className="block mb-1" {...props} />,
               strong: ({node, ...props}) => <span className="font-semibold" {...props} />,
               em: ({node, ...props}) => <span className="italic" {...props} />,
               blockquote: ({node, ...props}) => (
-                <blockquote className="border-l-2 border-gray-300 pl-4 my-2 block" {...props} />
+                <blockquote className="border-l-2 border-gray-300 pl-4 my-4 block" {...props} />
               ),
               code: ({node, ...props}) => <code className="bg-muted rounded px-1" {...props} />,
             }}>
@@ -992,7 +992,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
                         }`}
                       >
                         {message.role === 'assistant' ? (
-                          <div className="text-sm markdown-content">
+                          <div className="text-sm markdown-content whitespace-pre-wrap">
                             <MarkdownWithMath content={preprocessContent(message.content)} />
                           </div>
                         ) : (
