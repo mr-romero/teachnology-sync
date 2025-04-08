@@ -8,6 +8,7 @@ import { getUserSettings, updateUserSettings } from '@/services/userSettingsServ
 import { KeyRound, Bot, Link, Loader2, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { fetchAvailableModels } from '@/services/aiService';
+import { saveElevenLabsApiKey, getTTSSettings, saveTTSSettings } from '@/services/ttsService';
 
 interface ModelOption {
   id: string;
@@ -24,6 +25,9 @@ const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
+  const [elevenLabsKey, setElevenLabsKey] = useState('');
+  const [ttsEnabled, setTTSEnabled] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState('');
 
   // Load settings and models when component mounts
   useEffect(() => {
@@ -42,6 +46,13 @@ const Settings = () => {
           
           // Load models after setting the API key
           await loadAvailableModels();
+        }
+
+        const ttsSettings = await getTTSSettings(user.id);
+        if (ttsSettings) {
+          setElevenLabsKey(ttsSettings.elevenlabs_api_key || '');
+          setTTSEnabled(ttsSettings.tts_enabled || false);
+          setSelectedVoice(ttsSettings.selected_voice || '');
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -89,6 +100,18 @@ const Settings = () => {
         loadAvailableModels();
       } else {
         toast.error('Failed to save settings');
+      }
+
+      const ttsSuccess = await saveTTSSettings(user.id, {
+        elevenlabs_api_key: elevenLabsKey,
+        tts_enabled: ttsEnabled,
+        selected_voice: selectedVoice
+      });
+
+      if (ttsSuccess) {
+        toast.success('TTS settings saved successfully');
+      } else {
+        toast.error('Failed to save TTS settings');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -210,6 +233,67 @@ const Settings = () => {
             <p className="text-xs text-muted-foreground">
               The API endpoint for OpenRouter requests
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium">Text-to-Speech Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="elevenlabs-key" className="text-sm font-medium flex items-center">
+                  ElevenLabs API Key
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    type="password"
+                    id="elevenlabs-key"
+                    placeholder="Enter your ElevenLabs API key"
+                    value={elevenLabsKey}
+                    onChange={(e) => setElevenLabsKey(e.target.value)}
+                  />
+                  <Button onClick={() => saveElevenLabsApiKey(elevenLabsKey)} disabled={!elevenLabsKey}>Save Key</Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Get your API key from <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer" className="underline">ElevenLabs</a>
+                </p>
+              </div>
+              
+              <div>
+                <label htmlFor="tts-enabled" className="text-sm font-medium flex items-center">
+                  Enable Text-to-Speech
+                </label>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="tts-enabled"
+                    checked={ttsEnabled}
+                    onCheckedChange={setTTSEnabled}
+                  />
+                  <label className="text-sm">Auto-play AI responses</label>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="voice-selection" className="text-sm font-medium flex items-center">
+                  AI Voice
+                </label>
+                <Select
+                  value={selectedVoice}
+                  onValueChange={setSelectedVoice}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a voice" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pNInz6obpgDQGcFmaJgB">Rachel</SelectItem>
+                    <SelectItem value="21m00Tcm4TlvDq8ikWAM">Adam</SelectItem>
+                    <SelectItem value="MF3mGyEYCl7XYWbV9V6O">Elli</SelectItem>
+                    <SelectItem value="AZnzlk1XvdvUeBnXmlld">Sam</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose the voice for AI responses
+                </p>
+              </div>
+            </div>
           </div>
 
           <Button 

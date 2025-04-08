@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { AIChatBlock } from '@/types/lesson';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send, Sparkles, Loader2, Info, ChevronRight } from 'lucide-react';
+import { Send, Sparkles, Loader2, Info, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { fetchChatCompletion } from '@/services/aiService';
 import { getDefaultModel } from '@/services/userSettingsService';
@@ -11,6 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import MathDisplay from './MathDisplay';
 import { useAuth } from '@/context/AuthContext';
 import { getUserSettings } from '@/services/userSettingsService';
+import { textToSpeech, getTTSSettings, saveTTSSettings } from '@/services/ttsService';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -185,6 +186,9 @@ const AIChat: React.FC<AIChatProps> = ({
     openrouter_endpoint?: string;
   }>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [ttsEnabled, setTTSEnabled] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch teacher settings when component mounts
   useEffect(() => {
@@ -241,7 +245,49 @@ const AIChat: React.FC<AIChatProps> = ({
       return () => clearTimeout(timer);
     }
   }, [isPreviewMode, questionContext, isAnswered]);
-  
+
+  useEffect(() => {
+    const loadTTSSettings = async () => {
+      if (user?.id) {
+        const settings = await getTTSSettings(user.id);
+        setTTSEnabled(settings.enabled);
+      }
+    };
+    loadTTSSettings();
+  }, [user?.id]);
+
+  const toggleTTS = async () => {
+    if (user?.id) {
+      const settings = await getTTSSettings(user.id);
+      const newSettings = { ...settings, enabled: !ttsEnabled };
+      await saveTTSSettings(user.id, newSettings);
+      setTTSEnabled(!ttsEnabled);
+    }
+  };
+
+  const playTTS = async (text: string) => {
+    if (!ttsEnabled || !user?.id) return;
+    
+    try {
+      setIsPlaying(true);
+      const audioBuffer = await textToSpeech(text, user.id);
+      
+      if (audioBuffer) {
+        const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        
+        if (audioRef.current) {
+          audioRef.current.src = url;
+          await audioRef.current.play();
+        }
+      }
+    } catch (error) {
+      console.error('Error playing TTS:', error);
+    } finally {
+      setIsPlaying(false);
+    }
+  };
+
   const generateAutomaticFeedback = async () => {
     if (!questionContext || isLoading) return;
     
@@ -425,6 +471,11 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
           content: aiResponse 
         };
         setVisibleMessages(prev => [...prev, assistantMessage]);
+        
+        // Play TTS for the AI response
+        if (ttsEnabled) {
+          await playTTS(aiResponse);
+        }
       } else {
         setError('Failed to get a response from the AI.');
       }
@@ -456,16 +507,33 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
     <div className="flex flex-col h-full">
       {/* Instructions section */}
       <div className="p-3 border-b bg-muted/20 flex-shrink-0">
-        <div className="flex items-start gap-2">
-          <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-          <div>
-            <h4 className="text-sm font-medium mb-1">Instructions</h4>
-            <p className="text-sm text-muted-foreground">
-              {questionContext && isAnswered 
-                ? "Answer the question to get AI feedback" 
-                : block.instructions}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-start gap-2">
+            <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="text-sm font-medium mb-1">Instructions</h4>
+              <p className="text-sm text-muted-foreground">
+                {questionContext && isAnswered 
+                  ? "Answer the question to get AI feedback" 
+                  : block.instructions}
+              </p>
+            </div>
           </div>
+          {isStudentView && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleTTS}
+              className="h-8 w-8"
+              title={ttsEnabled ? "Disable voice" : "Enable voice"}
+            >
+              {ttsEnabled ? (
+                <Volume2 className="h-4 w-4" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
+            </Button>
+          )}
         </div>
       </div>
       
@@ -628,6 +696,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
           </Button>
         </div>
       )}
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} style={{ display: 'none' }} />
     </div>
   );
 };
