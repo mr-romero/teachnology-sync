@@ -105,17 +105,19 @@ export const textToSpeech = async (
   sessionId?: string
 ): Promise<ArrayBuffer | null> => {
   try {
-    // First try to get API key from session if provided
+    // First try to get API key and model from session if provided
     let apiKey = null;
+    let modelId = null;
     if (sessionId) {
       const { data: settings, error: settingsError } = await supabase
         .from('presentation_settings')
-        .select('elevenlabs_api_key')
+        .select('elevenlabs_api_key, tts_settings')
         .eq('session_id', sessionId)
         .maybeSingle();
       
-      if (!settingsError && settings?.elevenlabs_api_key) {
+      if (!settingsError && settings) {
         apiKey = settings.elevenlabs_api_key;
+        modelId = settings.tts_settings?.model_id;
       }
     }
 
@@ -144,7 +146,7 @@ export const textToSpeech = async (
         },
         body: JSON.stringify({
           text,
-          model_id: settings.model_id || 'eleven_monolingual_v1',
+          model_id: modelId || settings.model_id || 'eleven_monolingual_v1',
           voice_settings: {
             stability: 0.5,
             similarity_boost: 0.75

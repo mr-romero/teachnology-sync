@@ -29,6 +29,7 @@ const Settings = () => {
   const [elevenLabsKey, setElevenLabsKey] = useState('');
   const [ttsEnabled, setTTSEnabled] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState('');
+  const [selectedTTSModel, setSelectedTTSModel] = useState('eleven_monolingual_v1');
 
   // Load settings and models when component mounts
   useEffect(() => {
@@ -55,6 +56,7 @@ const Settings = () => {
           setElevenLabsKey(apiKey || '');
           setTTSEnabled(ttsSettings.enabled);
           setSelectedVoice(ttsSettings.voice_id);
+          setSelectedTTSModel(ttsSettings.model_id || 'eleven_monolingual_v1');
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -107,7 +109,8 @@ const Settings = () => {
       const ttsSuccess = await saveTTSSettings(user.id, {
         enabled: ttsEnabled,
         voice_id: selectedVoice,
-        auto_play: true
+        auto_play: true,
+        model_id: selectedTTSModel
       });
 
       if (ttsSuccess) {
@@ -304,6 +307,28 @@ const Settings = () => {
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
                   Choose the voice for AI responses
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="tts-model" className="text-sm font-medium flex items-center">
+                  TTS Model
+                </label>
+                <Select
+                  value={selectedTTSModel}
+                  onValueChange={setSelectedTTSModel}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a TTS model" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eleven_monolingual_v1">Standard (Monolingual)</SelectItem>
+                    <SelectItem value="eleven_multilingual_v2">Enhanced (Multilingual v2)</SelectItem>
+                    <SelectItem value="eleven_turbo_v2">Turbo (Fastest)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Choose the model for text-to-speech conversion
                 </p>
               </div>
             </div>
