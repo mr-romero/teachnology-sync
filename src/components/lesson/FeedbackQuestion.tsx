@@ -47,17 +47,24 @@ const preprocessContent = (content: string): string => {
     .replace(/\$(\d+(?:\.\d+)?)\s*%/g, '\\\\$$1\\%')
     .replace(/\$(\d{1,3}(?:,\d{3})+(?:\.\d+)?)/g, '\\\\$$1');
 
-  // Handle LaTeX delimiters while preserving spaces
-  content = content
-    // First replace inline math with temporary markers
-    .replace(/\$([^\n$]+?)\$/g, (_, math) => {
-      // Preserve spaces around the math content
-      const trimmedMath = math.trim();
-      const leadingSpace = math.startsWith(' ') ? ' ' : '';
-      const trailingSpace = math.endsWith(' ') ? ' ' : '';
-      return `${leadingSpace}\\(${trimmedMath}\\)${trailingSpace}`;
-    })
-    // Then handle display math while preserving line breaks
+  // First, extract and save any paragraphs that contain math delimiters
+  const paragraphs = content.split(/\n\n+/);
+  const processedParagraphs = paragraphs.map(para => {
+    if (para.includes('$')) {
+      // Handle inline math while preserving spaces and text flow
+      para = para.replace(/\$([^\n$]+?)\$/g, (match, math) => {
+        const trimmedMath = math.trim();
+        const leadingSpace = math.startsWith(' ') ? ' ' : '';
+        const trailingSpace = math.endsWith(' ') ? ' ' : '';
+        return `${leadingSpace}\\(${trimmedMath}\\)${trailingSpace}`;
+      });
+    }
+    return para;
+  });
+
+  // Rejoin paragraphs and handle display math
+  content = processedParagraphs.join('\n\n')
+    // Handle display math with proper spacing
     .replace(/\$\$([^\n$]+?)\$\$/g, (_, math) => {
       const trimmedMath = math.trim();
       return `\n\\[${trimmedMath}\\]\n`;
