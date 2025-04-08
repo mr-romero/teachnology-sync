@@ -98,12 +98,32 @@ export const saveElevenLabsApiKey = async (
 };
 
 // Text to speech conversion using ElevenLabs REST API
+// Modified to accept a sessionId parameter
 export const textToSpeech = async (
   text: string,
-  userId: string
+  userId: string,
+  sessionId?: string
 ): Promise<ArrayBuffer | null> => {
   try {
-    const apiKey = await getElevenLabsApiKey(userId);
+    // First try to get API key from session if provided
+    let apiKey = null;
+    if (sessionId) {
+      const { data: settings, error: settingsError } = await supabase
+        .from('presentation_settings')
+        .select('elevenlabs_api_key')
+        .eq('session_id', sessionId)
+        .single();
+      
+      if (!settingsError && settings?.elevenlabs_api_key) {
+        apiKey = settings.elevenlabs_api_key;
+      }
+    }
+
+    // Fallback to user's own API key if session key not found
+    if (!apiKey) {
+      apiKey = await getElevenLabsApiKey(userId);
+    }
+
     if (!apiKey) {
       throw new Error('No ElevenLabs API key found');
     }

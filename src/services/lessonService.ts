@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Database } from "@/integrations/supabase/types";
 import { Json } from "@/integrations/supabase/types";
 import { classroomService } from "@/services/classroomService";
-import { getOpenRouterApiKey } from '@/services/userSettingsService';
+import { getOpenRouterApiKey, getElevenLabsApiKey } from '@/services/userSettingsService';
 
 // Helper function to convert any object to Json type
 const toJson = <T>(data: T): Json => {
@@ -272,87 +272,109 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
 };
 
 // Start a new presentation session
-export const startPresentationSession = async (lessonId: string, classroomId?: string): Promise<string | null> => {
-  const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-  
+export const startPresentationSession = async (
+  lessonId: string,
+  classroomId?: string,
+  classroomStudents: { id: string; email: string }[] = []
+): Promise<string | null> => {
   try {
-    // If we have a classroom ID, get the classroom details first
-    let classroomName = null;
-    let classroomStudents: any[] = [];
-    
-    if (classroomId) {
-      try {
-        // Get all classrooms and find the matching one
-        const classrooms = await classroomService.getClassrooms();
-        const classroom = classrooms.find(c => c.id === classroomId);
-        classroomName = classroom?.name;
-        
-        // Get students for this classroom
-        classroomStudents = await classroomService.getClassroomStudents(classroomId);
-      } catch (error) {
-        console.error('Error getting classroom details:', error);
-        // Continue anyway as this is not critical
+    // Get teacher's API keys first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) return null;
+
+    const [openRouterKey, elevenLabsKey] = await Promise.all([
+      getOpenRouterApiKey(user.id),
+      getElevenLabsApiKey(user.id)
+    ]);
+
+    const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+  
+    try {
+      // If we have a classroom ID, get the classroom details first
+      let classroomName = null;
+      let classroomStudents: any[] = [];
+      
+      if (classroomId) {
+        try {
+          // Get all classrooms and find the matching one
+          const classrooms = await classroomService.getClassrooms();
+          const classroom = classrooms.find(c => c.id === classroomId);
+          classroomName = classroom?.name;
+          
+          // Get students for this classroom
+          classroomStudents = await classroomService.getClassroomStudents(classroomId);
+        } catch (error) {
+          console.error('Error getting classroom details:', error);
+          // Continue anyway as this is not critical
+        }
       }
-    }
-
-    const sessionData = {
-      presentation_id: lessonId,
-      join_code: joinCode,
-      started_at: new Date().toISOString(),
-      is_synced: true,
-      is_paused: false,
-      current_slide: 0,
-      classroom_id: classroomId || null,
-      classroom_name: classroomName,
-      paced_slides: [] // Initialize with empty array
-    };
-
-    // Create session (trigger will handle settings)
-    const { data: sessionResult, error: sessionError } = await supabase
-      .from('presentation_sessions')
-      .insert(sessionData)
-      .select('id')
-      .single();
-
-    if (sessionError || !sessionResult) {
-      console.error('Error creating presentation session:', sessionError);
+  
+      const sessionData = {
+        presentation_id: lessonId,
+        join_code: joinCode,
+        started_at: new Date().toISOString(),
+        is_synced: true,
+        is_paused: false,
+        current_slide: 0,
+        classroom_id: classroomId || null,
+        classroom_name: classroomName,
+        paced_slides: [] // Initialize with empty array
+      };
+  
+      // Create session (trigger will handle settings)
+      const { data: sessionResult, error: sessionError } = await supabase
+        .from('presentation_sessions')
+        .insert(sessionData)
+        .select('id')
+        .single();
+  
+      if (sessionError || !sessionResult) {
+        console.error('Error creating presentation session:', sessionError);
+        return null;
+      }
+  
+      // Get settings created by trigger
+      const { data: settings, error: settingsError } = await supabase
+        .from('presentation_settings')
+        .update({
+          openrouter_api_key: openRouterKey || null,
+          elevenlabs_api_key: elevenLabsKey || null
+        })
+        .eq('session_id', sessionResult.id)
+        .select('openrouter_api_key, elevenlabs_api_key')
+        .single();
+  
+      if (settingsError) {
+        console.error('Error updating presentation settings:', settingsError);
+      }
+  
+      // If we have classroom students, create inactive session participants for them
+      if (classroomStudents.length > 0) {
+        const participantRecords = classroomStudents.map(student => ({
+          session_id: sessionResult.id,
+          user_id: student.profileId,
+          current_slide: 0,
+          is_active: false,
+          joined_at: null,
+          last_active_at: null
+        }));
+  
+        // Insert all classroom students as inactive participants
+        const { error: participantsError } = await supabase
+          .from('session_participants')
+          .insert(participantRecords);
+  
+        if (participantsError) {
+          console.error('Error creating inactive participants:', participantsError);
+          // Continue anyway as this is not critical
+        }
+      }
+  
+      return joinCode;
+    } catch (error) {
+      console.error('Error in startPresentationSession:', error);
       return null;
     }
-
-    // Get settings created by trigger
-    const { data: settings, error: settingsError } = await supabase
-      .from('presentation_settings')
-      .select('openrouter_api_key')
-      .eq('session_id', sessionResult.id)
-      .single();
-
-    if (settingsError) {
-      console.error('Error fetching presentation settings:', settingsError);
-    }
-
-    // If we have classroom students, create inactive session participants for them
-    if (classroomStudents.length > 0) {
-      const participantRecords = classroomStudents.map(student => ({
-        session_id: sessionResult.id,
-        user_id: student.profileId,
-        current_slide: 0,
-        is_active: false,
-        joined_at: null,
-        last_active_at: null
-      }));
-
-      // Insert all classroom students as inactive participants
-      const { error: participantsError } = await supabase
-        .from('session_participants')
-        .insert(participantRecords);
-
-      if (participantsError) {
-        console.error('Error creating inactive participants:', participantsError);
-        // Continue anyway as this is not critical
-      }
-    }
-
-    return joinCode;
   } catch (error) {
     console.error('Error in startPresentationSession:', error);
     return null;

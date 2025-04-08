@@ -18,5 +18,14 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  optimizeDeps: {
+    include: ['@radix-ui/react-tabs'],
+    exclude: [],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/@radix-ui\/*/],
+    },
   }
 }));
