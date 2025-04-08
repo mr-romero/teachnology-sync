@@ -44,46 +44,52 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
               padding: 0 !important;
               margin: 0 !important;
               position: relative;
-              transform: translateY(-0.1em);
+              transform: translateY(-0.25em) !important;
+              line-height: normal !important;
             }
             
-            /* Ensure consistent line height */
+            /* Root block alignment */
             .mathquill-rendered-math .mq-root-block {
               display: inline-block !important;
               vertical-align: middle !important;
               line-height: normal !important;
+              transform: translateY(0) !important;
             }
 
-            /* Remove any built-in margins that might affect alignment */
+            /* Math elements alignment */
             .mathquill-rendered-math span {
               margin: 0 !important;
-              vertical-align: middle !important;
+              vertical-align: baseline !important;
+              line-height: normal !important;
             }
 
-            /* Adjust operators for better alignment */
+            /* Operators alignment */
             .mathquill-rendered-math .mq-binary-operator {
               display: inline-block !important;
               margin: 0 0.125em !important;
-              vertical-align: middle !important;
+              vertical-align: baseline !important;
+              transform: translateY(-0.25em) !important;
             }
 
-            /* Fine-tune superscripts and subscripts */
+            /* Superscripts and subscripts */
             .mathquill-rendered-math .mq-sup-only {
               vertical-align: super !important;
               position: relative;
               font-size: 0.85em;
+              top: -0.25em !important;
             }
             .mathquill-rendered-math .mq-sub-only {
               vertical-align: sub !important;
               position: relative;
               font-size: 0.85em;
+              bottom: -0.1em !important;
             }
 
-            /* Special handling for fractions */
+            /* Fraction alignment */
             .mathquill-rendered-math .mq-fraction {
               display: inline-block !important;
               vertical-align: middle !important;
-              transform: translateY(-0.1em);
+              transform: translateY(-0.25em) !important;
             }
           `;
           document.head.appendChild(customStyle);
@@ -141,13 +147,13 @@ const MathDisplay: React.FC<MathDisplayProps> = ({
     <span 
       ref={containerRef}
       className={cn(
-        "inline-block align-middle",
+        "inline-block",
         className
       )}
       style={{ 
         display: 'inline-block',
-        verticalAlign: 'middle',
-        transform: 'translateY(-0.1em)'
+        verticalAlign: 'baseline',
+        transform: 'translateY(-0.25em)'
       }}
     />
   );
