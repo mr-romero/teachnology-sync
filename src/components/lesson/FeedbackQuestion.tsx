@@ -664,7 +664,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
     
     try {
       setIsPlaying(true);
-      const audioBuffer = await textToSpeech(text, user.id);
+      const audioBuffer = await textToSpeech(text, user.id, sessionId);
       
       if (audioBuffer) {
         const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
