@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Send, Sparkles, Loader2, Info, ChevronRight } from 'lucide-react';
+import { Send, Sparkles, Loader2, Info, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { fetchChatCompletion } from '@/services/aiService';
 import ReactMarkdown from 'react-markdown';
@@ -19,6 +19,7 @@ import { getCelebrationSettings, updateCelebrationSettings, CelebrationSettings,
 import { useAuth } from '@/context/AuthContext';
 import { getUserSettings } from '@/services/userSettingsService';
 import { supabase } from '@/integrations/supabase/client';
+import { textToSpeech, getTTSSettings, saveTTSSettings } from '@/services/ttsService';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -190,6 +191,11 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
     default_model?: string;
     openrouter_endpoint?: string;
   }>({});
+
+  // Add TTS state
+  const [ttsEnabled, setTTSEnabled] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Fetch teacher settings on mount
   useEffect(() => {
@@ -487,6 +493,11 @@ ${imageInfo}`;
         const newMessages = [...updatedMessages, assistantMessage];
         setVisibleMessages(newMessages);
         setConversationHistory(newMessages);
+
+        // Play TTS for the AI response
+        if (ttsEnabled) {
+          await playTTS(aiResponse);
+        }
       } else {
         setError('Failed to get a response from the AI.');
       }
@@ -621,6 +632,39 @@ Image description: ${block.imageAlt || 'No description provided'}`
   
   // Add new state to track if feedback has been requested
   const [feedbackRequested, setFeedbackRequested] = useState(false);
+
+  // Add TTS functions next to other handlers
+  const toggleTTS = async () => {
+    if (user?.id) {
+      const settings = await getTTSSettings(user.id);
+      const newSettings = { ...settings, enabled: !ttsEnabled };
+      await saveTTSSettings(user.id, newSettings);
+      setTTSEnabled(!ttsEnabled);
+    }
+  };
+
+  const playTTS = async (text: string) => {
+    if (!ttsEnabled || !user?.id) return;
+    
+    try {
+      setIsPlaying(true);
+      const audioBuffer = await textToSpeech(text, user.id);
+      
+      if (audioBuffer) {
+        const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        
+        if (audioRef.current) {
+          audioRef.current.src = url;
+          await audioRef.current.play();
+        }
+      }
+    } catch (error) {
+      console.error('Error playing TTS:', error);
+    } finally {
+      setIsPlaying(false);
+    }
+  };
 
   // Render the question part of the block
   const renderQuestion = () => {
@@ -927,6 +971,21 @@ Image description: ${block.imageAlt || 'No description provided'}`
                 {block.feedbackInstructions || "Ask questions or request additional explanations about this problem."}
               </p>
             </div>
+            {isStudentView && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleTTS}
+                className="h-8 w-8"
+                title={ttsEnabled ? "Disable voice" : "Enable voice"}
+              >
+                {ttsEnabled ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <VolumeX className="h-4 w-4" />
+                )}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1052,6 +1111,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
             </>
           )}
         </div>
+        <audio ref={audioRef} onEnded={() => setIsPlaying(false)} style={{ display: 'none' }} />
       </div>
     );
   };
