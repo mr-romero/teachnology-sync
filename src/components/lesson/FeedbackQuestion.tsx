@@ -152,11 +152,11 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
     <div className="prose prose-sm max-w-none space-y-4">
       {parts.map((part, index) => 
         part.isLatex ? (
-          <span key={index} className="inline-block align-middle mx-1">
-            <MathDisplay latex={part.text} className="inline align-baseline" />
+          <span key={index} className="mx-0.5 inline-block align-middle">
+            <MathDisplay latex={part.text} />
           </span>
         ) : (
-          <span key={index}>
+          <span key={index} className="inline align-baseline">
             <ReactMarkdown components={{
               p: ({node, children, ...props}) => {
                 const text = typeof children[0] === 'string' ? children[0] : '';
