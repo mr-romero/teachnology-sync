@@ -117,15 +117,21 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
                 <div 
                   key={`${response.studentId}-${index}`}
                   className={cn(
-                    "flex items-center justify-between text-xs",
-                    !studentInfo.is_active && "opacity-50 italic"
+                    "flex items-center justify-between text-xs p-1 rounded",
+                    !studentInfo.is_active ? "bg-gray-100" : ""
                   )}
                 >
                   <span className="truncate max-w-[120px] flex items-center gap-1">
                     {anonymousMode ? `Student ${index + 1}` : (
                       <>
-                        <span>{response.studentName}</span>
-                        {/* Remove classroom display for student responses */}
+                        <span className={!studentInfo.is_active ? "text-gray-500" : ""}>
+                          {response.studentName}
+                        </span>
+                        {!studentInfo.is_active && (
+                          <Badge variant="outline" className="ml-1 bg-gray-200 text-gray-600 text-[9px] px-1">
+                            INACTIVE
+                          </Badge>
+                        )}
                       </>
                     )}
                   </span>
@@ -160,19 +166,25 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
               <div 
                 key={student.studentId}
                 className={cn(
-                  "flex items-center justify-between p-1.5 text-xs",
-                  !student.is_active && "opacity-50 italic text-muted-foreground"
+                  "flex items-center justify-between p-1.5 text-xs rounded",
+                  !student.is_active ? "bg-gray-100" : ""
                 )}
               >
                 <span className="truncate max-w-[120px] flex items-center gap-1">
                   {anonymousMode ? `Student ${index + 1}` : (
                     <>
-                      <span>{student.studentName}</span>
-                      {/* Removed classroom display here */}
+                      <span className={!student.is_active ? "text-gray-500" : ""}>
+                        {student.studentName}
+                      </span>
+                      {!student.is_active && (
+                        <Badge variant="outline" className="ml-1 bg-gray-200 text-gray-600 text-[9px] px-1">
+                          INACTIVE
+                        </Badge>
+                      )}
                     </>
                   )}
                 </span>
-                <UserCheck className="h-3 w-3 text-muted-foreground" />
+                <UserCheck className={`h-3 w-3 ${!student.is_active ? "text-gray-400" : "text-muted-foreground"}`} />
               </div>
             ))}
         </div>

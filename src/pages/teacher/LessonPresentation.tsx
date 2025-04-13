@@ -1069,13 +1069,22 @@ const LessonPresentation: React.FC = () => {
                     {studentProgressData.map((student, index) => (
                       <div 
                         key={student.studentId}
-                        className="flex items-center justify-between p-2 bg-muted/30 rounded-md text-xs"
+                        className={`flex items-center justify-between p-2 rounded-md text-xs ${
+                          student.is_active ? "bg-muted/30" : "bg-gray-100 border border-gray-200"
+                        }`}
                       >
                         <span className="flex items-center">
-                          <UserCircle className="h-4 w-4 mr-2 text-primary" />
-                          {anonymousMode ? `Student ${index + 1}` : student.studentName}
+                          <UserCircle className={`h-4 w-4 mr-2 ${student.is_active ? "text-primary" : "text-gray-400"}`} />
+                          <span className={student.is_active ? "" : "text-gray-500"}>
+                            {anonymousMode ? `Student ${index + 1}` : student.studentName}
+                          </span>
+                          {!student.is_active && (
+                            <Badge variant="outline" className="ml-2 bg-gray-200 text-gray-600 text-[9px] px-1">
+                              INACTIVE
+                            </Badge>
+                          )}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className={`text-xs ${student.is_active ? "text-muted-foreground" : "text-gray-400"}`}>
                           Slide {student.currentSlide + 1}
                         </span>
                       </div>
