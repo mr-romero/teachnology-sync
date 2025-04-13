@@ -574,9 +574,8 @@ const StudentView: React.FC<StudentViewProps> = () => {
   };
   
   const handlePreviousSlide = async () => {
-    // Check if session is paused first
+    // If session is paused, do nothing (button will be disabled in UI)
     if (isPaused && !isPreview) {
-      toast.info("Navigation is disabled while the session is paused");
       return;
     }
     
@@ -622,9 +621,8 @@ const StudentView: React.FC<StudentViewProps> = () => {
   };
   
   const handleNextSlide = async () => {
-    // Check if session is paused first
+    // If session is paused, do nothing (button will be disabled in UI)
     if (isPaused && !isPreview) {
-      toast.info("Navigation is disabled while the session is paused");
       return;
     }
     
@@ -901,7 +899,8 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 disabled={
                   currentSlideIndex === 0 || 
                   (isSynced && !isPreview) || 
-                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0)
+                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === 0) ||
+                  (isPaused && !isPreview)
                 }
                 className="flex items-center"
               >
@@ -923,7 +922,8 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 disabled={
                   currentSlideIndex === lesson.slides.length - 1 || 
                   (isSynced && !isPreview) || 
-                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1)
+                  (isPacedMode && allowedSlides.indexOf(currentSlideIndex) === allowedSlides.length - 1) ||
+                  (isPaused && !isPreview)
                 }
                 className="flex items-center"
               >
