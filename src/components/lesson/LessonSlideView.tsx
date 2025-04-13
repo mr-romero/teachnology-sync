@@ -169,6 +169,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               src={block.url} 
               alt={block.alt} 
               className="max-h-96 rounded-md"
+              hideDescription={isPreviewMode}
             />
           </div>
         );

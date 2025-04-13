@@ -7,9 +7,17 @@ interface ImageViewerProps {
   src: string;
   alt: string;
   className?: string;
+  disableControls?: boolean;
+  hideDescription?: boolean;
 }
 
-const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt, className }) => {
+const ImageViewer: React.FC<ImageViewerProps> = ({ 
+  src, 
+  alt, 
+  className,
+  disableControls = false,
+  hideDescription = false
+}) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleClose = () => {
@@ -20,23 +28,35 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt, className }) => {
     return null; // Return nothing if no image URL
   }
 
+  // Only show alt text if not explicitly hidden and alt exists
+  const showAlt = !hideDescription && alt && alt.trim() !== '';
+
   return (
     <>
       <div className="relative group">
         <img 
           src={src} 
-          alt={alt} 
+          alt={hideDescription ? '' : alt} 
           className={`${className || 'max-w-full'} cursor-pointer transition-all duration-150 group-hover:opacity-95`}
-          onClick={() => setIsOpen(true)}
+          onClick={() => !disableControls && setIsOpen(true)}
         />
-        <Button
-          variant="default"
-          size="icon"
-          className="absolute right-2 top-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-          onClick={() => setIsOpen(true)}
-        >
-          <ZoomIn className="h-4 w-4 text-white" />
-        </Button>
+        {!disableControls && (
+          <Button
+            variant="default"
+            size="icon"
+            className="absolute right-2 top-2 h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+            onClick={() => setIsOpen(true)}
+          >
+            <ZoomIn className="h-4 w-4 text-white" />
+          </Button>
+        )}
+        
+        {/* Display image description if provided and not hidden */}
+        {showAlt && (
+          <div className="mt-2 text-sm text-muted-foreground italic">
+            {alt}
+          </div>
+        )}
       </div>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -55,7 +75,7 @@ const ImageViewer: React.FC<ImageViewerProps> = ({ src, alt, className }) => {
             <div className="w-full h-full flex items-center justify-center bg-black/5 rounded-lg p-2 overflow-auto">
               <img 
                 src={src} 
-                alt={alt} 
+                alt={hideDescription ? '' : alt} 
                 className="max-w-full max-h-[calc(95vh-2rem)] object-contain cursor-pointer"
                 onClick={handleClose}
                 title="Click to close"

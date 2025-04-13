@@ -38,8 +38,8 @@ const LessonPreviewModal: React.FC<LessonPreviewModalProps> = ({
         </Button>
       )}
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={open} onOpenChange={setOpen} className="w-full">
+        <DialogContent className="max-w-[90vw] w-full max-h-[90vh] h-full overflow-auto">
           <DialogHeader>
             <DialogTitle>{title} - Preview</DialogTitle>
           </DialogHeader>
