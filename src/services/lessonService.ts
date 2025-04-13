@@ -337,11 +337,13 @@ export const startPresentationSession = async (
       // Get settings created by trigger
       const { data: settings, error: settingsError } = await supabase
         .from('presentation_settings')
-        .update({
+        .upsert({
+          session_id: sessionResult.id,
           openrouter_api_key: openRouterKey || null,
           elevenlabs_api_key: elevenLabsKey || null
+        }, {
+          onConflict: 'session_id'
         })
-        .eq('session_id', sessionResult.id)
         .select('openrouter_api_key, elevenlabs_api_key')
         .single();
   
