@@ -375,6 +375,39 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
         </div>
       )}
 
+      {/* Student navigation mode indicator */}
+      {!isSelectingSlides && (
+        <div className="flex gap-2 justify-center mb-1">
+          {syncEnabled && (
+            <div className="text-xs flex items-center gap-1.5 py-1 px-2 bg-green-50 border border-green-200 rounded-md text-green-700">
+              <Unlock className="h-3.5 w-3.5" />
+              <span>Students synced to teacher view</span>
+            </div>
+          )}
+
+          {!syncEnabled && studentPacingEnabled && pacedSlides.length > 0 && (
+            <div className="text-xs flex items-center gap-1.5 py-1 px-2 bg-blue-50 border border-blue-200 rounded-md text-blue-700">
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Student pacing: {pacedSlides.length} slides available</span>
+            </div>
+          )}
+
+          {!syncEnabled && !studentPacingEnabled && (
+            <div className="text-xs flex items-center gap-1.5 py-1 px-2 bg-gray-50 border border-gray-200 rounded-md text-gray-700">
+              <Lock className="h-3.5 w-3.5" />
+              <span>Students can navigate freely</span>
+            </div>
+          )}
+
+          {isPaused && (
+            <div className="text-xs flex items-center gap-1.5 py-1 px-2 bg-amber-50 border border-amber-200 rounded-md text-amber-700">
+              <Pause className="h-3.5 w-3.5" />
+              <span>Responses paused</span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
         {/* Scroll controls - keep these */}
