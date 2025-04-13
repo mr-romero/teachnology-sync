@@ -341,6 +341,11 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Add handler for viewing lesson as student (same functionality as in the editor)
+  const handlePreviewAsStudent = (lessonId: string) => {
+    navigate(`/student/view/${lessonId}?preview=true&slide=0`);
+  };
+
   if (!user) {
     return (
       <div className="container py-8">
@@ -461,20 +466,15 @@ const Dashboard: React.FC = () => {
                         Assign
                       </Button>
                       
-                      {/* Add Student View Preview Button */}
-                      <LessonPreviewModal
-                        slides={lesson.slides}
-                        title={lesson.title}
-                        trigger={
-                          <Button 
-                            size="sm"
-                            variant="secondary"
-                          >
-                            <Eye className="mr-2 h-4 w-4" />
-                            Preview
-                          </Button>
-                        }
-                      />
+                      {/* Replace the preview modal with Student View button */}
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handlePreviewAsStudent(lesson.id)}
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Student View
+                      </Button>
                       
                       <Button 
                         variant="outline" 
