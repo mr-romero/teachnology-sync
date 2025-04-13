@@ -1072,7 +1072,7 @@ const LessonPresentation: React.FC = () => {
                 <div className="flex justify-between items-center mt-3">
                   <Button 
                     onClick={handlePreviousSlide} 
-                    disabled={currentSlideIndex === 0 || syncEnabled}
+                    disabled={currentSlideIndex === 0 || syncEnabled || isPaused}
                     size="default"
                     className="flex items-center gap-1 h-9 px-3"
                     variant={currentSlideIndex === 0 ? "outline" : "default"}
@@ -1087,7 +1087,7 @@ const LessonPresentation: React.FC = () => {
                   
                   <Button 
                     onClick={handleNextSlide} 
-                    disabled={currentSlideIndex === lesson.slides.length - 1 || syncEnabled}
+                    disabled={currentSlideIndex === lesson.slides.length - 1 || syncEnabled || isPaused}
                     size="default"
                     className="flex items-center gap-1 h-9 px-3"
                     variant={currentSlideIndex === lesson.slides.length - 1 ? "outline" : "default"}
@@ -1101,6 +1101,15 @@ const LessonPresentation: React.FC = () => {
                   <div className="text-center mt-3 text-xs text-muted-foreground bg-muted/10 rounded-md p-2">
                     <span className="flex items-center justify-center gap-1">
                       Navigation controlled by teacher
+                    </span>
+                  </div>
+                )}
+
+                {!syncEnabled && studentPacingEnabled && pacedSlides.length > 0 && (
+                  <div className="text-center mt-3 text-xs text-blue-600 bg-blue-50 rounded-md p-2">
+                    <span className="flex items-center justify-center gap-1">
+                      <LayoutGrid className="h-3.5 w-3.5 mr-1" />
+                      Limited navigation ({pacedSlides.length} slides available)
                     </span>
                   </div>
                 )}
