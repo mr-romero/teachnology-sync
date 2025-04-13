@@ -948,7 +948,8 @@ const StudentView: React.FC<StudentViewProps> = () => {
                 isStudentView={true}
                 studentId={user?.id}
                 studentName={user?.name}
-                studentClass={undefined} {/* Explicitly set studentClass to undefined */}
+                {/* Explicitly set studentClass to undefined to remove classroom ID */}
+                studentClass={undefined}
                 onAnswerSubmit={isPreview ? undefined : handleSubmitAnswer}
                 answeredBlocks={answeredBlocks}
                 isPaused={isPaused && !isPreview}
