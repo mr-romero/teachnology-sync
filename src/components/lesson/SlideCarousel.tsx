@@ -210,7 +210,7 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
         </div>
       )}
       
-      <div className="relative">
+      <div className="relative px-12"> {/* Added padding to make room for arrows */}
         <Carousel
           opts={{
             align: 'start',
@@ -228,18 +228,27 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious 
-            className="-left-6 h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </CarouselPrevious>
-          <div className="absolute -right-6 flex items-center gap-2">
+          
+          {/* Repositioned navigation buttons */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3">
+            <CarouselPrevious 
+              className="h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </CarouselPrevious>
+          </div>
+          
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 flex items-center gap-2">
             <CarouselNext 
               className="h-10 w-10 bg-white shadow-md hover:bg-primary/10" 
             >
               <ChevronRight className="h-5 w-5" />
             </CarouselNext>
-            {onAddSlide && (
+          </div>
+          
+          {/* Add slide button positioned at top right corner of the carousel */}
+          {onAddSlide && (
+            <div className="absolute top-0 right-0 -mt-4 -mr-4">
               <Button
                 size="icon"
                 variant="outline"
@@ -249,11 +258,12 @@ const SlideCarousel: React.FC<SlideCarouselProps> = ({
                   onAddSlide();
                   onSlideClick(slides.length);
                 }}
+                title="Add new slide"
               >
                 <Plus className="h-5 w-5" />
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </Carousel>
       </div>
       
