@@ -410,28 +410,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
 
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
-        {/* Scroll controls with improved visibility and accessibility */}
-        <div className="absolute top-0 bottom-0 left-[204px] z-20 flex items-center">
-          <Button 
-            onClick={() => scrollMatrix('left')} 
-            size="sm"
-            variant="secondary"
-            className="h-10 w-10 p-0 rounded-full bg-background shadow-md hover:bg-primary/20 border border-gray-200"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-        </div>
-        
-        <div className="absolute top-0 bottom-0 right-1 z-20 flex items-center">
-          <Button 
-            onClick={() => scrollMatrix('right')} 
-            size="sm"
-            variant="secondary"
-            className="h-10 w-10 p-0 rounded-full bg-background shadow-md hover:bg-primary/20 border border-gray-200"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </Button>
-        </div>
+        {/* Remove the navigation buttons in the middle, keeping just the trackpad scrolling functionality */}
         
         {/* Use a table for both headers and content to ensure alignment */}
         <table className="w-full border-collapse table-fixed">
@@ -442,8 +421,12 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
             ))}
           </colgroup>
           
-          {/* Table Headers with proper scrolling reference */}
-          <thead ref={slidesContainerRef as React.LegacyRef<HTMLTableSectionElement>} className="border-b bg-muted/10 overflow-x-auto">
+          {/* Table Headers with proper scrolling reference - add overflow-x-auto to enable horizontal scrolling */}
+          <thead 
+            ref={slidesContainerRef as React.LegacyRef<HTMLTableSectionElement>} 
+            className="border-b bg-muted/10 overflow-x-auto"
+            style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}
+          >
             <tr>
               {/* Fixed Control Column Header */}
               <th className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r text-start">
