@@ -35,14 +35,54 @@ async function getValidAccessToken(): Promise<string> {
   let providerToken = sessionData.session.provider_token;
   
   if (!providerToken) {
-    // If no provider token, try to refresh the session
-    const { data: { session }, error } = await supabase.auth.refreshSession();
-    
-    if (error || !session?.provider_token) {
+    // If no provider token, try to refresh the session with extended access
+    try {
+      const { data: { session }, error } = await supabase.auth.refreshSession({
+        refresh_token: sessionData.session.refresh_token
+      });
+      
+      if (error || !session?.provider_token) {
+        console.error("Error refreshing session:", error);
+        // Try to re-authenticate using a stored refresh token
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          // Store information in local storage that we need to re-authenticate
+          localStorage.setItem('auth_redirect_reason', 'token_expired');
+          throw new Error("Please re-authenticate with Google");
+        }
+        throw new Error("Please re-authenticate with Google");
+      }
+      
+      providerToken = session.provider_token;
+    } catch (e) {
+      console.error("Session refresh error:", e);
       throw new Error("Please re-authenticate with Google");
     }
+  } else {
+    // Check if token is about to expire (if expiresAt is available)
+    // Most provider tokens last ~1 hour, so refresh if less than 10 minutes left
+    const expiresAt = sessionData.session.expires_at;
     
-    providerToken = session.provider_token;
+    if (expiresAt) {
+      const expiresInSeconds = expiresAt - Math.floor(Date.now() / 1000);
+      const TEN_MINUTES_IN_SECONDS = 600;
+      
+      if (expiresInSeconds < TEN_MINUTES_IN_SECONDS) {
+        try {
+          // Proactively refresh the token if it's about to expire
+          const { data: { session }, error } = await supabase.auth.refreshSession({
+            refresh_token: sessionData.session.refresh_token
+          });
+          
+          if (!error && session?.provider_token) {
+            providerToken = session.provider_token;
+          }
+        } catch (e) {
+          console.warn("Could not proactively refresh session:", e);
+          // Continue with current token if refresh fails
+        }
+      }
+    }
   }
   
   return providerToken;

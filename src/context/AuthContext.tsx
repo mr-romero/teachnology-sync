@@ -217,9 +217,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const handleClassroomAuthError = (error: Error) => {
     if (error.message.includes("re-authenticate") || error.message.includes("provider token")) {
-      // Force refresh of Google OAuth with classroom scopes
-      console.log("Re-authenticating with Google due to expired or missing token");
-      loginWithGoogle('teacher');
+      // Check if we've recently tried to re-authenticate to avoid infinite loops
+      const lastAuthAttempt = localStorage.getItem('last_auth_attempt');
+      const now = Date.now();
+      
+      if (lastAuthAttempt) {
+        const timeSinceLastAttempt = now - parseInt(lastAuthAttempt);
+        // Don't retry more than once every 5 minutes
+        if (timeSinceLastAttempt < 5 * 60 * 1000) {
+          console.log("Authentication attempt too recent, waiting before trying again");
+          toast.error("Authentication error. Please try again in a few minutes.");
+          return true;
+        }
+      }
+      
+      // Store current time as last authentication attempt
+      localStorage.setItem('last_auth_attempt', now.toString());
+      
+      // Try to refresh the session first before forcing a full re-auth
+      supabase.auth.refreshSession().then(({ data, error }) => {
+        if (error || !data.session?.provider_token) {
+          // If refresh fails, then force re-authentication with Google
+          console.log("Re-authenticating with Google due to expired or missing token");
+          toast.info("Your Google Classroom session has expired. Reconnecting...");
+          loginWithGoogle('teacher');
+        } else {
+          // If refresh succeeds, reload the page to use the new token
+          window.location.reload();
+        }
+      });
+      
       return true;
     }
     return false;
