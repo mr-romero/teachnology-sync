@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +34,7 @@ import { debounce } from 'lodash';
 import { v4 as uuidv4 } from 'uuid';
 import EquationList from './EquationList';
 import GraphRenderer from './GraphRenderer';
+import MathDisplay from './MathDisplay';
 
 interface LessonBlockEditorProps {
   block: LessonBlock;
@@ -213,6 +214,38 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
       }
     };
     
+    // Check if a string contains LaTeX
+    const containsLatex = (text: string): boolean => {
+      return text.includes('\\') || text.includes('$');
+    };
+    
+    // Function to render an option with or without LaTeX
+    const renderOptionText = (option: string, index: number) => {
+      // Check if the option contains LaTeX markers
+      if (containsLatex(option)) {
+        return (
+          <div className="flex flex-col gap-1">
+            <Input
+              value={option}
+              onChange={(e) => updateOption(index, e.target.value)}
+              className="flex-grow"
+            />
+            <div className="px-2 py-1 border rounded bg-gray-50 min-h-8">
+              <MathDisplay latex={option} display={false} />
+            </div>
+          </div>
+        );
+      } else {
+        return (
+          <Input
+            value={option}
+            onChange={(e) => updateOption(index, e.target.value)}
+            className="flex-grow"
+          />
+        );
+      }
+    };
+    
     return (
       <div className="space-y-4">
         <div>
@@ -227,8 +260,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
             <SelectContent>
               <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
               <SelectItem value="free-response">Free Response</SelectItem>
-              <SelectItem value="true-false">True/False</SelectItem>
-            </SelectContent>
+              <SelectItem value="true-false">True/False</SelectContent>
           </Select>
         </div>
         
@@ -264,11 +296,7 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
                       <div className="h-3 w-3 rounded-full border-2" />
                     )}
                   </Button>
-                  <Input
-                    value={option}
-                    onChange={(e) => updateOption(index, e.target.value)}
-                    className="flex-grow"
-                  />
+                  {renderOptionText(option, index)}
                 </div>
                 {questionBlock.options && questionBlock.options.length > 2 && (
                   <Button
@@ -291,6 +319,13 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
             >
               Add Option
             </Button>
+            
+            <div className="pt-2 mt-2 border-t">
+              <p className="text-xs text-muted-foreground mb-2">
+                <strong>Tip:</strong> You can use LaTeX notation for math formulas. 
+                For example, use <code>$x^2$</code> to display x². The formula will render automatically as you type.
+              </p>
+            </div>
           </div>
         )}
         

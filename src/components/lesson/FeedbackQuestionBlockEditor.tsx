@@ -37,6 +37,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserSettings, getDefaultModel } from '@/services/userSettingsService';
 import { useAuth } from '@/context/AuthContext';
+import MathDisplay from './MathDisplay';
 
 const STORAGE_KEY_PREFIX = 'feedback_question_editor_';
 
@@ -579,6 +580,37 @@ Remember to:
     );
   }
 
+  // Check if a string contains LaTeX
+  const containsLatex = (text: string): boolean => {
+    return text?.includes('\\') || text?.includes('$');
+  };
+
+  // Function to render an option with or without LaTeX
+  const renderOptionInput = (option: string, index: number) => {
+    if (containsLatex(option)) {
+      return (
+        <div className="flex flex-col gap-1 flex-grow">
+          <Input
+            value={option}
+            onChange={(e) => updateOption(index, e.target.value)}
+            className="flex-grow"
+          />
+          <div className="px-2 py-1 border rounded bg-gray-50 min-h-8">
+            <MathDisplay latex={option} display={false} />
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <Input
+          value={option}
+          onChange={(e) => updateOption(index, e.target.value)}
+          className="flex-grow"
+        />
+      );
+    }
+  };
+
   return (
     <>
       <Card className="border shadow-sm min-w-[300px] min-h-[400px]">
@@ -737,11 +769,7 @@ Remember to:
                                 ? String.fromCharCode(70 + index)
                                 : ''}
                           </span>
-                          <Input
-                            value={option}
-                            onChange={(e) => updateOption(index, e.target.value)}
-                            className="flex-grow"
-                          />
+                          {renderOptionInput(option, index)}
                         </div>
                         {options.length > 2 && (
                           <Button
@@ -765,6 +793,13 @@ Remember to:
                       <Plus className="h-4 w-4 mr-1" />
                       Add Option
                     </Button>
+                    
+                    <div className="pt-2 mt-2 border-t">
+                      <p className="text-xs text-muted-foreground mb-2">
+                        <strong>Tip:</strong> You can use LaTeX notation for math formulas. 
+                        For example, use <code>$x^2$</code> to display x². The formula will render automatically as you type.
+                      </p>
+                    </div>
                   </div>
                 )}
                 
