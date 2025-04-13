@@ -709,25 +709,53 @@ const StudentCell: React.FC<StudentCellProps> = ({
   const studentCurrentSlide = Number(student.currentSlide);
   const isStudentCurrentSlide = !isNaN(studentCurrentSlide) && studentCurrentSlide === slideIndex;
 
+  // Create classes for the cell based on various states
+  const cellClasses = [
+    "text-center p-2 w-[120px] relative",
+    // Base styling for inactive students
+    !isActive && "opacity-60 border border-gray-200 bg-gray-50"
+  ];
+
+  // Add styling classes in a way that preserves the student's current position indicator
+  let backgroundClass = "";
+  if (isSelectedCell) {
+    backgroundClass = "bg-green-50";
+  } else if (isPacedCell) {
+    backgroundClass = "bg-blue-50";
+  }
+  
+  // Add the background class if one was determined
+  if (backgroundClass) {
+    cellClasses.push(backgroundClass);
+  }
+  
+  // Always add the student current slide indicator on top of any background
+  // This ensures the student's position is always visible
+  if (isStudentCurrentSlide) {
+    cellClasses.push("border-2 border-primary ring-1 ring-primary/30");
+    
+    // Only add background color if we're not already in a specially colored cell
+    if (!backgroundClass) {
+      cellClasses.push("bg-primary/5");
+    }
+  }
+
   return (
     <td 
       key={`${student.studentId}-${slide.id}`} 
-      className={cn(
-        "text-center p-2 w-[120px] relative", 
-        isSelectedCell
-          ? "bg-green-50"
-          : isPacedCell
-            ? "bg-blue-50"
-            : isStudentCurrentSlide
-              ? "bg-primary/5 border-2 border-primary ring-1 ring-primary/30"
-              : "",
-        !isActive && "opacity-60 border border-gray-200 bg-gray-50"
-      )}
+      className={cn(...cellClasses)}
     >
       <div className={cn(
-        !isActive && "text-gray-400"
+        !isActive && "text-gray-400",
+        // Add an additional indicator for the student's position
+        isStudentCurrentSlide && "relative"
       )}>
         {getStatusIcon(student, slide.id)}
+        
+        {/* Add a small dot indicator for current slide that's always visible */}
+        {isStudentCurrentSlide && (
+          <div className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full shadow-sm"></div>
+        )}
       </div>
     </td>
   );
