@@ -16,12 +16,26 @@ const ActualStudentViewRenderer: React.FC<ActualStudentViewRendererProps> = ({
   slide,
   className
 }) => {
+  // Create a modified version of the slide with image descriptions removed
+  const slideWithoutImageDescriptions = {
+    ...slide,
+    blocks: slide.blocks.map(block => {
+      if (block.type === 'image') {
+        return {
+          ...block,
+          alt: '' // Remove the alt text/description for images
+        };
+      }
+      return block;
+    })
+  };
+  
   return (
     <div className={cn("relative overflow-hidden", className)}>
       <div className="scale-100 origin-top-left w-full h-full">
         <div className="border rounded-md overflow-hidden">
           <LessonSlideView 
-            slide={slide} 
+            slide={slideWithoutImageDescriptions} 
             isStudentView={true}
             isPaused={false}
             showCalculator={false}
