@@ -410,26 +410,26 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
 
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
-        {/* Add subtle navigation arrows on the sides */}
-        <div className="absolute top-0 bottom-0 left-[204px] z-10 flex items-center">
+        {/* Navigation arrows with improved positioning for all screen sizes */}
+        <div className="absolute top-0 bottom-0 left-[204px] z-20 flex items-center pointer-events-none">
           <Button 
             onClick={() => scrollMatrix('left')} 
             size="sm"
             variant="ghost"
-            className="h-8 w-8 p-0 rounded-full bg-background/70 hover:bg-background shadow-sm border border-gray-200"
+            className="h-8 w-8 p-0 rounded-full bg-background shadow-sm border border-gray-200 pointer-events-auto transition-opacity hover:opacity-100 opacity-80"
           >
-            <ChevronLeft className="h-4 w-4 text-gray-500" />
+            <ChevronLeft className="h-4 w-4 text-gray-700" />
           </Button>
         </div>
         
-        <div className="absolute top-0 bottom-0 right-1 z-10 flex items-center">
+        <div className="absolute top-0 bottom-0 right-1 z-20 flex items-center pointer-events-none">
           <Button 
             onClick={() => scrollMatrix('right')} 
             size="sm"
             variant="ghost"
-            className="h-8 w-8 p-0 rounded-full bg-background/70 hover:bg-background shadow-sm border border-gray-200"
+            className="h-8 w-8 p-0 rounded-full bg-background shadow-sm border border-gray-200 pointer-events-auto transition-opacity hover:opacity-100 opacity-80"
           >
-            <ChevronRight className="h-4 w-4 text-gray-500" />
+            <ChevronRight className="h-4 w-4 text-gray-700" />
           </Button>
         </div>
         
