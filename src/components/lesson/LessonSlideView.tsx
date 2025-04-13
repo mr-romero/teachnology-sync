@@ -677,15 +677,6 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               <TooltipTrigger asChild>
                 <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 bg-white border-primary">
                   <span className="font-medium">{studentName}</span>
-                  {studentClass && (
-                    <>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-muted-foreground flex items-center">
-                        <BookOpen className="h-3 w-3 mr-1" />
-                        {studentClass}
-                      </span>
-                    </>
-                  )}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
