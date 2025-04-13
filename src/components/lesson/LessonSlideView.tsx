@@ -677,6 +677,7 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               <TooltipTrigger asChild>
                 <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 bg-white border-primary">
                   <span className="font-medium">{studentName}</span>
+                  {/* Removed student class display here */}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>

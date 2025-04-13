@@ -147,21 +147,7 @@ const StudentProgressGrid: React.FC<StudentProgressGridProps> = ({
                       <span className="truncate text-xs">
                         {student.studentName}
                       </span>
-                      {student.studentClass && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
-                                <BookOpen className="h-2 w-2 mr-0.5" />
-                                {student.studentClass}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">Class: {student.studentClass}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                      {/* Removed classroom badge display */}
                     </div>
                   )}
                   <MoreVertical className="h-3 w-3 ml-1 text-muted-foreground" />

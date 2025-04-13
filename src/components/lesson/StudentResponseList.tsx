@@ -125,21 +125,7 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
                     {anonymousMode ? `Student ${index + 1}` : (
                       <>
                         <span>{response.studentName}</span>
-                        {studentInfo.studentClass && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Badge variant="outline" className="px-1 h-4 text-[9px] ml-1">
-                                  <BookOpen className="h-2 w-2 mr-0.5" />
-                                  {studentInfo.studentClass}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Class: {studentInfo.studentClass}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
+                        {/* Remove classroom display for student responses */}
                       </>
                     )}
                   </span>
@@ -182,27 +168,7 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
                   {anonymousMode ? `Student ${index + 1}` : (
                     <>
                       <span>{student.studentName}</span>
-                      {student.studentClass && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Badge 
-                                variant="outline" 
-                                className={cn(
-                                  "px-1 h-4 text-[9px] ml-1",
-                                  !student.is_active && "opacity-60"
-                                )}
-                              >
-                                <BookOpen className="h-2 w-2 mr-0.5" />
-                                {student.studentClass}
-                              </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">Class: {student.studentClass}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
+                      {/* Removed classroom display here */}
                     </>
                   )}
                 </span>

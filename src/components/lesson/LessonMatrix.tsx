@@ -562,28 +562,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
                                 : student.studentName}
                             </span>
                             
-                            {/* Show class as a badge unless we're already sorting by class */}
-                            {!anonymousMode && student.studentClass && sortBy !== "class" && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Badge 
-                                      variant="outline" 
-                                      className={cn(
-                                        "px-1 h-4 text-[9px] ml-1",
-                                        !student.is_active && "opacity-50"
-                                      )}
-                                    >
-                                      <BookOpen className="h-2 w-2 mr-0.5" />
-                                      {student.studentClass}
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs">Class: {student.studentClass}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
+                            {/* Remove classroom badge display */}
                           </div>
                         </div>
                       </td>
