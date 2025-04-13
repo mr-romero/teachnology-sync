@@ -423,10 +423,15 @@ const LessonPresentation: React.FC = () => {
         // Combine both classroom students and actual participants
         const progressData: StudentProgress[] = [];
         
-        // First add all classroom students as inactive if not already active
+        // Create a set of all active participant IDs for quick lookup
+        const activeParticipantIds = new Set(uniqueParticipants.map(p => p.user_id));
+        console.log("Active participant IDs:", Array.from(activeParticipantIds));
+        
+        // If we have classroom students, combine both datasets
         if (classroomStudents.length > 0) {
+          // Process all classroom students, marking them as active if they're in the participants list
           for (const student of classroomStudents) {
-            const isActive = uniqueParticipants.some(p => p.user_id === student.profileId);
+            const isActive = activeParticipantIds.has(student.profileId);
             const studentAnswers = answers.filter(answer => answer.user_id === student.profileId);
             const participantData = uniqueParticipants.find(p => p.user_id === student.profileId);
             
@@ -449,6 +454,41 @@ const LessonPresentation: React.FC = () => {
                 timestamp: answer.submitted_at
               })),
               is_active: isActive
+            });
+          }
+          
+          // Also add any active participants that aren't in the classroom roster
+          // to make sure we don't miss any students who joined directly
+          for (const participant of uniqueParticipants) {
+            // Skip if this student is already included from the classroom roster
+            if (classroomStudents.some(s => s.profileId === participant.user_id)) {
+              continue;
+            }
+            
+            const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
+            const userData = usersData?.find(u => u.id === participant.user_id);
+            const studentName = userData?.full_name || `Student ${participant.user_id.substring(0, 5)}`;
+            const studentClass = userData?.class;
+            
+            progressData.push({
+              studentId: participant.user_id,
+              studentName: studentName,
+              studentClass: studentClass,
+              lessonId: lessonId || '',
+              currentSlide: participant.current_slide,
+              completedBlocks: studentAnswers.map(answer => answer.content_id),
+              responses: studentAnswers.map(answer => ({
+                studentId: answer.user_id,
+                studentName: studentName,
+                studentClass: studentClass,
+                lessonId: lessonId || '',
+                slideId: answer.slide_id,
+                blockId: answer.content_id,
+                response: answer.answer,
+                isCorrect: answer.is_correct,
+                timestamp: answer.submitted_at
+              })),
+              is_active: true // Direct participants are always active
             });
           }
         } else {
@@ -477,10 +517,15 @@ const LessonPresentation: React.FC = () => {
                 isCorrect: answer.is_correct,
                 timestamp: answer.submitted_at
               })),
-              is_active: true
+              is_active: true // Direct participants are always active
             });
           }
         }
+        
+        console.log("Final student progress data:", progressData.map(s => ({
+          name: s.studentName,
+          isActive: s.is_active
+        })));
         
         return progressData;
       } catch (error) {
