@@ -574,6 +574,12 @@ const StudentView: React.FC<StudentViewProps> = () => {
   };
   
   const handlePreviousSlide = async () => {
+    // Check if session is paused first
+    if (isPaused && !isPreview) {
+      toast.info("Navigation is disabled while the session is paused");
+      return;
+    }
+    
     if (currentSlideIndex > 0 && lesson) {
       let newIndex = currentSlideIndex - 1;
       
@@ -616,6 +622,12 @@ const StudentView: React.FC<StudentViewProps> = () => {
   };
   
   const handleNextSlide = async () => {
+    // Check if session is paused first
+    if (isPaused && !isPreview) {
+      toast.info("Navigation is disabled while the session is paused");
+      return;
+    }
+    
     if (lesson && currentSlideIndex < lesson.slides.length - 1) {
       let newIndex = currentSlideIndex + 1;
       
