@@ -79,7 +79,7 @@ const LessonPresentation: React.FC = () => {
   const [studentPacingEnabled, setStudentPacingEnabled] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [sortBy, setSortBy] = useState<string>('lastName');
+  const [sortBy, setSortBy] = useState<string>('joinTime'); // Changed from 'lastName' to 'joinTime'
   const [activeTab, setActiveTab] = useState('progress');
   
   // Add new state for slide selection

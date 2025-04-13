@@ -156,9 +156,29 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
         return a.studentName.localeCompare(b.studentName);
       }
       return aClass.localeCompare(bClass);
+    } else if (sortBy === "joinTime") {
+      // When sorting by join time, active students should appear first
+      // and maintain their original order (which is join order since participants
+      // are fetched with 'joined_at' as the order)
+      
+      // First sort by active status
+      if (a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1; // Active students first
+      }
+      
+      // For students with same active status, maintain original order
+      // The original array from participants is already sorted by join time
+      // so we just need to preserve that order
+      // This effectively puts the earliest joined students at the top
+      const aIndex = studentProgress.findIndex(s => s.studentId === a.studentId);
+      const bIndex = studentProgress.findIndex(s => s.studentId === b.studentId);
+      return aIndex - bIndex;
     }
-    // Default is joinTime, but we don't have that info, so return as is
-    return 0;
+    
+    // Default fallback to original order
+    const aIndex = studentProgress.findIndex(s => s.studentId === a.studentId);
+    const bIndex = studentProgress.findIndex(s => s.studentId === b.studentId);
+    return aIndex - bIndex;
   });
 
   const copyJoinCode = () => {
