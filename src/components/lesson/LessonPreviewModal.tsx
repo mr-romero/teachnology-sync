@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { LessonSlide } from '@/types/lesson';
 import { Eye } from 'lucide-react';
-import StudentViewPreview from './StudentViewPreview';
+import ActualStudentViewRenderer from './ActualStudentViewRenderer';
 
 interface LessonPreviewModalProps {
   slides: LessonSlide[];
@@ -39,7 +39,7 @@ const LessonPreviewModal: React.FC<LessonPreviewModalProps> = ({
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{title} - Student View Preview</DialogTitle>
           </DialogHeader>
@@ -47,29 +47,35 @@ const LessonPreviewModal: React.FC<LessonPreviewModalProps> = ({
           <Tabs defaultValue="all" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="all">All Slides</TabsTrigger>
-              <TabsTrigger value="current">Single Slide</TabsTrigger>
+              <TabsTrigger value="current">Current Slide</TabsTrigger>
             </TabsList>
             
             <TabsContent value="all" className="py-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                 {slides.map((slide, index) => (
                   <div 
                     key={slide.id} 
-                    className="border rounded-lg overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+                    className="border rounded-lg overflow-hidden cursor-pointer hover:border-primary hover:shadow-md transition-all"
                     onClick={() => {
                       setCurrentSlideIndex(index);
                       document.querySelector('[data-value="current"]')?.click();
                     }}
                   >
-                    <div className="p-1 bg-muted/20 border-b text-center text-xs truncate">
-                      {slide.title || `Slide ${index + 1}`}
+                    <div className="p-2 bg-muted/20 border-b flex justify-between items-center">
+                      <span className="text-xs font-medium truncate">
+                        {slide.title || `Slide ${index + 1}`}
+                      </span>
+                      <span className="bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-full">
+                        #{index + 1}
+                      </span>
                     </div>
-                    <div className="p-2 aspect-video">
-                      <StudentViewPreview 
-                        slide={slide}
-                        showRealContent={true}
-                        className="h-full w-full border bg-white rounded-md" 
-                      />
+                    <div className="p-2 aspect-video" style={{ height: '150px', overflowY: 'hidden' }}>
+                      <div className="transform scale-[0.3] origin-top-left w-[300%] h-[300%]">
+                        <ActualStudentViewRenderer
+                          slide={slide}
+                          className="w-full h-full"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -105,10 +111,9 @@ const LessonPreviewModal: React.FC<LessonPreviewModalProps> = ({
 
                 <div className="border rounded-lg p-4 bg-white">
                   {slides[currentSlideIndex] ? (
-                    <StudentViewPreview 
+                    <ActualStudentViewRenderer
                       slide={slides[currentSlideIndex]} 
-                      showRealContent={true}
-                      className="w-full aspect-video border bg-white rounded-md"
+                      className="w-full aspect-video"
                     />
                   ) : (
                     <div className="w-full aspect-video flex items-center justify-center text-muted-foreground">

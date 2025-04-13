@@ -466,15 +466,20 @@ const Dashboard: React.FC = () => {
                         Assign
                       </Button>
                       
-                      {/* Replace the preview modal with Student View button */}
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handlePreviewAsStudent(lesson.id)}
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Student View
-                      </Button>
+                      {/* Use the enhanced LessonPreviewModal for showing student view previews */}
+                      <LessonPreviewModal
+                        slides={lesson.slides}
+                        title={lesson.title}
+                        trigger={
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Student View
+                          </Button>
+                        }
+                      />
                       
                       <Button 
                         variant="outline" 
