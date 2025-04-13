@@ -322,7 +322,7 @@ export const startPresentationSession = async (
         paced_slides: [] // Initialize with empty array
       };
   
-      // Create session (trigger will handle settings)
+      // Create session
       const { data: sessionResult, error: sessionError } = await supabase
         .from('presentation_sessions')
         .insert(sessionData)
@@ -334,23 +334,51 @@ export const startPresentationSession = async (
         return null;
       }
   
-      // Get settings created by trigger
-      const { data: settings, error: settingsError } = await supabase
-        .from('presentation_settings')
-        .upsert({
-          session_id: sessionResult.id,
-          openrouter_api_key: openRouterKey || null,
-          elevenlabs_api_key: elevenLabsKey || null
-        }, {
-          onConflict: 'session_id'
-        })
-        .select('openrouter_api_key, elevenlabs_api_key')
-        .single();
-  
-      if (settingsError) {
-        console.error('Error updating presentation settings:', settingsError);
+      // Create settings directly (don't rely on trigger anymore)
+      try {
+        const { error: settingsError } = await supabase
+          .from('presentation_settings')
+          .insert({
+            session_id: sessionResult.id,
+            openrouter_api_key: openRouterKey || null,
+            elevenlabs_api_key: elevenLabsKey || null,
+            settings: '{}',
+            tts_settings: {
+              enabled: false,
+              provider: 'coqui',
+              voice_id: 'en_us_amy',
+              auto_play: false,
+              model_id: 'tts_models/en/ljspeech/tacotron2-DDC',
+              speaker_id: null,
+              language: 'en'
+            }
+          })
+          .select('openrouter_api_key, elevenlabs_api_key')
+          .single();
+    
+        if (settingsError) {
+          // If insert fails because record already exists, try to update instead
+          if (settingsError.code === '23505') { // Unique violation code
+            const { error: updateError } = await supabase
+              .from('presentation_settings')
+              .update({
+                openrouter_api_key: openRouterKey || null,
+                elevenlabs_api_key: elevenLabsKey || null
+              })
+              .eq('session_id', sessionResult.id);
+              
+            if (updateError) {
+              console.error('Error updating existing presentation settings:', updateError);
+            }
+          } else {
+            console.error('Error creating presentation settings:', settingsError);
+          }
+        }
+      } catch (settingsError) {
+        console.error('Exception creating presentation settings:', settingsError);
+        // Continue execution since this isn't critical
       }
-  
+      
       // If we have classroom students, create inactive session participants for them
       if (classroomStudents.length > 0) {
         const participantRecords = classroomStudents.map(student => ({
