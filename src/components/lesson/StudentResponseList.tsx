@@ -118,35 +118,30 @@ const StudentResponseList: React.FC<StudentResponseListProps> = ({
                   key={`${response.studentId}-${index}`}
                   className={cn(
                     "flex items-center justify-between text-xs p-1 rounded",
-                    !studentInfo.is_active ? "bg-gray-100" : ""
+                    !studentInfo.is_active ? "bg-gray-50 border border-gray-200" : ""
                   )}
                 >
                   <span className="truncate max-w-[120px] flex items-center gap-1">
                     {anonymousMode ? `Student ${index + 1}` : (
                       <>
-                        <span className={!studentInfo.is_active ? "text-gray-500" : ""}>
+                        <span className={!studentInfo.is_active ? "text-gray-500 italic" : ""}>
                           {response.studentName}
                         </span>
-                        {!studentInfo.is_active && (
-                          <Badge variant="outline" className="ml-1 bg-gray-200 text-gray-600 text-[9px] px-1">
-                            INACTIVE
-                          </Badge>
-                        )}
                       </>
                     )}
                   </span>
                   <div className="flex items-center">
-                    <span className="truncate max-w-[80px] mr-1 text-[10px]">
+                    <span className={`truncate max-w-[80px] mr-1 text-[10px] ${!studentInfo.is_active ? "text-gray-400" : ""}`}>
                       {typeof response.response === 'boolean' 
                         ? response.response ? 'True' : 'False'
                         : response.response}
                     </span>
                     {response.isCorrect === true ? (
-                      <CheckCircle className="h-3 w-3 text-green-600" />
+                      <CheckCircle className={`h-3 w-3 ${!studentInfo.is_active ? "text-green-400" : "text-green-600"}`} />
                     ) : response.isCorrect === false ? (
-                      <XCircle className="h-3 w-3 text-red-500" />
+                      <XCircle className={`h-3 w-3 ${!studentInfo.is_active ? "text-red-400" : "text-red-500"}`} />
                     ) : (
-                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                      <HelpCircle className={`h-3 w-3 ${!studentInfo.is_active ? "text-gray-400" : "text-muted-foreground"}`} />
                     )}
                   </div>
                 </div>

@@ -668,20 +668,14 @@ const StudentCell: React.FC<StudentCellProps> = ({
             : isStudentCurrentSlide
               ? "bg-primary/5 border-2 border-primary ring-1 ring-primary/30"
               : "",
-        !isActive && "opacity-50" // Removed italic which was hard to notice
+        !isActive && "opacity-60 border border-gray-200 bg-gray-50"
       )}
     >
-      {getStatusIcon(student, slide.id)}
-      {/* Add a clear visual indicator for inactive students */}
-      {!isActive && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="bg-gray-200/80 text-gray-600 text-[9px] font-semibold px-1 py-0.5 rounded">
-              INACTIVE
-            </div>
-          </div>
-        </div>
-      )}
+      <div className={cn(
+        !isActive && "text-gray-400"
+      )}>
+        {getStatusIcon(student, slide.id)}
+      </div>
     </td>
   );
 };

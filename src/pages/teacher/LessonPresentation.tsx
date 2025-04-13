@@ -1088,19 +1088,14 @@ const LessonPresentation: React.FC = () => {
                       <div 
                         key={student.studentId}
                         className={`flex items-center justify-between p-2 rounded-md text-xs ${
-                          student.is_active ? "bg-muted/30" : "bg-gray-100 border border-gray-200"
+                          student.is_active ? "bg-muted/30" : "bg-gray-50 border border-gray-200"
                         }`}
                       >
                         <span className="flex items-center">
                           <UserCircle className={`h-4 w-4 mr-2 ${student.is_active ? "text-primary" : "text-gray-400"}`} />
-                          <span className={student.is_active ? "" : "text-gray-500"}>
+                          <span className={student.is_active ? "" : "text-gray-500 italic"}>
                             {anonymousMode ? `Student ${index + 1}` : student.studentName}
                           </span>
-                          {!student.is_active && (
-                            <Badge variant="outline" className="ml-2 bg-gray-200 text-gray-600 text-[9px] px-1">
-                              INACTIVE
-                            </Badge>
-                          )}
                         </span>
                         <span className={`text-xs ${student.is_active ? "text-muted-foreground" : "text-gray-400"}`}>
                           Slide {student.currentSlide + 1}
