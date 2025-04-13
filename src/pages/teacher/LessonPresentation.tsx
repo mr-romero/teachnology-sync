@@ -580,6 +580,12 @@ const LessonPresentation: React.FC = () => {
   }, [sessionId, currentSlideIndex]);
 
   const handlePreviousSlide = async () => {
+    // Don't allow navigation if paused
+    if (isPaused) {
+      toast.info("Navigation is disabled while the session is paused");
+      return;
+    }
+
     if (currentSlideIndex > 0 && sessionId) {
       let newIndex = currentSlideIndex - 1;
 
@@ -608,6 +614,12 @@ const LessonPresentation: React.FC = () => {
   };
   
   const handleNextSlide = async () => {
+    // Don't allow navigation if paused
+    if (isPaused) {
+      toast.info("Navigation is disabled while the session is paused");
+      return;
+    }
+
     if (lesson && currentSlideIndex < lesson.slides.length - 1 && sessionId) {
       let newIndex = currentSlideIndex + 1;
 
@@ -639,6 +651,12 @@ const LessonPresentation: React.FC = () => {
     // Only select slides if in selection mode, otherwise navigate
     if (isSelectingSlides) {
       handleSlideSelection(index);
+      return;
+    }
+    
+    // Don't allow navigation if paused
+    if (isPaused) {
+      toast.info("Navigation is disabled while the session is paused");
       return;
     }
     

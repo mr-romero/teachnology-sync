@@ -746,16 +746,9 @@ const StudentCell: React.FC<StudentCellProps> = ({
       className={cn(...cellClasses)}
     >
       <div className={cn(
-        !isActive && "text-gray-400",
-        // Add an additional indicator for the student's position
-        isStudentCurrentSlide && "relative"
+        !isActive && "text-gray-400"
       )}>
         {getStatusIcon(student, slide.id)}
-        
-        {/* Add a small dot indicator for current slide that's always visible */}
-        {isStudentCurrentSlide && (
-          <div className="absolute -top-1 -right-1 h-2 w-2 bg-primary rounded-full shadow-sm"></div>
-        )}
       </div>
     </td>
   );
