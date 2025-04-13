@@ -260,7 +260,8 @@ const LessonBlockEditor: React.FC<LessonBlockEditorProps> = ({
             <SelectContent>
               <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
               <SelectItem value="free-response">Free Response</SelectItem>
-              <SelectItem value="true-false">True/False</SelectContent>
+              <SelectItem value="true-false">True/False</SelectItem>
+            </SelectContent>
           </Select>
         </div>
         
