@@ -410,7 +410,28 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
 
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
-        {/* Remove the navigation buttons in the middle, keeping just the trackpad scrolling functionality */}
+        {/* Add subtle navigation arrows on the sides */}
+        <div className="absolute top-0 bottom-0 left-[204px] z-10 flex items-center">
+          <Button 
+            onClick={() => scrollMatrix('left')} 
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 rounded-full bg-background/70 hover:bg-background shadow-sm border border-gray-200"
+          >
+            <ChevronLeft className="h-4 w-4 text-gray-500" />
+          </Button>
+        </div>
+        
+        <div className="absolute top-0 bottom-0 right-1 z-10 flex items-center">
+          <Button 
+            onClick={() => scrollMatrix('right')} 
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 rounded-full bg-background/70 hover:bg-background shadow-sm border border-gray-200"
+          >
+            <ChevronRight className="h-4 w-4 text-gray-500" />
+          </Button>
+        </div>
         
         {/* Use a table for both headers and content to ensure alignment */}
         <table className="w-full border-collapse table-fixed">
