@@ -396,9 +396,27 @@ const LessonPresentation: React.FC = () => {
         let classroomStudents: any[] = [];
         if (sessionData?.classroom_id) {
           try {
-            classroomStudents = await classroomService.getClassroomStudents(sessionData.classroom_id);
+            // Add a retry mechanism for classroom student fetching
+            try {
+              console.log("Fetching classroom students for classroom:", sessionData.classroom_id);
+              classroomStudents = await classroomService.getClassroomStudents(sessionData.classroom_id);
+              console.log(`Successfully fetched ${classroomStudents.length} classroom students`);
+            } catch (error: any) {
+              console.error("Error fetching classroom students:", error);
+              
+              // Try to handle the auth error, which will redirect to re-auth if needed
+              if (handleClassroomAuthError(error)) {
+                // This is an auth error that's being handled, so we should
+                // return early to avoid showing incomplete data
+                console.log("Authentication error handled, waiting for re-auth");
+                return null;
+              }
+              
+              // If it's not an auth error or can't be handled, continue with empty students list
+              toast.error("Could not load Google Classroom students. Please refresh the page.");
+            }
           } catch (error) {
-            console.error("Error fetching classroom students:", error);
+            console.error("Exception in classroom students fetch:", error);
           }
         }
         

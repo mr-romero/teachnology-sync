@@ -35,32 +35,33 @@ async function getValidAccessToken(): Promise<string> {
   let providerToken = sessionData.session.provider_token;
   
   if (!providerToken) {
-    // If no provider token, try to refresh the session with extended access
+    // If no provider token, try to refresh the session
     try {
-      const { data: { session }, error } = await supabase.auth.refreshSession({
+      console.log("No provider token found, attempting to refresh session");
+      const { data, error } = await supabase.auth.refreshSession({
         refresh_token: sessionData.session.refresh_token
       });
       
-      if (error || !session?.provider_token) {
+      if (error || !data.session?.provider_token) {
         console.error("Error refreshing session:", error);
-        // Try to re-authenticate using a stored refresh token
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user) {
-          // Store information in local storage that we need to re-authenticate
-          localStorage.setItem('auth_redirect_reason', 'token_expired');
-          throw new Error("Please re-authenticate with Google");
-        }
-        throw new Error("Please re-authenticate with Google");
+        // Create a custom error that includes information about needing to re-authenticate
+        const authError = new Error("Please re-authenticate with Google");
+        // Add a custom property to identify this as an auth error
+        (authError as any).isAuthError = true;
+        throw authError;
       }
       
-      providerToken = session.provider_token;
+      providerToken = data.session.provider_token;
+      console.log("Session refreshed successfully, new token obtained");
     } catch (e) {
       console.error("Session refresh error:", e);
-      throw new Error("Please re-authenticate with Google");
+      // Re-throw with our custom error type
+      const authError = new Error("Please re-authenticate with Google");
+      (authError as any).isAuthError = true;
+      throw authError;
     }
   } else {
     // Check if token is about to expire (if expiresAt is available)
-    // Most provider tokens last ~1 hour, so refresh if less than 10 minutes left
     const expiresAt = sessionData.session.expires_at;
     
     if (expiresAt) {
@@ -68,18 +69,35 @@ async function getValidAccessToken(): Promise<string> {
       const TEN_MINUTES_IN_SECONDS = 600;
       
       if (expiresInSeconds < TEN_MINUTES_IN_SECONDS) {
+        console.log(`Token expires in ${expiresInSeconds} seconds, attempting proactive refresh`);
         try {
           // Proactively refresh the token if it's about to expire
-          const { data: { session }, error } = await supabase.auth.refreshSession({
+          const { data, error } = await supabase.auth.refreshSession({
             refresh_token: sessionData.session.refresh_token
           });
           
-          if (!error && session?.provider_token) {
-            providerToken = session.provider_token;
+          if (!error && data.session?.provider_token) {
+            providerToken = data.session.provider_token;
+            console.log("Token refreshed proactively");
+          } else if (error) {
+            console.warn("Error during proactive token refresh:", error);
+            // If the refresh fails but we still have a valid token, continue using it
+            if (expiresInSeconds <= 0) {
+              // If token has already expired, we need to force re-auth
+              const authError = new Error("Please re-authenticate with Google");
+              (authError as any).isAuthError = true;
+              throw authError;
+            }
           }
         } catch (e) {
           console.warn("Could not proactively refresh session:", e);
-          // Continue with current token if refresh fails
+          // If the refresh fails but we still have a valid token, continue using it
+          if (expiresInSeconds <= 0) {
+            // If token has already expired, we need to force re-auth
+            const authError = new Error("Please re-authenticate with Google");
+            (authError as any).isAuthError = true;
+            throw authError;
+          }
         }
       }
     }
