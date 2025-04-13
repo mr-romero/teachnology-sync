@@ -191,7 +191,7 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
     if (slidesContainerRef.current) {
       const slideWidth = 120; // Width of each column
       const currentScroll = slidesContainerRef.current.scrollLeft;
-      const scrollAmount = direction === 'left' ? -slideWidth : slideWidth;
+      const scrollAmount = direction === 'left' ? -slideWidth * 3 : slideWidth * 3;
       const newScroll = currentScroll + scrollAmount;
       
       // Scroll the headers and body will follow through the synced scrolling
@@ -410,26 +410,26 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
 
       {/* Integrated Matrix with Fixed Positioning */}
       <div className="border rounded-lg overflow-hidden relative">
-        {/* Scroll controls - keep these */}
-        <div className="absolute top-0 bottom-0 left-[204px] z-10 flex items-center">
+        {/* Scroll controls with improved visibility and accessibility */}
+        <div className="absolute top-0 bottom-0 left-[204px] z-20 flex items-center">
           <Button 
             onClick={() => scrollMatrix('left')} 
             size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0 rounded-full bg-gray-100/50 hover:bg-primary/20 ring-0 shadow-none"
+            variant="secondary"
+            className="h-10 w-10 p-0 rounded-full bg-background shadow-md hover:bg-primary/20 border border-gray-200"
           >
-            <ChevronLeft className="h-4 w-4 text-gray-500" />
+            <ChevronLeft className="h-5 w-5" />
           </Button>
         </div>
         
-        <div className="absolute top-0 bottom-0 right-1 z-10 flex items-center">
+        <div className="absolute top-0 bottom-0 right-1 z-20 flex items-center">
           <Button 
             onClick={() => scrollMatrix('right')} 
             size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0 rounded-full bg-gray-100/50 hover:bg-primary/20 ring-0 shadow-none"
+            variant="secondary"
+            className="h-10 w-10 p-0 rounded-full bg-background shadow-md hover:bg-primary/20 border border-gray-200"
           >
-            <ChevronRight className="h-4 w-4 text-gray-500" />
+            <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
         
@@ -442,8 +442,8 @@ const LessonMatrix: React.FC<LessonMatrixProps> = ({
             ))}
           </colgroup>
           
-          {/* Table Headers */}
-          <thead className="border-b bg-muted/10">
+          {/* Table Headers with proper scrolling reference */}
+          <thead ref={slidesContainerRef as React.LegacyRef<HTMLTableSectionElement>} className="border-b bg-muted/10 overflow-x-auto">
             <tr>
               {/* Fixed Control Column Header */}
               <th className="sticky left-0 bg-background z-10 w-[200px] p-2 border-r text-start">
