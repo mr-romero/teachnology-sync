@@ -953,9 +953,10 @@ const LessonEditor: React.FC = () => {
           />
         </div>
         
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2 mr-4">
-            <Label htmlFor="showCalculator" className="text-sm">Show Calculator</Label>
+        {/* Responsive layout for buttons */}
+        <div className="flex flex-wrap gap-2 items-center justify-end">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="showCalculator" className="text-sm whitespace-nowrap">Show Calculator</Label>
             <Switch 
               id="showCalculator" 
               checked={lesson?.settings?.showCalculator ?? false}
@@ -967,7 +968,7 @@ const LessonEditor: React.FC = () => {
             variant="outline" 
             size="sm" 
             onClick={handlePreviewAsStudent}
-            className="flex items-center"
+            className="flex items-center whitespace-nowrap"
           >
             <Eye className="h-4 w-4 mr-1" />
             Student View
@@ -977,7 +978,7 @@ const LessonEditor: React.FC = () => {
             variant="default" 
             size="sm" 
             onClick={handleOpenPresentationDialog}
-            className="flex items-center"
+            className="flex items-center whitespace-nowrap"
           >
             <Play className="h-4 w-4 mr-1" />
             Present Lesson
@@ -987,7 +988,7 @@ const LessonEditor: React.FC = () => {
             variant="default" 
             size="sm" 
             onClick={handleSaveLesson}
-            className="ml-4"
+            className="flex items-center whitespace-nowrap"
           >
             <Save className="h-4 w-4 mr-1" />
             Save Lesson
