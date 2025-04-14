@@ -20,6 +20,7 @@ import { useAuth } from '@/context/AuthContext';
 import { getUserSettings } from '@/services/userSettingsService';
 import { supabase } from '@/integrations/supabase/client';
 import { textToSpeech, getTTSSettings, saveTTSSettings } from '@/services/ttsService';
+import { Badge } from '@/components/ui/badge';
 
 interface Message {
   role: 'system' | 'user' | 'assistant';
@@ -158,6 +159,57 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
 
 // Define feedback evaluation types
 export type FeedbackEvaluation = 'strong' | 'partial' | 'misconception' | 'needs-detail' | null;
+
+// Add StatusIndicator component for displaying the feedback status
+const StatusIndicator = ({ content }: { content: string }) => {
+  // Extract status indicator from content if present
+  const statusMatch = content.match(/\[(CORRECT|INCORRECT|PARTIAL|MISCONCEPTION)\]/i);
+  const status = statusMatch ? statusMatch[1].toUpperCase() : null;
+  
+  if (!status) return null;
+  
+  // Determine badge variant based on status
+  let variant: "default" | "outline" | "secondary" | "destructive" = "outline";
+  let icon = null;
+  
+  switch (status) {
+    case 'CORRECT':
+      variant = "outline";
+      icon = <CheckCircle2 className="h-4 w-4 mr-1 text-green-600" />;
+      break;
+    case 'INCORRECT':
+      variant = "outline";
+      icon = <XCircle className="h-4 w-4 mr-1 text-red-600" />;
+      break;
+    case 'PARTIAL':
+      variant = "outline";
+      icon = <AlertTriangle className="h-4 w-4 mr-1 text-amber-600" />;
+      break;
+    case 'MISCONCEPTION':
+      variant = "outline";
+      icon = <HelpCircle className="h-4 w-4 mr-1 text-purple-600" />;
+      break;
+    default:
+      break;
+  }
+  
+  return (
+    <Badge 
+      variant={variant} 
+      className="mb-2 px-3 py-1 text-sm flex items-center justify-center"
+      style={{
+        borderWidth: '1px',
+        borderColor: status === 'CORRECT' ? 'rgb(22 163 74)' : 
+                    status === 'INCORRECT' ? 'rgb(220 38 38)' : 
+                    status === 'PARTIAL' ? 'rgb(217 119 6)' :
+                    'rgb(147 51 234)'
+      }}
+    >
+      {icon}
+      {status}
+    </Badge>
+  );
+}
 
 interface FeedbackQuestionProps {
   block: FeedbackQuestionBlock;
@@ -496,8 +548,8 @@ EXTREMELY IMPORTANT INSTRUCTIONS:
         messages: apiMessages,
         model: block.modelName || teacherSettings?.default_model || defaultModel,
         endpoint: block.apiEndpoint || teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        imageUrl: block.imageUrl,
-        max_tokens: 100 // Limit the token count to enforce brevity
+        imageUrl: block.imageUrl
+        // Removed the max_tokens parameter as it's not supported
       }, sessionId?.toString());
 
       if (aiResponse) {
@@ -973,6 +1025,7 @@ EXTREMELY IMPORTANT INSTRUCTIONS:
                   {visibleMessages.map((message, index) => (
                     message.role === 'assistant' && (
                       <div key={index} className="markdown-content whitespace-pre-wrap">
+                        <StatusIndicator content={message.content} />
                         <MarkdownWithMath content={preprocessContent(message.content)} />
                       </div>
                     )
