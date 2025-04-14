@@ -55,6 +55,7 @@ export const convertAppLessonToDbFormat = (lesson: Lesson) => {
 export const createLesson = async (userId: string, title: string = 'New Lesson'): Promise<Lesson | null> => {
   const lessonId = uuidv4();
   const now = new Date().toISOString();
+  const blockId = `block-${Date.now()}`;
   
   const newLesson: Lesson = {
     id: lessonId,
@@ -68,7 +69,25 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
     slides: [{
       id: uuidv4(),
       title: 'Slide 1',
-      blocks: []
+      blocks: [{
+        id: blockId,
+        type: 'feedback-question',
+        questionText: 'What is the main concept from this slide?',
+        questionType: 'free-response',
+        allowAnswerChange: true,
+        feedbackInstructions: 'Get help understanding this concept',
+        feedbackSystemPrompt: 'You are a helpful AI tutor. Provide encouraging and informative feedback on the student\'s answer. Focus on helping them deepen their understanding of the concept. If their answer demonstrates misconceptions, gently correct them with clear explanations.',
+        feedbackSentenceStarters: ['I\'m confused about...', 'Could you explain...', 'How does this connect to...'],
+        apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+        modelName: 'openai/gpt-4o',
+      }],
+      layout: {
+        gridRows: 1,
+        gridColumns: 1,
+        blockPositions: {
+          [blockId]: { row: 0, column: 0 }
+        }
+      }
     }]
   };
 
