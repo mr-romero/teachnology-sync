@@ -104,6 +104,10 @@ export interface FeedbackQuestionBlock extends BaseBlock {
   displayMode?: 'all' | 'image' | 'question' | 'feedback';
   isGrouped?: boolean;
   groupId?: string;
+  // New properties for defense mechanism
+  requireDefense?: boolean; // Whether to require students to defend their answers
+  defensePrompt?: string; // Custom prompt for the defense input
+  defenseEvaluationCriteria?: string; // Criteria for evaluating defense quality
 }
 
 export type LessonBlock = TextBlock | ImageBlock | QuestionBlock | GraphBlock | AIChatBlock | FeedbackQuestionBlock;

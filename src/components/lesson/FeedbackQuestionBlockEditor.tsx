@@ -13,7 +13,7 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Trash, Check, X, HelpCircle, Plus, Key, RefreshCw, Loader2, MoveVertical, Wand2 } from 'lucide-react';
+import { Trash, Check, X, HelpCircle, Plus, Key, RefreshCw, Loader2, MoveVertical, Wand2, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -203,6 +203,17 @@ When responding with mathematical content:
     block.feedbackSystemPrompt?.includes('When responding with mathematical content') || false
   );
   
+  // Defense state
+  const [requireDefense, setRequireDefense] = useState(() => 
+    loadSavedState('requireDefense', block.requireDefense || false)
+  );
+  const [defensePrompt, setDefensePrompt] = useState(() => 
+    loadSavedState('defensePrompt', block.defensePrompt || 'Explain why you chose this answer...')
+  );
+  const [defenseEvaluationCriteria, setDefenseEvaluationCriteria] = useState(() => 
+    loadSavedState('defenseEvaluationCriteria', block.defenseEvaluationCriteria || 'When evaluating the student\'s defense, consider...')
+  );
+
   // UI state
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
@@ -452,7 +463,10 @@ Remember to:
       modelName,
       repetitionPrevention,
       imageUrl,
-      imageAlt
+      imageAlt,
+      requireDefense,
+      defensePrompt,
+      defenseEvaluationCriteria
     };
     onUpdate(updatedBlock);
   }, [
@@ -470,7 +484,10 @@ Remember to:
     modelName,
     repetitionPrevention,
     imageUrl,
-    imageAlt
+    imageAlt,
+    requireDefense,
+    defensePrompt,
+    defenseEvaluationCriteria
   ]);
 
   // Save state when it changes
@@ -499,6 +516,9 @@ Remember to:
     saveState('repetitionPrevention', repetitionPrevention);
     saveState('imageUrl', imageUrl);
     saveState('imageAlt', imageAlt);
+    saveState('requireDefense', requireDefense);
+    saveState('defensePrompt', defensePrompt);
+    saveState('defenseEvaluationCriteria', defenseEvaluationCriteria);
   }, [
     block.id,
     questionText,
@@ -515,7 +535,10 @@ Remember to:
     modelName,
     repetitionPrevention,
     imageUrl,
-    imageAlt
+    imageAlt,
+    requireDefense,
+    defensePrompt,
+    defenseEvaluationCriteria
   ]);
 
   // Clean up storage when component unmounts
@@ -527,7 +550,8 @@ Remember to:
         'questionText', 'questionType', 'options', 'correctAnswer', 'optionStyle',
         'allowAnswerChange', 'allowMultipleAnswers', 'feedbackInstructions',
         'feedbackSystemPrompt', 'feedbackSentenceStarters', 'apiEndpoint',
-        'modelName', 'repetitionPrevention', 'imageUrl', 'imageAlt'
+        'modelName', 'repetitionPrevention', 'imageUrl', 'imageAlt',
+        'requireDefense', 'defensePrompt', 'defenseEvaluationCriteria'
       ];
       
       keys.forEach(key => {
@@ -660,7 +684,7 @@ Remember to:
                     <SelectContent>
                       <SelectItem value="multiple-choice">Multiple Choice</SelectItem>
                       <SelectItem value="free-response">Free Response</SelectItem>
-                      <SelectItem value="true-false">True/False</SelectItem>
+                      <SelectItem value="true-false">True/False</SelectContent>
                     </SelectContent>
                   </Select>
                 </div>
@@ -906,8 +930,9 @@ Remember to:
             {/* Feedback Tab */}
             <TabsContent value="feedback" className="space-y-4 py-4 h-[calc(400px-80px)] overflow-y-auto">
               <Tabs defaultValue="content">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="content">Content</TabsTrigger>
+                  <TabsTrigger value="defense">Defense</TabsTrigger>
                   <TabsTrigger value="api">API Settings</TabsTrigger>
                   <TabsTrigger value="advanced">Advanced</TabsTrigger>
                 </TabsList>
@@ -967,6 +992,100 @@ Remember to:
                       <p className="text-sm text-muted-foreground mt-1">
                         These will appear as buttons that students can click to start their message.
                       </p>
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* Defense Tab - New Tab for Defense Settings */}
+                <TabsContent value="defense" className="space-y-4 py-4">
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="requireDefense"
+                        checked={requireDefense}
+                        onCheckedChange={setRequireDefense}
+                      />
+                      <Label htmlFor="requireDefense">Require Defense of Answer</Label>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      When enabled, students must explain their reasoning after answering the question.
+                      This encourages critical thinking and helps diagnose misunderstandings.
+                    </p>
+                    
+                    <div>
+                      <Label htmlFor="defensePrompt">Defense Prompt</Label>
+                      <Textarea
+                        id="defensePrompt"
+                        value={defensePrompt}
+                        onChange={(e) => setDefensePrompt(e.target.value)}
+                        placeholder="Explain why you chose this answer..."
+                        className="min-h-[100px] mt-1"
+                        disabled={!requireDefense}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        This prompt will be shown to students when asking them to defend their answer.
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="defenseEvaluationCriteria">Evaluation Criteria</Label>
+                      <Textarea
+                        id="defenseEvaluationCriteria"
+                        value={defenseEvaluationCriteria}
+                        onChange={(e) => setDefenseEvaluationCriteria(e.target.value)}
+                        placeholder="When evaluating the student's defense, consider..."
+                        className="min-h-[100px] mt-1"
+                        disabled={!requireDefense}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        These criteria will guide the AI in evaluating student defenses. 
+                        Be specific about what constitutes strong, partial, or misconceived reasoning.
+                      </p>
+                    </div>
+                    
+                    <div className="pt-3 pb-1 border-t border-b">
+                      <h3 className="font-medium mb-2">Defense Evaluation Categories</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
+                          <div className="text-green-600">
+                            <CheckCircle2 className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Strong reasoning</p>
+                            <p className="text-xs text-muted-foreground">Conceptually sound and complete</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 p-2 bg-amber-50 border border-amber-200 rounded-md">
+                          <div className="text-amber-600">
+                            <AlertTriangle className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Partially correct</p>
+                            <p className="text-xs text-muted-foreground">Some valid points, but incomplete</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                          <div className="text-red-600">
+                            <XCircle className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Misconception</p>
+                            <p className="text-xs text-muted-foreground">Fundamentally flawed understanding</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                          <div className="text-blue-600">
+                            <HelpCircle className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">Needs detail</p>
+                            <p className="text-xs text-muted-foreground">Too vague or insufficient explanation</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </TabsContent>

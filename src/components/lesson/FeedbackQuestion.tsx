@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Send, Sparkles, Loader2, Info, ChevronRight, Volume2, VolumeX } from 'lucide-react';
+import { Send, Sparkles, Loader2, Info, CheckCircle2, AlertTriangle, XCircle, HelpCircle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { fetchChatCompletion } from '@/services/aiService';
 import ReactMarkdown from 'react-markdown';
@@ -155,6 +155,9 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
     </div>
   );
 };
+
+// Define feedback evaluation types
+export type FeedbackEvaluation = 'strong' | 'partial' | 'misconception' | 'needs-detail' | null;
 
 interface FeedbackQuestionProps {
   block: FeedbackQuestionBlock;
