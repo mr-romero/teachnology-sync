@@ -452,18 +452,27 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
       const questionInfo = `The student was asked: "${block.questionText}"`;
       const answerInfo = `Their current answer is: "${response}"`;
       const correctnessInfo = `This answer is ${isCorrect ? "correct" : "incorrect"}. The correct answer is: "${block.correctAnswer}".`;
+      const studentExplanation = `The student explained their reasoning as follows: "${inputValue}"`;
       
       // Enhanced image context information
       const imageInfo = block.imageUrl ? 
         `This question includes a mathematical or visual problem shown in this image: ${block.imageUrl}` : '';
 
-      // Create enhanced system prompt with context
+      // Create enhanced system prompt with special instructions for brief responses
       const enhancedSystemPrompt = `${block.feedbackSystemPrompt || ''}
 Question Context:
 ${questionInfo}
 ${answerInfo}
 ${correctnessInfo}
-${imageInfo}`;
+${studentExplanation}
+${imageInfo}
+
+IMPORTANT INSTRUCTIONS:
+1. Provide a VERY BRIEF (1-2 sentences) evaluation of the student's explanation.
+2. Start with one of these status indicators: [CORRECT], [INCORRECT], [PARTIAL], or [MISCONCEPTION]
+3. Then provide your brief assessment of their reasoning.
+4. DO NOT repeat the question or the correct answer.
+5. Focus ONLY on evaluating the quality of their explanation/reasoning.`;
 
       const repetitionPrevention = block.repetitionPrevention 
         ? `\n\n${block.repetitionPrevention}`
@@ -544,7 +553,7 @@ ${imageInfo}`;
     loadTTSSettings();
   }, [user?.id]);
 
-  // Modified generateFeedback function to include TTS
+  // Modified generateFeedback function to wait for student input instead of generating immediate feedback
   const generateFeedback = async () => {
     if (!response) {
       setError('Please provide an answer first.');
@@ -555,8 +564,9 @@ ${imageInfo}`;
       setIsLoading(true);
       setError(null);
       setHasAnswered(true);
-
-      // Check answer correctness before generating feedback
+      setFeedbackRequested(true);
+      
+      // Check answer correctness but don't show explicit feedback yet
       const isResponseCorrect = checkAnswerCorrectness();
       
       // Show celebration if answer is correct
@@ -568,65 +578,20 @@ ${imageInfo}`;
         }
       }
 
-      // Get user's default model
-      const { data: { user } } = await supabase.auth.getUser();
-      const defaultModel = user?.id ? await getDefaultModel(user.id) : await getDefaultModel();
+      // Instead of generating AI feedback, just show a prompt asking for student explanation
+      setVisibleMessages([{ 
+        role: 'assistant', 
+        content: isResponseCorrect ? 
+          "Your answer is correct. Please explain your reasoning in the box below." : 
+          "Your answer is incorrect. Please explain what you think might be the mistake in your reasoning."
+      }]);
       
-      // Create the messages array with proper typing
-      const messages: Message[] = [
-        {
-          role: 'system',
-          content: block.feedbackSystemPrompt || `You are a helpful AI tutor providing feedback on student answers.
-Model: ${defaultModel}`
-        }
-      ];
-      
-      // Add image context if available
-      if (block.imageUrl) {
-        messages.push({
-          role: 'user' as const,
-          content: `The question includes this image: ${block.imageUrl}
-Image description: ${block.imageAlt || 'No description provided'}`
-        });
-      }
-      
-      // Add the question and student's answer
-      messages.push({
-        role: 'user' as const,
-        content: `Question: ${block.questionText}\n${block.questionType === 'multiple-choice' ? `Options: ${block.options?.join(', ')}\n` : ''}Student's answer: ${response}`
-      });
-      
-      // Add evaluation instructions
-      messages.push({
-        role: 'user' as const,
-        content: `Please evaluate the student's answer and provide helpful feedback. ${block.correctAnswer ? `The correct answer is: ${block.correctAnswer}` : ''}`
-      });
-      
-      const feedbackContent = await fetchChatCompletion({
-        messages,
-        model: block.modelName || teacherSettings?.default_model || defaultModel,
-        endpoint: block.apiEndpoint || teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        imageUrl: block.imageUrl
-      }, sessionId?.toString());
-
-      if (!feedbackContent) {
-        throw new Error('No feedback content received from AI');
-      }
-      
-      // Update the visible messages and other states
-      setVisibleMessages([{ role: 'assistant', content: feedbackContent }]);
+      // Set states to indicate feedback has started
       setHasStarted(true);
       setFeedbackStarted(true);
-      setShowPracticeSimilar(true);
-
-      // Play TTS for initial feedback
-      if (ttsEnabled) {
-        await playTTS(feedbackContent);
-      }
-
     } catch (error) {
-      console.error('Error generating feedback:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate feedback');
+      console.error('Error processing answer:', error);
+      setError(error instanceof Error ? error.message : 'Failed to process answer');
       setVisibleMessages([]); // Clear any partial messages on error
     } finally {
       setIsLoading(false);
