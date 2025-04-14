@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { FeedbackQuestionBlock } from '@/types/lesson';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -226,6 +226,8 @@ interface FeedbackQuestionProps {
   groupId?: string;
   studentResponse?: string | boolean; // Add this prop to receive stored response
   sessionId?: string; // Add sessionId to props
+  // Add new prop for reporting feedback status to parent component
+  onFeedbackStatusChange?: (status: string | null) => void;
 }
 
 const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
@@ -239,7 +241,8 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
   isGrouped = false,
   groupId,
   studentResponse, // Add this prop
-  sessionId // Add sessionId to destructuring
+  sessionId, // Add sessionId to destructuring
+  onFeedbackStatusChange // Add onFeedbackStatusChange to destructuring
 }) => {
   const { user } = useAuth();
   const [teacherSettings, setTeacherSettings] = useState<{
@@ -704,6 +707,30 @@ EXTREMELY IMPORTANT INSTRUCTIONS:
       setIsPlaying(false);
     }
   };
+
+  // Add a function to extract status from a message and update parent component
+  const extractAndUpdateStatus = useCallback((content: string) => {
+    const statusMatch = content.match(/\[(CORRECT|INCORRECT|PARTIAL|MISCONCEPTION)\]/i);
+    const status = statusMatch ? statusMatch[1].toUpperCase() : null;
+    
+    if (status && onFeedbackStatusChange) {
+      onFeedbackStatusChange(status);
+    }
+  }, [onFeedbackStatusChange]);
+
+  // Check all messages when visibleMessages changes
+  useEffect(() => {
+    if (visibleMessages.length > 0) {
+      // Look for status indicators in the most recent message first
+      for (let i = visibleMessages.length - 1; i >= 0; i--) {
+        const message = visibleMessages[i];
+        if (message.role === 'assistant') {
+          extractAndUpdateStatus(message.content);
+          break; // Only use the most recent assistant message
+        }
+      }
+    }
+  }, [visibleMessages, extractAndUpdateStatus]);
 
   // Render the question part of the block
   const renderQuestion = () => {

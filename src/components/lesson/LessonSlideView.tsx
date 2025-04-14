@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Pause, BookOpen, Sparkles } from 'lucide-react';
+import { Pause, BookOpen, Sparkles, CheckCircle, XCircle, AlertTriangle, HelpCircle } from 'lucide-react';
 import ImageViewer from './ImageViewer';
 import AIChat from './AIChat';
 import GraphRenderer from './GraphRenderer';
@@ -37,6 +37,64 @@ interface LessonSlideViewProps {
   studentAnswers?: Record<string, string | boolean>; // Add this prop
   sessionId?: string; // Add sessionId prop
 }
+
+// Add new StatusIcon component for the top-right indicator
+const StatusIcon: React.FC<{status: string}> = ({ status }) => {
+  let icon = null;
+  let tooltipText = "";
+  let bgColor = "bg-white";
+  let textColor = "text-gray-700";
+  let borderColor = "border-gray-200";
+
+  switch (status.toUpperCase()) {
+    case 'CORRECT':
+      icon = <CheckCircle className="h-5 w-5 text-green-600" />;
+      tooltipText = "Correct";
+      bgColor = "bg-green-50";
+      borderColor = "border-green-200";
+      textColor = "text-green-700";
+      break;
+    case 'INCORRECT':
+      icon = <XCircle className="h-5 w-5 text-red-600" />;
+      tooltipText = "Incorrect";
+      bgColor = "bg-red-50";
+      borderColor = "border-red-200";
+      textColor = "text-red-700";
+      break;
+    case 'PARTIAL':
+      icon = <AlertTriangle className="h-5 w-5 text-amber-600" />;
+      tooltipText = "Partially Correct";
+      bgColor = "bg-amber-50";
+      borderColor = "border-amber-200";
+      textColor = "text-amber-700";
+      break;
+    case 'MISCONCEPTION':
+      icon = <HelpCircle className="h-5 w-5 text-purple-600" />;
+      tooltipText = "Misconception";
+      bgColor = "bg-purple-50";
+      borderColor = "border-purple-200";
+      textColor = "text-purple-700";
+      break;
+    default:
+      return null;
+  }
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={`absolute top-2 right-12 z-20 flex items-center gap-2 px-3 py-1.5 border rounded-md shadow-sm ${bgColor} ${borderColor} ${textColor}`}>
+            {icon}
+            <span className="font-medium text-sm">{tooltipText}</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Answer Status: {tooltipText}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 const ConnectionLine = ({ sourcePosition, targetPosition }: { 
   sourcePosition: { left: number, top: number, width: number, height: number },
@@ -93,6 +151,8 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   const blockRefsMap = useRef<Record<string, HTMLElement | null>>({});
   const [connectionLines, setConnectionLines] = useState<React.ReactNode[]>([]);
+  // Add a state to track feedback status for the slide
+  const [feedbackStatus, setFeedbackStatus] = useState<string | null>(null);
   
   const studentCanRespond = isStudentView && !answeredBlocks.length && !isPreviewMode;
   
@@ -227,7 +287,8 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
               onAnswerSubmit={onAnswerSubmit}
               isAnswered={answeredBlocks.includes(block.id)}
               studentResponse={studentAnswers[block.id]}
-              sessionId={sessionId} // Pass sessionId to FeedbackQuestion
+              sessionId={sessionId}
+              onFeedbackStatusChange={handleFeedbackStatusChange} // Add this prop to pass the handler
             />
           </div>
         );
@@ -797,10 +858,21 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     );
   }
 
+  // Add a function to process feedback messages and extract status
+  const handleFeedbackStatusChange = (status: string | null) => {
+    if (status) {
+      setFeedbackStatus(status);
+    }
+  };
+
+  // Render the slide content
   return (
     <div className="relative slide-container">
       {/* Student info badge */}
       {renderStudentInfo()}
+      
+      {/* Status icon in the top right corner */}
+      {feedbackStatus && <StatusIcon status={feedbackStatus} />}
       
       {/* Calculator Button - shown only for student view when enabled */}
       {shouldShowCalculator() && (
