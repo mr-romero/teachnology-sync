@@ -961,16 +961,16 @@ Image description: ${block.imageAlt || 'No description provided'}`
     if (!hasAnswered && isStudentView) {
       return (
         <div className={cn(
-          "p-3 border rounded-md bg-muted/20 min-h-[400px]", // Increased minimum height
+          "p-3 border rounded-md bg-muted/20 min-h-[100px]", // Reduced minimum height
           isGrouped && "border-2 border-purple-200"
         )}>
           {isGrouped && groupId && (
             <div className="text-xs font-medium text-purple-600 mb-2 uppercase tracking-wide">
-            Group: {groupId}
-          </div>
+              Group: {groupId}
+            </div>
           )}
           <p className="text-sm text-muted-foreground text-center">
-            Select an answer and click "Get AI Feedback" to start a conversation
+            Select an answer and click "Get Feedback" to start a conversation
           </p>
         </div>
       );
@@ -978,7 +978,7 @@ Image description: ${block.imageAlt || 'No description provided'}`
 
     return (
       <div className={cn(
-        "flex flex-col rounded-md border shadow-sm h-[600px]", // Increased height to match AIChat
+        "flex flex-col rounded-md border shadow-sm h-auto max-h-[300px]", // Reduced height and made it more responsive
         isGrouped && "border-2 border-purple-200"
       )}>
         {isGrouped && groupId && (
@@ -986,154 +986,98 @@ Image description: ${block.imageAlt || 'No description provided'}`
             Group: {groupId}
           </div>
         )}
-        {/* Instructions section */}
-        <div className="p-3 border-b bg-muted/20 flex-shrink-0">
-          <div className="flex items-start gap-2">
-            <Info className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="text-sm font-medium mb-1">AI Tutor Chat</h4>
-              <p className="text-xs text-muted-foreground">
-                {block.feedbackInstructions || "Ask questions or request additional explanations about this problem."}
-              </p>
-            </div>
-            {isStudentView && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={toggleTTS}
-                className="h-8 w-8"
-                title={ttsEnabled ? "Disable voice" : "Enable voice"}
-              >
-                {ttsEnabled ? (
-                  <Volume2 className="h-4 w-4" />
-                ) : (
-                  <VolumeX className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {/* Chat messages area with scrolling */}
-        <div className="flex-1 min-h-0"> {/* Add min-h-0 to enable proper flex behavior */}
-          <ScrollArea className="h-full"> {/* Use h-full instead of absolute positioning */}
-            <div className="p-4 space-y-4">
+        
+        {/* Simplified compact feedback display */}
+        <div className="flex-1 min-h-0"> 
+          <ScrollArea className="h-full max-h-[220px]"> {/* Limited height */}
+            <div className="p-3">
               {visibleMessages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center p-4 text-muted-foreground min-h-[200px]">
-                  <Sparkles className="h-8 w-8 mb-2 text-primary/50" />
-                  {hasAnswered ? (
-                    <p className="text-sm mb-1">Click "Get Feedback" to start the conversation</p>
-                  ) : (
-                    <p className="text-sm mb-1">Answer the question to get feedback</p>
-                  )}
+                <div className="flex items-center justify-center text-center p-2 text-muted-foreground">
+                  <Sparkles className="h-4 w-4 mr-2 text-primary/50" />
+                  <p className="text-sm">
+                    {hasAnswered 
+                      ? "Click \"Get Feedback\" to receive feedback" 
+                      : "Answer the question to get feedback"}
+                  </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="text-sm">
                   {visibleMessages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          message.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        {message.role === 'assistant' ? (
-                          <div className="text-sm markdown-content whitespace-pre-wrap">
-                            <MarkdownWithMath content={preprocessContent(message.content)} />
-                          </div>
-                        ) : (
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        )}
+                    message.role === 'assistant' && (
+                      <div key={index} className="markdown-content whitespace-pre-wrap">
+                        <MarkdownWithMath content={preprocessContent(message.content)} />
                       </div>
-                    </div>
+                    )
                   ))}
                   {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="max-w-[80%] rounded-lg p-3 bg-muted">
-                        <div className="flex items-center">
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          <span className="text-sm">Thinking...</span>
-                        </div>
-                      </div>
+                    <div className="flex items-center mt-2">
+                      <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                      <span className="text-xs">Generating feedback...</span>
                     </div>
                   )}
                   {error && (
-                    <div className="flex justify-center">
-                      <div className="max-w-[80%] rounded-lg p-3 bg-destructive/10 text-destructive text-sm">
-                        {error}
-                      </div>
+                    <div className="text-xs p-2 bg-destructive/10 text-destructive rounded">
+                      {error}
                     </div>
                   )}
-                  <div ref={messagesEndRef} />
                 </div>
               )}
             </div>
           </ScrollArea>
         </div>
 
-        {/* Input area */}
-        <div className="p-3 border-t flex-shrink-0">
+        {/* Simplified input area */}
+        <div className="p-2 border-t flex-shrink-0">
           {isPaused ? (
             <div className="bg-amber-50 text-amber-800 p-2 text-xs rounded-md">
               The teacher has paused interaction. Please wait...
             </div>
           ) : !hasAnswered ? (
-            <div className="bg-amber-50 text-amber-800 p-2 text-xs rounded-md">
+            <div className="bg-amber-50 text-amber-800 p-1 text-xs rounded-md">
               Please answer the question first to get feedback.
             </div>
-          ) : (
-            <>
-              <div className="flex gap-2">
-                <Input
-                  id="feedback-chat-input"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Type your message..."
-                  disabled={isLoading || isPaused}
-                  className="flex-grow"
-                />
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!inputValue.trim() || isLoading || isPaused}
-                  size="icon"
-                >
-                  {isLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              
-              {/* Filter and show sentence starters */}
-              {block.feedbackSentenceStarters?.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {block.feedbackSentenceStarters
-                    .filter(starter => 
-                      !["Practice a similar problem", 
-                        "Can you explain why?",
-                        "I need help with...",
-                        "How did you get that?"].includes(starter))
-                    .map((starter, index) => (
-                      <Button
-                        key={index}
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleStarterClick(starter)}
-                        disabled={isLoading || isPaused}
-                        className="text-xs h-6 px-2"
-                      >
-                        {starter}
-                      </Button>
-                    ))}
-                </div>
+          ) : !feedbackRequested ? (
+            <Button
+              onClick={async () => {
+                setFeedbackRequested(true);
+                setHasAnswered(true);
+                await generateFeedback();
+              }}
+              disabled={isLoading || !response}
+              size="sm"
+              className="w-full flex items-center justify-center gap-1"
+            >
+              {isLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
               )}
-            </>
+              Get Feedback
+            </Button>
+          ) : (
+            <div className="flex gap-1">
+              <Input
+                id="feedback-chat-input"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Ask a follow-up question..."
+                disabled={isLoading || isPaused}
+                className="flex-grow text-xs h-7"
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!inputValue.trim() || isLoading || isPaused}
+                size="sm"
+                className="h-7 w-7 p-0"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Send className="h-3 w-3" />
+                )}
+              </Button>
+            </div>
           )}
         </div>
         <audio ref={audioRef} onEnded={() => setIsPlaying(false)} style={{ display: 'none' }} />
