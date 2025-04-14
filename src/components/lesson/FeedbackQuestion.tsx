@@ -950,8 +950,14 @@ Image description: ${block.imageAlt || 'No description provided'}`
     );
   };
 
-  // Modify the chat area height in renderFeedback
+  // Render the feedback chat component
   const renderFeedback = () => {
+    // Don't display the feedback component at all if no answer has been given
+    // and we're not showing it to encourage answering
+    if (!hasAnswered && !hasStarted && isStudentView) {
+      return null;
+    }
+    
     if (!hasAnswered && isStudentView) {
       return (
         <div className={cn(
@@ -1186,16 +1192,16 @@ Image description: ${block.imageAlt || 'No description provided'}`
       {renderGroupBadge()}
       
       <div className="grid grid-cols-2 gap-6 h-full">
-        {/* Column 1: Image and Question stacked vertically */}
-        <div className="space-y-6 h-full"> {/* Remove row-span-2 */}
+        {/* Column 1: Image */}
+        <div className="h-full"> 
           {/* Image */}
           {block.imageUrl && (
-            <div className="w-full bg-white rounded-md border shadow-sm">
-              <div className="relative w-full">
+            <div className="w-full bg-white rounded-md border shadow-sm h-full">
+              <div className="relative w-full h-full">
                 <ImageViewer 
                   src={block.imageUrl} 
                   alt={block.imageAlt || 'Question image'} 
-                  className="object-contain w-full"
+                  className="object-contain w-full h-full"
                 />
               </div>
               {block.imageAlt && (
@@ -1203,13 +1209,13 @@ Image description: ${block.imageAlt || 'No description provided'}`
               )}
             </div>
           )}
-          
-          {/* Question */}
-          {renderQuestion()}
         </div>
         
-        {/* Column 2: Chat feedback */}
-        <div className="h-full"> {/* Remove row-span-2 */}
+        {/* Column 2: Question and Chat feedback in vertical stack */}
+        <div className="space-y-6 h-full">
+          {/* Question */}
+          {renderQuestion()}
+          
           {/* AI Feedback chat */}
           <div className="h-full">
             {renderFeedback()}

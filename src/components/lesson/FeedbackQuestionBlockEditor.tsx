@@ -205,7 +205,7 @@ When responding with mathematical content:
   
   // Defense state
   const [requireDefense, setRequireDefense] = useState(() => 
-    loadSavedState('requireDefense', block.requireDefense || false)
+    loadSavedState('requireDefense', block.requireDefense !== undefined ? block.requireDefense : true)
   );
   const [defensePrompt, setDefensePrompt] = useState(() => 
     loadSavedState('defensePrompt', block.defensePrompt || 'Explain why you chose this answer...')
