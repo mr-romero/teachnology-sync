@@ -458,7 +458,7 @@ const FeedbackQuestion: React.FC<FeedbackQuestionProps> = ({
       const imageInfo = block.imageUrl ? 
         `This question includes a mathematical or visual problem shown in this image: ${block.imageUrl}` : '';
 
-      // Create enhanced system prompt with special instructions for brief responses
+      // Create enhanced system prompt with strict instructions for extremely brief responses
       const enhancedSystemPrompt = `${block.feedbackSystemPrompt || ''}
 Question Context:
 ${questionInfo}
@@ -467,12 +467,14 @@ ${correctnessInfo}
 ${studentExplanation}
 ${imageInfo}
 
-IMPORTANT INSTRUCTIONS:
-1. Provide a VERY BRIEF (1-2 sentences) evaluation of the student's explanation.
+EXTREMELY IMPORTANT INSTRUCTIONS:
+1. Provide ONLY 1-2 SHORT sentences. Your entire response must be under 40 words.
 2. Start with one of these status indicators: [CORRECT], [INCORRECT], [PARTIAL], or [MISCONCEPTION]
-3. Then provide your brief assessment of their reasoning.
-4. DO NOT repeat the question or the correct answer.
-5. Focus ONLY on evaluating the quality of their explanation/reasoning.`;
+3. Then provide your extremely brief assessment of their reasoning.
+4. DO NOT provide additional explanations, tips, or follow-up questions.
+5. DO NOT use bullet points or lists.
+6. DO NOT repeat the question or the correct answer.
+7. Focus ONLY on evaluating the quality of their explanation/reasoning.`;
 
       const repetitionPrevention = block.repetitionPrevention 
         ? `\n\n${block.repetitionPrevention}`
@@ -494,7 +496,8 @@ IMPORTANT INSTRUCTIONS:
         messages: apiMessages,
         model: block.modelName || teacherSettings?.default_model || defaultModel,
         endpoint: block.apiEndpoint || teacherSettings?.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
-        imageUrl: block.imageUrl
+        imageUrl: block.imageUrl,
+        max_tokens: 100 // Limit the token count to enforce brevity
       }, sessionId?.toString());
 
       if (aiResponse) {
