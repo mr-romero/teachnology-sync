@@ -146,14 +146,15 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   isPaused = false,
   showCalculator = false,
   isPreviewMode = false,
-  studentAnswers = {}, // Add default value
-  sessionId // Add sessionId to props destructuring
+  studentAnswers = {}, 
+  sessionId 
 }) => {
   const [responses, setResponses] = useState<Record<string, string | boolean>>({});
   const blockRefsMap = useRef<Record<string, HTMLElement | null>>({});
   const [connectionLines, setConnectionLines] = useState<React.ReactNode[]>([]);
-  // Add a state to track feedback status for the slide
   const [feedbackStatus, setFeedbackStatus] = useState<string | null>(null);
+  const [statusPortal, setStatusPortal] = useState<React.ReactPortal | null>(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState<number | null>(null);
   
   const studentCanRespond = isStudentView && !answeredBlocks.length && !isPreviewMode;
   
@@ -168,9 +169,25 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
     setFeedbackStatus(null);
   }, [slide.id]);
 
+  // Get the current slide index from URL or parent component
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/\/slide\/(\d+)/);
+    if (match && match[1]) {
+      setCurrentSlideIndex(parseInt(match[1], 10));
+    } else {
+      // Extract slide index from the end of the URL if format is different
+      const pathParts = path.split('/');
+      const lastPart = pathParts[pathParts.length - 1];
+      if (!isNaN(parseInt(lastPart))) {
+        setCurrentSlideIndex(parseInt(lastPart, 10));
+      }
+    }
+  }, []);
+
   // Effect to render the status badge in the header container
   useEffect(() => {
-    if (feedbackStatus) {
+    if (feedbackStatus && currentSlideIndex !== null) {
       // Find the status badge container in the parent component
       const container = document.getElementById(`status-badge-container-${currentSlideIndex}`);
       if (container) {
@@ -184,19 +201,6 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
       }
     }
   }, [feedbackStatus, currentSlideIndex]);
-  
-  // Add state for the ReactDOM portal
-  const [statusPortal, setStatusPortal] = useState<React.ReactPortal | null>(null);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState<number | null>(null);
-
-  // Get the current slide index from URL or parent component
-  useEffect(() => {
-    const path = window.location.pathname;
-    const match = path.match(/\/slide\/(\d+)/);
-    if (match && match[1]) {
-      setCurrentSlideIndex(parseInt(match[1], 10));
-    }
-  }, []);
   
   // Helper functions for handling block dimensions
   const getBlockDimensions = (blockId: string) => {
