@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import FeedbackQuestion from './FeedbackQuestion';
 import { BlockConnection } from './BlockConnectionManager';
+import ReactDOM from 'react-dom';
 
 // Define a grid position type to match the editor
 interface GridPosition {
@@ -83,7 +84,7 @@ const StatusIcon: React.FC<{status: string}> = ({ status }) => {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={`absolute top-2 right-12 z-20 flex items-center gap-2 px-3 py-1.5 border rounded-md shadow-sm ${bgColor} ${borderColor} ${textColor}`}>
+          <div className={`flex items-center gap-2 px-3 py-1.5 border rounded-md shadow-sm ${bgColor} ${borderColor} ${textColor}`}>
             {icon}
             <span className="font-medium text-sm">{tooltipText}</span>
           </div>
@@ -160,6 +161,42 @@ const LessonSlideView: React.FC<LessonSlideViewProps> = ({
   const shouldShowCalculator = () => {
     return isStudentView && showCalculator;
   };
+
+  // Handler for when a slide loads, to ensure the status badge is cleared for each new slide
+  useEffect(() => {
+    // Reset the feedback status when the slide changes
+    setFeedbackStatus(null);
+  }, [slide.id]);
+
+  // Effect to render the status badge in the header container
+  useEffect(() => {
+    if (feedbackStatus) {
+      // Find the status badge container in the parent component
+      const container = document.getElementById(`status-badge-container-${currentSlideIndex}`);
+      if (container) {
+        // Create ReactDOM portal to render the StatusIcon in the container
+        const portal = ReactDOM.createPortal(
+          <StatusIcon status={feedbackStatus} />, 
+          container
+        );
+        // Set the portal in the state
+        setStatusPortal(portal);
+      }
+    }
+  }, [feedbackStatus, currentSlideIndex]);
+  
+  // Add state for the ReactDOM portal
+  const [statusPortal, setStatusPortal] = useState<React.ReactPortal | null>(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState<number | null>(null);
+
+  // Get the current slide index from URL or parent component
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/\/slide\/(\d+)/);
+    if (match && match[1]) {
+      setCurrentSlideIndex(parseInt(match[1], 10));
+    }
+  }, []);
   
   // Helper functions for handling block dimensions
   const getBlockDimensions = (blockId: string) => {

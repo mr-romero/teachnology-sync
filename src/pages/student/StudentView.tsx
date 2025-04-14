@@ -950,8 +950,12 @@ const StudentView: React.FC<StudentViewProps> = () => {
               </div>
             )}
             
-            <div className="mb-4">
+            <div className="mb-4 flex justify-between items-center">
               <h2 className="text-xl font-semibold">{currentSlide.title}</h2>
+              {/* Add status badge in the header next to the title */}
+              {currentSlideIndex !== null && (
+                <div id={`status-badge-container-${currentSlideIndex}`}></div>
+              )}
             </div>
             
             <div className="bg-white rounded-lg border p-6 grid grid-rows-[auto_1fr] gap-4 min-h-[500px]">
