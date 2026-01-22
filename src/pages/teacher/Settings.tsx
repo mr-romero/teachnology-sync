@@ -92,6 +92,7 @@ const Settings = () => {
 
     setSaving(true);
     try {
+      // Save AI settings first (main priority)
       const success = await updateUserSettings(user.id, {
         openrouter_api_key: openRouterKey,
         default_model: defaultModel,
@@ -99,30 +100,31 @@ const Settings = () => {
       });
 
       if (success) {
-        toast.success('Settings saved successfully');
+        toast.success('AI settings saved successfully');
         // After saving settings successfully, fetch available models
         loadAvailableModels();
       } else {
-        toast.error('Failed to save settings');
+        toast.error('Failed to save AI settings');
       }
 
-      const ttsSuccess = await saveTTSSettings(user.id, {
-        enabled: ttsEnabled,
-        voice_id: selectedVoice,
-        auto_play: true,
-        model_id: selectedTTSModel
-      });
+      // Save TTS settings separately (optional, don't block on failure)
+      try {
+        if (selectedVoice || ttsEnabled) {
+          const ttsSuccess = await saveTTSSettings(user.id, {
+            enabled: ttsEnabled,
+            voice_id: selectedVoice || 'pNInz6obpgDQGcFmaJgB',
+            auto_play: true,
+            model_id: selectedTTSModel
+          });
 
-      if (ttsSuccess) {
-        // Save ElevenLabs API key separately
-        const apiKeySuccess = await saveElevenLabsApiKey(user.id, elevenLabsKey);
-        if (apiKeySuccess) {
-          toast.success('TTS settings saved successfully');
-        } else {
-          toast.error('Failed to save ElevenLabs API key');
+          if (ttsSuccess && elevenLabsKey) {
+            await saveElevenLabsApiKey(user.id, elevenLabsKey);
+            toast.success('TTS settings saved');
+          }
         }
-      } else {
-        toast.error('Failed to save TTS settings');
+      } catch (ttsError) {
+        console.error('Error saving TTS settings (non-blocking):', ttsError);
+        // Don't show error toast for TTS - it's optional
       }
     } catch (error) {
       console.error('Error saving settings:', error);
