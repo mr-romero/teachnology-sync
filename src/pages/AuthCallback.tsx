@@ -25,7 +25,34 @@ const AuthCallback: React.FC = () => {
         if (data.session?.user) {
           // Get the user's metadata to determine their role
           const userData = data.session.user.user_metadata;
-          const role = userData?.role as 'teacher' | 'student';
+          let role = userData?.role as 'teacher' | 'student';
+
+          // If role not in metadata, check URL params (backup)
+          if (!role) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+            role = (urlParams.get('role') || hashParams.get('role') || 'student') as 'teacher' | 'student';
+          }
+
+          // Update the profile in the database to ensure role is set correctly
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: data.session.user.id,
+              email: data.session.user.email,
+              full_name: userData?.name || userData?.full_name || data.session.user.email?.split('@')[0],
+              avatar_url: userData?.avatar_url || userData?.picture,
+              role: role
+            }, { onConflict: 'id' });
+
+          if (updateError) {
+            console.error('Error updating profile:', updateError);
+          }
+
+          // Also update user metadata to ensure consistency
+          await supabase.auth.updateUser({
+            data: { role: role }
+          });
 
           // Redirect based on role
           if (role === 'teacher') {

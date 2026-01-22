@@ -36,23 +36,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setIsLoading(true);
-        
+
         if (session?.user) {
           try {
-            // Extract user metadata for role and name
+            // First try to get role from profiles table (source of truth)
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role, full_name, class, avatar_url')
+              .eq('id', session.user.id)
+              .single();
+
+            // Extract user metadata as fallback
             const userData = session.user.user_metadata;
-            const role = userData?.role as 'teacher' | 'student' || 
-                       (session.user.email?.includes('teacher') ? 'teacher' : 'student');
-            const name = userData?.name || userData?.full_name || 
-                        (role === 'teacher' ? 'Teacher User' : 'Student User');
-            
+            const role = (profile?.role || userData?.role || 'student') as 'teacher' | 'student';
+            const name = profile?.full_name || userData?.name || userData?.full_name ||
+              (role === 'teacher' ? 'Teacher User' : 'Student User');
+
             const userWithRole: UserWithRole = {
               id: session.user.id,
               email: session.user.email || '',
               role: role,
               name: name,
-              class: userData?.class,
-              avatar_url: userData?.avatar_url || userData?.picture
+              class: profile?.class || userData?.class,
+              avatar_url: profile?.avatar_url || userData?.avatar_url || userData?.picture
             };
             setUser(userWithRole);
           } catch (error) {
@@ -62,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setUser(null);
         }
-        
+
         setIsLoading(false);
       }
     );
@@ -71,37 +77,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkUser = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         if (session?.user) {
           try {
-            // Extract user metadata for role and name
+            // First try to get role from profiles table (source of truth)
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role, full_name, class, avatar_url')
+              .eq('id', session.user.id)
+              .single();
+
+            // Extract user metadata as fallback
             const userData = session.user.user_metadata;
-            const role = userData?.role as 'teacher' | 'student' || 
-                       (session.user.email?.includes('teacher') ? 'teacher' : 'student');
-            const name = userData?.name || userData?.full_name || 
-                        (role === 'teacher' ? 'Teacher User' : 'Student User');
-            
+            const role = (profile?.role || userData?.role || 'student') as 'teacher' | 'student';
+            const name = profile?.full_name || userData?.name || userData?.full_name ||
+              (role === 'teacher' ? 'Teacher User' : 'Student User');
+
             const userWithRole: UserWithRole = {
               id: session.user.id,
               email: session.user.email || '',
               role: role,
               name: name,
-              class: userData?.class,
-              avatar_url: userData?.avatar_url || userData?.picture
+              class: profile?.class || userData?.class,
+              avatar_url: profile?.avatar_url || userData?.avatar_url || userData?.picture
             };
             setUser(userWithRole);
           } catch (error) {
             console.error('Error processing user data:', error);
           }
         }
-        
+
         setIsLoading(false);
       } catch (error) {
         console.error('Error checking user session:', error);
         setIsLoading(false);
       }
     };
-    
+
     checkUser();
 
     return () => {
@@ -121,34 +133,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           class: className || null
         }
       };
-      
+
       // Different scopes for teachers and students
-      const queryParams = role === 'teacher' 
+      const queryParams = role === 'teacher'
         ? {
-            access_type: 'offline',
-            prompt: 'consent',
-            // Adding auth.session parameter for longer-lived token (6 months)
-            // Maximum allowed value is 180 days (6 months)
-            authSessionLifetime: 15552000, // 180 days in seconds (6 months)
-            scope: [
-              'email',
-              'profile',
-              'https://www.googleapis.com/auth/classroom.courses.readonly',
-              'https://www.googleapis.com/auth/classroom.rosters.readonly',
-              'https://www.googleapis.com/auth/classroom.profile.emails',
-              'https://www.googleapis.com/auth/classroom.profile.photos',
-              'https://www.googleapis.com/auth/classroom.student-submissions.students.readonly',
-              'https://www.googleapis.com/auth/classroom.coursework.students',
-              'https://www.googleapis.com/auth/classroom.coursework.me',
-              'https://www.googleapis.com/auth/classroom.announcements'
-            ].join(' ')
-          } 
+          access_type: 'offline',
+          prompt: 'consent',
+          // Adding auth.session parameter for longer-lived token (6 months)
+          // Maximum allowed value is 180 days (6 months)
+          authSessionLifetime: '15552000', // 180 days in seconds (6 months)
+          scope: [
+            'email',
+            'profile',
+            'https://www.googleapis.com/auth/classroom.courses.readonly',
+            'https://www.googleapis.com/auth/classroom.rosters.readonly',
+            'https://www.googleapis.com/auth/classroom.profile.emails',
+            'https://www.googleapis.com/auth/classroom.profile.photos',
+            'https://www.googleapis.com/auth/classroom.student-submissions.students.readonly',
+            'https://www.googleapis.com/auth/classroom.coursework.students',
+            'https://www.googleapis.com/auth/classroom.coursework.me',
+            'https://www.googleapis.com/auth/classroom.announcements'
+          ].join(' ')
+        }
         : {
-            access_type: 'online', // Don't need offline access for students
-            prompt: 'select_account', // Allow students to select their account
-            scope: 'email profile'
-          };
-      
+          access_type: 'online', // Don't need offline access for students
+          prompt: 'select_account', // Allow students to select their account
+          scope: 'email profile'
+        };
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -156,12 +168,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           ...commonOptions
         }
       });
-      
+
       if (error) {
         console.error("Google login error:", error);
         toast.error(error.message || "Failed to login with Google");
       }
-      
+
       // No need to navigate here as the OAuth flow will redirect automatically
     } catch (error: any) {
       console.error("Google login exception:", error);
@@ -176,17 +188,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.updateUser({
         data: updates
       });
-      
+
       if (error) {
         toast.error(error.message);
         return false;
       }
-      
+
       // Update local user state with the new values
       if (user) {
         setUser({ ...user, ...updates });
       }
-      
+
       toast.success("Profile updated successfully");
       return true;
     } catch (error: any) {
@@ -197,10 +209,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setIsLoading(true);
-    
+
     try {
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) {
         toast.error(error.message);
       } else {
@@ -219,11 +231,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Check for our custom auth error flag
     if ((error as any).isAuthError || error.message.includes("re-authenticate") || error.message.includes("provider token")) {
       console.log("Detected authentication error:", error.message);
-      
+
       // Check if we've recently tried to re-authenticate to avoid infinite loops
       const lastAuthAttempt = localStorage.getItem('last_auth_attempt');
       const now = Date.now();
-      
+
       if (lastAuthAttempt) {
         const timeSinceLastAttempt = now - parseInt(lastAuthAttempt);
         // Don't retry more than once every 5 minutes
@@ -233,15 +245,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return true;
         }
       }
-      
+
       // Store current time as last authentication attempt
       localStorage.setItem('last_auth_attempt', now.toString());
       localStorage.setItem('auth_redirect_reason', 'token_expired');
-      
+
       console.log("Re-authenticating with Google due to expired or missing token");
       toast.info("Your Google Classroom session has expired. Reconnecting...");
       loginWithGoogle('teacher');
-      
+
       return true;
     }
     return false;
