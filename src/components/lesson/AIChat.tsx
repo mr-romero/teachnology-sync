@@ -90,21 +90,28 @@ const parseLatexExpressions = (text: string): { text: string, isLatex: boolean }
       i++;
     }
   }
-  
+
   if (currentText) {
     parts.push({ text: currentText, isLatex: false });
   }
-  
+
   return parts;
+};
+
+// Helper function to check if text contains block-level elements
+const isBlockLevel = (text: string): boolean => {
+  if (!text) return false;
+  // Check for block-level indicators like headings, lists, paragraphs
+  return /^(#|[-*+]|\d+\.|\n\n)/.test(text.trim());
 };
 
 // Custom renderer for ReactMarkdown that uses MathDisplay for math content
 const MarkdownWithMath = ({ content }: { content: string }) => {
   const parts = parseLatexExpressions(content);
-  
+
   return (
     <div className="prose prose-sm max-w-none space-y-4">
-      {parts.map((part, index) => 
+      {parts.map((part, index) =>
         part.isLatex ? (
           <span key={index} className="mx-0.5 inline-block align-middle">
             <MathDisplay latex={part.text} />
@@ -112,7 +119,7 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
         ) : (
           <span key={index} className="inline align-baseline">
             <ReactMarkdown components={{
-              p: ({node, children, ...props}) => {
+              p: ({ node, children, ...props }) => {
                 const text = typeof children[0] === 'string' ? children[0] : '';
                 return isBlockLevel(text) ? (
                   <p className="block mb-4" {...props}>{children}</p>
@@ -120,19 +127,19 @@ const MarkdownWithMath = ({ content }: { content: string }) => {
                   <span className="inline" {...props}>{children}</span>
                 );
               },
-              h1: ({node, ...props}) => <h1 className="text-2xl font-bold mt-6 mb-4 block" {...props} />,
-              h2: ({node, ...props}) => <h2 className="text-xl font-bold mt-5 mb-3 block" {...props} />,
-              h3: ({node, ...props}) => <h3 className="text-lg font-bold mt-4 mb-2 block" {...props} />,
-              h4: ({node, ...props}) => <h4 className="text-base font-bold mt-3 mb-2 block" {...props} />,
-              ul: ({node, ...props}) => <ul className="list-disc list-inside my-4 block space-y-2 pl-4" {...props} />,
-              ol: ({node, ...props}) => <ol className="list-decimal list-inside my-4 block space-y-2 pl-4" {...props} />,
-              li: ({node, ...props}) => <li className="block mb-1" {...props} />,
-              strong: ({node, ...props}) => <span className="font-semibold" {...props} />,
-              em: ({node, ...props}) => <span className="italic" {...props} />,
-              blockquote: ({node, ...props}) => (
+              h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mt-6 mb-4 block" {...props} />,
+              h2: ({ node, ...props }) => <h2 className="text-xl font-bold mt-5 mb-3 block" {...props} />,
+              h3: ({ node, ...props }) => <h3 className="text-lg font-bold mt-4 mb-2 block" {...props} />,
+              h4: ({ node, ...props }) => <h4 className="text-base font-bold mt-3 mb-2 block" {...props} />,
+              ul: ({ node, ...props }) => <ul className="list-disc list-inside my-4 block space-y-2 pl-4" {...props} />,
+              ol: ({ node, ...props }) => <ol className="list-decimal list-inside my-4 block space-y-2 pl-4" {...props} />,
+              li: ({ node, ...props }) => <li className="block mb-1" {...props} />,
+              strong: ({ node, ...props }) => <span className="font-semibold" {...props} />,
+              em: ({ node, ...props }) => <span className="italic" {...props} />,
+              blockquote: ({ node, ...props }) => (
                 <blockquote className="border-l-2 border-gray-300 pl-4 my-4 block" {...props} />
               ),
-              code: ({node, ...props}) => <code className="bg-muted rounded px-1" {...props} />
+              code: ({ node, ...props }) => <code className="bg-muted rounded px-1" {...props} />
             }}>
               {part.text}
             </ReactMarkdown>
@@ -227,7 +234,7 @@ const AIChat: React.FC<AIChatProps> = ({
       setSystemPrompt(block.systemPrompt || '');
     }
   }, [block.systemPrompt]);
-  
+
   // Scroll to bottom of chat when messages change
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -267,15 +274,15 @@ const AIChat: React.FC<AIChatProps> = ({
 
   const playTTS = async (text: string) => {
     if (!ttsEnabled || !user?.id) return;
-    
+
     try {
       setIsPlaying(true);
       const audioBuffer = await textToSpeech(text, user.id, sessionId);
-      
+
       if (audioBuffer) {
         const blob = new Blob([audioBuffer], { type: 'audio/mpeg' });
         const url = URL.createObjectURL(blob);
-        
+
         if (audioRef.current) {
           audioRef.current.src = url;
           await audioRef.current.play();
@@ -290,10 +297,10 @@ const AIChat: React.FC<AIChatProps> = ({
 
   const generateAutomaticFeedback = async () => {
     if (!questionContext || isLoading) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Get user's model settings
       const { data: { user } } = await supabase.auth.getUser();
@@ -329,16 +336,16 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
       const apiMessages: Message[] = [
         { role: 'system', content: feedbackPrompt }
       ];
-      
+
       console.log('Generating automatic feedback:', JSON.stringify(apiMessages, null, 2));
-      
+
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
         model: defaultModel,
         endpoint: 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl  // Pass the image URL to the API
       }, sessionId?.toString()); // Ensure sessionId is a string
-      
+
       if (aiResponse) {
         console.log('Received AI feedback:', aiResponse);
         // Add the AI response to visible messages
@@ -360,10 +367,10 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
 
   const handlePracticeSimilar = async () => {
     if (isLoading || !questionContext) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Get user's default model
       const { data: { user } } = await supabase.auth.getUser();
@@ -373,11 +380,11 @@ Remember to use proper LaTeX notation for mathematical expressions (\\( inline \
 Create a new math practice problem similar to what the student just worked on.
 
 Original Problem Context:
-${questionContext.imageUrl 
-  ? `- The original problem included a visual mathematical representation
+${questionContext.imageUrl
+          ? `- The original problem included a visual mathematical representation
 - Create a similar problem that could also be represented visually
 - Reference the visual elements from the original problem to create a similar one`
-  : ""}
+          : ""}
 - Question Type: ${questionContext.questionType}
 - Original Question: ${questionContext.question || "Unknown question"}
 - Original Answer: ${questionContext.correctAnswer || "Unknown"}
@@ -390,26 +397,26 @@ Instructions:
    - The correct answer
    - A step-by-step solution guide
 4. Make sure the problem tests the same concept but is not identical
-${questionContext.imageUrl 
-  ? `5. Since the original problem was visual, describe:
+${questionContext.imageUrl
+          ? `5. Since the original problem was visual, describe:
    - How this new problem should be visually represented
    - What key visual elements should be included
    - How the visual representation helps understand the problem`
-  : ""}
+          : ""}
 
 Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations.`;
 
       const apiMessages: Message[] = [
         { role: 'system', content: similarProblemPrompt }
       ];
-      
+
       const aiResponse = await fetchChatCompletion({
         messages: apiMessages,
         model: block.modelName || defaultModel,
         endpoint: block.apiEndpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl: questionContext.imageUrl // Pass the image URL for context
       }, sessionId?.toString()); // Ensure sessionId is a string
-      
+
       if (aiResponse) {
         // Add the AI response to visible messages
         setVisibleMessages(prev => [
@@ -428,33 +435,33 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       setIsLoading(false);
     }
   };
-  
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading || isPaused) return;
-    
+
     const userMessage: Message = { role: 'user', content: inputValue };
     setVisibleMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
     setError(null);
-    
+
     if (!hasStarted) {
       setHasStarted(true);
     }
-    
+
     try {
       // Get user's model settings
       const { data: { user } } = await supabase.auth.getUser();
       const defaultModel = user?.id ? await getDefaultModel(user.id) : await getDefaultModel();
-      
-      const enhancedSystemPrompt = block.repetitionPrevention 
+
+      const enhancedSystemPrompt = block.repetitionPrevention
         ? `${systemPrompt}\n\n${block.repetitionPrevention}`
         : systemPrompt;
-      
+
       const apiMessages: Message[] = [
         { role: 'system', content: enhancedSystemPrompt }
       ];
-      
+
       const recentHistory = visibleMessages.slice(-6);
       apiMessages.push(...recentHistory, userMessage);
 
@@ -464,14 +471,14 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
         endpoint: block.apiEndpoint || teacherSettings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         temperature: 0.7
       }, sessionId?.toString());
-      
+
       if (aiResponse) {
-        const assistantMessage: Message = { 
-          role: 'assistant', 
-          content: aiResponse 
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: aiResponse
         };
         setVisibleMessages(prev => [...prev, assistantMessage]);
-        
+
         // Play TTS for the AI response
         if (ttsEnabled) {
           await playTTS(aiResponse);
@@ -486,14 +493,14 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
       setIsLoading(false);
     }
   };
-  
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
-  
+
   const handleStarterClick = (starter: string) => {
     setInputValue(starter);
     // Focus the input after selecting a starter
@@ -513,8 +520,8 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
             <div>
               <h4 className="text-sm font-medium mb-1">Instructions</h4>
               <p className="text-sm text-muted-foreground">
-                {questionContext && isAnswered 
-                  ? "Answer the question to get AI feedback" 
+                {questionContext && isAnswered
+                  ? "Answer the question to get AI feedback"
                   : block.instructions}
               </p>
             </div>
@@ -536,7 +543,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
           )}
         </div>
       </div>
-      
+
       {/* Chat messages area */}
       <div className="flex-1 min-h-0"> {/* Add min-h-0 to enable proper flex behavior */}
         <ScrollArea className="h-full"> {/* Use h-full instead of absolute positioning */}
@@ -564,11 +571,10 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
-                        message.role === 'user'
+                      className={`max-w-[80%] rounded-lg p-3 ${message.role === 'user'
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted'
-                      }`}
+                        }`}
                     >
                       {message.role === 'assistant' ? (
                         <div className="text-sm markdown-content">
@@ -603,7 +609,7 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
           </div>
         </ScrollArea>
       </div>
-      
+
       {/* Input area */}
       <div className="p-3 pt-2 border-t">
         {isPaused ? (
@@ -614,8 +620,8 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
           <div className="bg-green-50 text-green-800 p-2 text-xs rounded-md flex justify-between items-center">
             <span>Your answer has been submitted</span>
             {visibleMessages.length === 0 && (
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={generateAutomaticFeedback}
                 disabled={isLoading}
                 className="h-7 text-xs"
@@ -659,13 +665,13 @@ Use proper LaTeX notation: \\( inline \\) and \\[ display \\] mode for equations
           </div>
         )}
       </div>
-      
+
       {/* Remove the specified sentence starters */}
       {block.sentenceStarters && block.sentenceStarters.length > 0 && !isAnswered && (
         <div className="px-3 py-1 border-t flex flex-wrap gap-1">
           {block.sentenceStarters
-            .filter(starter => 
-              !["Practice a similar problem", 
+            .filter(starter =>
+              !["Practice a similar problem",
                 "Can you explain why?",
                 "I need help with...",
                 "How did you get that?"].includes(starter))
