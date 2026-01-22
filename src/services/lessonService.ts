@@ -42,6 +42,7 @@ export const convertAppLessonToDbFormat = (lesson: Lesson) => {
       id: lesson.id,
       title: lesson.title,
       user_id: lesson.createdBy,
+      teacher_id: lesson.createdBy, // Also set teacher_id for backward compatibility
       is_public: false,
       created_at: lesson.createdAt,
       updated_at: lesson.updatedAt,
@@ -56,7 +57,7 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
   const lessonId = uuidv4();
   const now = new Date().toISOString();
   const blockId = `block-${Date.now()}`;
-  
+
   const newLesson: Lesson = {
     id: lessonId,
     title,
@@ -93,7 +94,7 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
 
   // Convert to database format
   const dbData = convertAppLessonToDbFormat(newLesson);
-  
+
   try {
     // Get teacher's API key first
     const apiKey = await getOpenRouterApiKey(userId);
@@ -108,7 +109,7 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
           openrouter_api_key: apiKey || null
         }
       });
-      
+
     if (presentationError) {
       throw presentationError;
     }
@@ -117,7 +118,7 @@ export const createLesson = async (userId: string, title: string = 'New Lesson')
     const { error: slideError } = await supabase
       .from('slides')
       .insert(dbData.slides);
-      
+
     if (slideError) {
       // If slide insertion fails, delete the presentation
       await supabase.from('presentations').delete().eq('id', lessonId);
@@ -139,29 +140,29 @@ export const getLessonsForUser = async (userId: string): Promise<Lesson[]> => {
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
-    
+
   if (presentationsError || !presentations) {
     console.error('Error fetching presentations:', presentationsError);
     return [];
   }
-  
+
   // Get slides for each presentation and build full lesson objects
   const lessons: Lesson[] = [];
-  
+
   for (const presentation of presentations) {
     const { data: slides, error: slidesError } = await supabase
       .from('slides')
       .select('*')
       .eq('presentation_id', presentation.id)
       .order('slide_order', { ascending: true });
-      
+
     if (slidesError) {
       console.error(`Error fetching slides for presentation ${presentation.id}:`, slidesError);
       continue;
     }
-    
+
     const lessonSlides: LessonSlide[] = slides.map(convertDbSlideToAppSlide);
-    
+
     lessons.push({
       id: presentation.id,
       title: presentation.title,
@@ -171,7 +172,7 @@ export const getLessonsForUser = async (userId: string): Promise<Lesson[]> => {
       slides: lessonSlides
     });
   }
-  
+
   return lessons;
 };
 
@@ -183,30 +184,30 @@ export const getLessonById = async (lessonId: string): Promise<Lesson | null> =>
     .select('*')
     .eq('id', lessonId)
     .maybeSingle();
-    
+
   if (presentationError || !presentation) {
     console.error('Error fetching presentation:', presentationError);
     return null;
   }
-  
+
   // Get slides
   const { data: slides, error: slidesError } = await supabase
     .from('slides')
     .select('*')
     .eq('presentation_id', lessonId)
     .order('slide_order', { ascending: true });
-    
+
   if (slidesError || !slides) {
     console.error('Error fetching slides:', slidesError);
     return null;
   }
-  
+
   // Convert to application format
   const lessonSlides: LessonSlide[] = slides.map(convertDbSlideToAppSlide);
-  
+
   // Use type assertion for presentation data
   const dbPresentation = presentation as any;
-  
+
   return {
     id: dbPresentation.id,
     title: dbPresentation.title,
@@ -274,9 +275,9 @@ export const saveLesson = async (lesson: Lesson): Promise<boolean> => {
 
     const { error: upsertError } = await supabase
       .from('slides')
-      .upsert(slideData, { 
+      .upsert(slideData, {
         onConflict: 'id',
-        ignoreDuplicates: false 
+        ignoreDuplicates: false
       });
 
     if (upsertError) {
@@ -308,19 +309,19 @@ export const startPresentationSession = async (
     ]);
 
     const joinCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-  
+
     try {
       // If we have a classroom ID, get the classroom details first
       let classroomName = null;
       let classroomStudents: any[] = [];
-      
+
       if (classroomId) {
         try {
           // Get all classrooms and find the matching one
           const classrooms = await classroomService.getClassrooms();
           const classroom = classrooms.find(c => c.id === classroomId);
           classroomName = classroom?.name;
-          
+
           // Get students for this classroom
           classroomStudents = await classroomService.getClassroomStudents(classroomId);
         } catch (error) {
@@ -328,7 +329,7 @@ export const startPresentationSession = async (
           // Continue anyway as this is not critical
         }
       }
-  
+
       const sessionData = {
         presentation_id: lessonId,
         join_code: joinCode,
@@ -340,19 +341,19 @@ export const startPresentationSession = async (
         classroom_name: classroomName,
         paced_slides: [] // Initialize with empty array
       };
-  
+
       // Create session
       const { data: sessionResult, error: sessionError } = await supabase
         .from('presentation_sessions')
         .insert(sessionData)
         .select('id')
         .single();
-  
+
       if (sessionError || !sessionResult) {
         console.error('Error creating presentation session:', sessionError);
         return null;
       }
-  
+
       // Create settings directly (don't rely on trigger anymore)
       try {
         const { error: settingsError } = await supabase
@@ -374,7 +375,7 @@ export const startPresentationSession = async (
           })
           .select('openrouter_api_key, elevenlabs_api_key')
           .single();
-    
+
         if (settingsError) {
           // If insert fails because record already exists, try to update instead
           if (settingsError.code === '23505') { // Unique violation code
@@ -385,7 +386,7 @@ export const startPresentationSession = async (
                 elevenlabs_api_key: elevenLabsKey || null
               })
               .eq('session_id', sessionResult.id);
-              
+
             if (updateError) {
               console.error('Error updating existing presentation settings:', updateError);
             }
@@ -397,7 +398,7 @@ export const startPresentationSession = async (
         console.error('Exception creating presentation settings:', settingsError);
         // Continue execution since this isn't critical
       }
-      
+
       // If we have classroom students, create inactive session participants for them
       if (classroomStudents.length > 0) {
         const participantRecords = classroomStudents.map(student => ({
@@ -408,18 +409,18 @@ export const startPresentationSession = async (
           joined_at: null,
           last_active_at: null
         }));
-  
+
         // Insert all classroom students as inactive participants
         const { error: participantsError } = await supabase
           .from('session_participants')
           .insert(participantRecords);
-  
+
         if (participantsError) {
           console.error('Error creating inactive participants:', participantsError);
           // Continue anyway as this is not critical
         }
       }
-  
+
       return joinCode;
     } catch (error) {
       console.error('Error in startPresentationSession:', error);
@@ -449,7 +450,7 @@ export const joinPresentationSession = async (joinCode: string, userId: string):
       .eq('join_code', joinCode)
       .is('ended_at', null)
       .single();
-      
+
     if (sessionError || !session) {
       console.error('Error finding session:', sessionError);
       return null;
@@ -484,12 +485,12 @@ export const joinPresentationSession = async (joinCode: string, userId: string):
       }, {
         onConflict: 'session_id,user_id'
       });
-      
+
     if (participantError) {
       console.error('Error joining session:', participantError);
       return null;
     }
-    
+
     return {
       sessionId: session.id,
       presentationId: session.presentation_id
@@ -525,7 +526,7 @@ export const updateSessionSlide = async (sessionId: string, slideIndex: number):
     if (sessionData?.is_synced) {
       const { error: participantsError } = await supabase
         .from('session_participants')
-        .update({ 
+        .update({
           current_slide: slideIndex,
           last_active_at: new Date().toISOString()
         })
@@ -554,7 +555,7 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
         .select('is_synced, paced_slides')
         .eq('id', sessionId)
         .single();
-        
+
       if (sessionError) {
         console.error('Error fetching session sync status:', sessionError);
       } else if (sessionData) {
@@ -563,7 +564,7 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
           console.log('Student attempted to navigate while in sync mode');
           return false;
         }
-        
+
         // If paced slides are enabled, verify this is an allowed slide
         if (sessionData.paced_slides && sessionData.paced_slides.length > 0) {
           if (!sessionData.paced_slides.includes(slideIndex)) {
@@ -579,9 +580,9 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
     // Update the student's current slide in the database
     const { error } = await supabase
       .from('session_participants')
-      .update({ 
-        current_slide: slideIndex, 
-        last_active_at: new Date().toISOString() 
+      .update({
+        current_slide: slideIndex,
+        last_active_at: new Date().toISOString()
       })
       .eq('session_id', sessionId)
       .eq('user_id', userId);
@@ -610,10 +611,10 @@ export const updateStudentSlide = async (sessionId: string, userId: string, slid
 
 // Submit an answer to a question
 export const submitAnswer = async (
-  sessionId: string, 
-  slideId: string, 
-  contentId: string, 
-  userId: string, 
+  sessionId: string,
+  slideId: string,
+  contentId: string,
+  userId: string,
   answer: string | number | boolean
 ): Promise<boolean> => {
   const { error } = await supabase
@@ -625,7 +626,7 @@ export const submitAnswer = async (
       user_id: userId,
       answer: String(answer)
     });
-    
+
   return !error;
 };
 
@@ -641,12 +642,12 @@ export const getSessionParticipants = async (sessionId: string): Promise<any[]> 
       last_active_at
     `)
     .eq('session_id', sessionId);
-    
+
   if (error) {
     console.error('Error fetching participants:', error);
     return [];
   }
-  
+
   return data || [];
 };
 
@@ -656,12 +657,12 @@ export const getSessionAnswers = async (sessionId: string): Promise<any[]> => {
     .from('student_answers')
     .select('*')
     .eq('session_id', sessionId);
-    
+
   if (error) {
     console.error('Error fetching answers:', error);
     return [];
   }
-  
+
   return data || [];
 };
 
@@ -674,36 +675,36 @@ export const deleteLesson = async (lessonId: string): Promise<boolean> => {
       .select('id')
       .eq('presentation_id', lessonId)
       .is('ended_at', null);
-      
+
     // End any active sessions
     if (activeSessions && activeSessions.length > 0) {
       for (const session of activeSessions) {
         await endPresentationSession(session.id);
       }
     }
-    
+
     // Delete all related slides
     const { error: slidesError } = await supabase
       .from('slides')
       .delete()
       .eq('presentation_id', lessonId);
-      
+
     if (slidesError) {
       console.error('Error deleting slides:', slidesError);
       return false;
     }
-    
+
     // Delete the presentation itself
     const { error: presentationError } = await supabase
       .from('presentations')
       .delete()
       .eq('id', lessonId);
-      
+
     if (presentationError) {
       console.error('Error deleting presentation:', presentationError);
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error in deleteLesson:', error);
@@ -719,15 +720,15 @@ export const endPresentationSession = async (sessionId: string): Promise<boolean
       .from('presentation_sessions')
       .update({ ended_at: new Date().toISOString() })
       .eq('id', sessionId);
-      
+
     if (sessionError) {
       console.error('Error ending session:', sessionError);
       return false;
     }
-    
+
     // This ensures old session data doesn't accumulate in the database
     // Note: We don't delete answers as they might be useful for analytics later
-    
+
     // Clean up session participants after a delay to allow for data consistency
     setTimeout(async () => {
       try {
@@ -735,7 +736,7 @@ export const endPresentationSession = async (sessionId: string): Promise<boolean
           .from('session_participants')
           .delete()
           .eq('session_id', sessionId);
-          
+
         if (participantsError) {
           console.error('Error cleaning up session participants:', participantsError);
         }
@@ -743,7 +744,7 @@ export const endPresentationSession = async (sessionId: string): Promise<boolean
         console.error('Error during session cleanup:', cleanupError);
       }
     }, 5000); // 5 second delay to ensure all clients have processed the session end
-    
+
     return true;
   } catch (error) {
     console.error('Error in endPresentationSession:', error);
@@ -767,12 +768,12 @@ export const getActiveSessionForLesson = async (lessonId: string): Promise<{ id:
       .is('ended_at', null)
       .order('started_at', { ascending: false })
       .limit(1);
-      
+
     if (error || !data || data.length === 0) {
       console.log("No active session found for lesson:", lessonId);
       return null;
     }
-    
+
     console.log("Found active session:", data[0]);
     return data[0];
   } catch (error) {
