@@ -530,11 +530,18 @@ export async function fetchAvailableModels(): Promise<{ id: string; name: string
     }
 
     // Format the models data for easier use in dropdowns
-    return models.map((model: any) => ({
+    const formattedModels = models.map((model: any) => ({
       id: model.id || model.model_name || model.name,
       name: model.name || model.id?.split('/').pop() || model.model_name,
       context_length: model.context_length || model.max_tokens
     }));
+
+    // Deduplicate by id (LiteLLM sometimes returns duplicates)
+    const uniqueModels = formattedModels.filter((model, index, self) =>
+      index === self.findIndex(m => m.id === model.id)
+    );
+
+    return uniqueModels;
   } catch (error) {
     console.error('Error fetching models:', error);
     return null;
