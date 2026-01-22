@@ -40,15 +40,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           try {
             // First try to get role from profiles table (source of truth)
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('role, full_name, class, avatar_url')
               .eq('id', session.user.id)
               .single();
 
+            console.log('Profile query result:', { profile, profileError });
+
             // Extract user metadata as fallback
             const userData = session.user.user_metadata;
-            const role = (profile?.role || userData?.role || 'student') as 'teacher' | 'student';
+
+            // If profile exists and has role, use it; otherwise use metadata or default to what was set during login
+            let role = profile?.role as 'teacher' | 'student';
+
+            // If no role in profile, try to get from user metadata
+            if (!role && userData?.role) {
+              role = userData.role as 'teacher' | 'student';
+              // Also update the profile with this role
+              console.log('Updating profile with role from metadata:', role);
+              await supabase
+                .from('profiles')
+                .upsert({
+                  id: session.user.id,
+                  email: session.user.email,
+                  role: role,
+                  full_name: userData?.name || userData?.full_name
+                }, { onConflict: 'id' });
+            }
+
+            // Final fallback to student if nothing else worked
+            if (!role) {
+              role = 'student';
+            }
+
+            console.log('Final role determined:', role);
+
             const name = profile?.full_name || userData?.name || userData?.full_name ||
               (role === 'teacher' ? 'Teacher User' : 'Student User');
 
@@ -81,15 +108,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           try {
             // First try to get role from profiles table (source of truth)
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('role, full_name, class, avatar_url')
               .eq('id', session.user.id)
               .single();
 
+            console.log('[checkUser] Profile query result:', { profile, profileError });
+
             // Extract user metadata as fallback
             const userData = session.user.user_metadata;
-            const role = (profile?.role || userData?.role || 'student') as 'teacher' | 'student';
+
+            // If profile exists and has role, use it; otherwise use metadata
+            let role = profile?.role as 'teacher' | 'student';
+
+            // If no role in profile, try to get from user metadata
+            if (!role && userData?.role) {
+              role = userData.role as 'teacher' | 'student';
+              // Also update the profile with this role
+              console.log('[checkUser] Updating profile with role from metadata:', role);
+              await supabase
+                .from('profiles')
+                .upsert({
+                  id: session.user.id,
+                  email: session.user.email,
+                  role: role,
+                  full_name: userData?.name || userData?.full_name
+                }, { onConflict: 'id' });
+            }
+
+            // Final fallback to student if nothing else worked
+            if (!role) {
+              role = 'student';
+            }
+
+            console.log('[checkUser] Final role determined:', role);
+
             const name = profile?.full_name || userData?.name || userData?.full_name ||
               (role === 'teacher' ? 'Teacher User' : 'Student User');
 
