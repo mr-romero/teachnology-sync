@@ -45,7 +45,7 @@ export const sendLLMRequest = async (
       default_model: params.model,
       openrouter_endpoint: params.endpoint
     };
-    
+
     if (user?.id && (!params.model || !params.endpoint)) {
       modelSettings = await getModelSettings(user.id);
     }
@@ -54,11 +54,11 @@ export const sendLLMRequest = async (
       "Content-Type": "application/json",
       "Authorization": `Bearer ${params.apiKey}`
     };
-    
+
     if (modelSettings.openrouter_endpoint.includes('openrouter.ai')) {
       headers["HTTP-Referer"] = window.location.origin;
     }
-    
+
     const response = await fetch(modelSettings.openrouter_endpoint, {
       method: "POST",
       headers,
@@ -78,7 +78,7 @@ export const sendLLMRequest = async (
 
     const data = await response.json();
     let content: string | null = null;
-    
+
     // Handle different response formats
     if (modelSettings.openrouter_endpoint.includes('openrouter.ai')) {
       // Add more robust error handling and logging
@@ -86,17 +86,17 @@ export const sendLLMRequest = async (
         console.error('Invalid response format from OpenRouter:', data);
         throw new Error('Invalid response format: missing choices array');
       }
-      
+
       const choice = data.choices[0];
       if (!choice || !choice.message) {
         console.error('Invalid choice format:', choice);
         throw new Error('Invalid choice format: missing message');
       }
-      
+
       // Handle both string and array content formats
       if (Array.isArray(choice.message.content)) {
         // If content is an array, find text content
-        const textContent = choice.message.content.find(item => 
+        const textContent = choice.message.content.find(item =>
           item.type === 'text' && item.text
         );
         content = textContent?.text || null;
@@ -104,12 +104,12 @@ export const sendLLMRequest = async (
         // If content is a string, use it directly
         content = choice.message.content;
       }
-      
+
       if (content === null || content === undefined) {
         console.error('No valid content found in message:', choice.message);
         throw new Error('No valid content found in OpenRouter response');
       }
-      
+
       console.log('Extracted content from OpenRouter format:', content);
     } else if (modelSettings.openrouter_endpoint.includes('openai.com')) {
       if (!data.choices?.[0]?.message?.content) {
@@ -120,19 +120,19 @@ export const sendLLMRequest = async (
       console.log('Extracted content from OpenAI format:', content);
     } else {
       // Generic fallback for other APIs
-      content = data.choices?.[0]?.message?.content || 
-                data.choices?.[0]?.text || 
-                data.response || 
-                data.output;
-      
+      content = data.choices?.[0]?.message?.content ||
+        data.choices?.[0]?.text ||
+        data.response ||
+        data.output;
+
       if (!content) {
         console.error('No valid content found in response:', data);
         throw new Error('No valid content found in API response');
       }
-      
+
       console.log('Extracted content from generic format:', content);
     }
-    
+
     return { text: content };
   } catch (error) {
     console.error("Exception in sendLLMRequest:", error);
@@ -152,12 +152,12 @@ export const getAPIKeys = async (userId: string): Promise<Record<string, string>
       .select('api_keys')
       .eq('id', userId)
       .single();
-    
+
     if (error || !data?.api_keys) {
       console.error('Error getting API keys:', error);
       return null;
     }
-    
+
     return data.api_keys as Record<string, string>;
   } catch (error) {
     console.error('Exception in getAPIKeys:', error);
@@ -180,24 +180,24 @@ export const saveAPIKey = async (
   try {
     // Get existing API keys
     const existingKeys = await getAPIKeys(userId) || {};
-    
+
     // Update with new key
     const updatedKeys = {
       ...existingKeys,
       [service]: apiKey
     };
-    
+
     // Save back to database
     const { error } = await supabase
       .from('users')
       .update({ api_keys: updatedKeys })
       .eq('id', userId);
-    
+
     if (error) {
       console.error('Error saving API key:', error);
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Exception in saveAPIKey:', error);
@@ -218,7 +218,7 @@ interface ChatOptions {
   imageUrl?: string;
 }
 
-type ContentItem = 
+type ContentItem =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } };
 
@@ -273,19 +273,19 @@ export async function fetchChatCompletion(
     // Process messages to include image if provided
     let processedMessages = [...messages];
     let base64Image: string | null = null;
-    
+
     if (imageUrl) {
       console.log('Processing image for LLM:', imageUrl);
       base64Image = await getImageAsBase64(imageUrl);
-      
+
       if (!base64Image) {
         console.error('Failed to convert image to base64');
       } else {
         console.log('Successfully converted image to base64');
-        
+
         if (endpoint.includes('openrouter.ai')) {
           const userMessageIndex = processedMessages.findIndex(msg => msg.role === 'user');
-          
+
           if (userMessageIndex !== -1) {
             const userMsg = processedMessages[userMessageIndex];
             processedMessages[userMessageIndex] = {
@@ -293,7 +293,7 @@ export async function fetchChatCompletion(
               content: [
                 {
                   type: 'text',
-                  text: typeof userMsg.content === 'string' 
+                  text: typeof userMsg.content === 'string'
                     ? `This is a math problem shown in the image. ${userMsg.content}`
                     : 'This is a math problem shown in the image.'
                 },
@@ -362,7 +362,7 @@ export async function fetchChatCompletion(
 
       const choice = data.choices[0];
       if (Array.isArray(choice.message?.content)) {
-        const textContent = choice.message.content.find(item => 
+        const textContent = choice.message.content.find(item =>
           item.type === 'text' && item.text
         );
         content = textContent?.text || null;
@@ -370,10 +370,10 @@ export async function fetchChatCompletion(
         content = choice.message?.content || choice.delta?.content;
       }
     } else {
-      content = data.choices?.[0]?.message?.content || 
-               data.choices?.[0]?.text || 
-               data.response || 
-               data.output;
+      content = data.choices?.[0]?.message?.content ||
+        data.choices?.[0]?.text ||
+        data.response ||
+        data.output;
     }
 
     // Log the raw data and the extracted content before the check
@@ -422,12 +422,12 @@ export async function saveChatMessage({
         content,
         created_at: new Date().toISOString()
       });
-      
+
     if (error) {
       console.error('Error saving chat message:', error);
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error in saveChatMessage:', error);
@@ -455,12 +455,12 @@ export async function getChatHistory({
       .eq('block_id', blockId)
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
-      
+
     if (error) {
       console.error('Error retrieving chat history:', error);
       return [];
     }
-    
+
     return data.map(message => ({
       role: message.role,
       content: message.content
@@ -472,35 +472,38 @@ export async function getChatHistory({
 }
 
 /**
- * Fetches available models from OpenRouter API
+ * Fetches available models from any OpenAI-compatible API
  */
-export async function fetchAvailableModels(): Promise<{ id: string; name: string }[] | null> {
+export async function fetchAvailableModels(): Promise<{ id: string; name: string; context_length?: number }[] | null> {
   try {
     // Get user's settings to use their configured endpoint
     const { data: { user } } = await supabase.auth.getUser();
-    let endpoint = 'https://openrouter.ai/api/v1/models'; // Default endpoint
+    let modelsEndpoint = 'https://openrouter.ai/api/v1/models'; // Default endpoint
 
     if (user?.id) {
       const { data: settings } = await supabase
         .from('user_settings')
-        .select('openrouter_endpoint')
+        .select('openrouter_endpoint, openrouter_api_key')
         .eq('user_id', user.id)
         .single();
 
       if (settings?.openrouter_endpoint) {
-        // Extract base URL from endpoint
-        const url = new URL(settings.openrouter_endpoint);
-        endpoint = `${url.protocol}//${url.host}/api/v1/models`;
+        // Extract base URL from chat completions endpoint and build models endpoint
+        // e.g., https://api.openai.com/v1/chat/completions -> https://api.openai.com/v1/models
+        const chatEndpoint = settings.openrouter_endpoint;
+        const modelsPath = chatEndpoint.replace('/chat/completions', '/models');
+        modelsEndpoint = modelsPath;
+        console.log('Using models endpoint:', modelsEndpoint);
       }
     }
 
     // Get API key using existing helper
     const apiKey = await getApiKey();
     if (!apiKey) {
-      throw new Error('No API key found. Please add your OpenRouter API key in Settings.');
+      throw new Error('No API key found. Please add your API key in Settings.');
     }
 
-    const response = await fetch(endpoint, {
+    const response = await fetch(modelsEndpoint, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -510,18 +513,27 @@ export async function fetchAvailableModels(): Promise<{ id: string; name: string
     });
 
     if (!response.ok) {
-      console.error('Failed to fetch models:', response.statusText);
+      console.error('Failed to fetch models:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
       return null;
     }
 
     const data = await response.json();
-    
+
+    // Handle different response formats (OpenRouter has .data, OpenAI has .data, LiteLLM may vary)
+    const models = data.data || data.models || data;
+
+    if (!Array.isArray(models)) {
+      console.error('Unexpected models response format:', data);
+      return null;
+    }
+
     // Format the models data for easier use in dropdowns
-    return data.data.map((model: any) => ({
-      id: model.id,
-      name: model.name || model.id.split('/').pop(),
-      context_length: model.context_length,
-      pricing: model.pricing
+    return models.map((model: any) => ({
+      id: model.id || model.model_name || model.name,
+      name: model.name || model.id?.split('/').pop() || model.model_name,
+      context_length: model.context_length || model.max_tokens
     }));
   } catch (error) {
     console.error('Error fetching models:', error);
@@ -592,13 +604,13 @@ Return only the JSON object, no additional text or markdown.`;
     try {
       // Remove markdown code block markers if present
       const cleanResponse = response.replace(/```json\n?|\n?```/g, '');
-      
+
       // Remove any non-JSON text before or after the JSON object
       const jsonStr = cleanResponse.replace(/^[^{]*({.*})[^}]*$/s, '$1');
-      
+
       // Replace any unescaped newlines and control characters
       const cleanedStr = jsonStr.replace(/[\n\r\t]/g, ' ');
-      
+
       const result = JSON.parse(cleanedStr);
 
       // Validate the parsed result has required fields
@@ -623,28 +635,28 @@ const getApiKey = async (sessionId?: string): Promise<string | null> => {
     // If we have a sessionId, try to get teacher's key from the presentation first
     if (sessionId) {
       console.log('Getting API key for session:', sessionId);
-      
+
       // Get API key directly from presentation_settings using sessionId
       const { data: settingsData, error: settingsError } = await supabase
         .from('presentation_settings')
         .select('openrouter_api_key')
         .eq('session_id', sessionId)
         .maybeSingle();
-      
+
       if (settingsError) {
         console.error('Error getting presentation settings:', settingsError);
       } else if (settingsData?.openrouter_api_key) {
         return settingsData.openrouter_api_key;
       }
     }
-    
+
     // If no session key found, try to get user's own API key as fallback
     const { data: { user } } = await supabase.auth.getUser();
     if (user?.id) {
       const userKey = await getOpenRouterApiKey(user.id);
       if (userKey) return userKey;
     }
-    
+
     return null;
   } catch (error) {
     console.error('Error in getApiKey:', error);

@@ -35,17 +35,17 @@ const Settings = () => {
   useEffect(() => {
     const initialize = async () => {
       if (!user) return;
-      
+
       try {
         setLoading(true);
         const settings = await getUserSettings(user.id);
         console.log('Loaded settings:', settings);
-        
+
         if (settings) {
           setOpenRouterKey(settings.openrouter_api_key || '');
           setDefaultModel(settings.default_model || 'mistralai/mistral-small-3.1-24b-instruct');
           setOpenrouterEndpoint(settings.openrouter_endpoint || 'https://openrouter.ai/api/v1/chat/completions');
-          
+
           // Load models after setting the API key
           await loadAvailableModels();
         }
@@ -89,7 +89,7 @@ const Settings = () => {
 
   const handleSaveSettings = async () => {
     if (!user) return;
-    
+
     setSaving(true);
     try {
       const success = await updateUserSettings(user.id, {
@@ -148,24 +148,24 @@ const Settings = () => {
         <CardHeader>
           <CardTitle>AI Configuration</CardTitle>
           <CardDescription>
-            Configure your AI settings and API keys
+            Configure your AI settings. Works with any OpenAI-compatible API (OpenRouter, LiteLLM, OpenAI, etc.)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <label htmlFor="openrouter-key" className="text-sm font-medium flex items-center">
               <KeyRound className="h-4 w-4 mr-2" />
-              OpenRouter API Key
+              API Key
             </label>
             <Input
               id="openrouter-key"
               type="password"
               value={openRouterKey}
               onChange={(e) => setOpenRouterKey(e.target.value)}
-              placeholder="Enter your OpenRouter API key"
+              placeholder="Enter your API key (sk-...)"
             />
             <p className="text-xs text-muted-foreground">
-              This key will be used for all AI features in your lessons
+              Your API key for the AI endpoint (OpenAI, OpenRouter, LiteLLM, etc.)
             </p>
           </div>
 
@@ -207,8 +207,8 @@ const Settings = () => {
               <p className="text-xs text-muted-foreground">
                 This model will be used as the default for new AI chat blocks
               </p>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="sm"
                 onClick={loadAvailableModels}
                 disabled={isLoadingModels}
@@ -232,17 +232,20 @@ const Settings = () => {
           <div className="space-y-2">
             <label htmlFor="openrouter-endpoint" className="text-sm font-medium flex items-center">
               <Link className="h-4 w-4 mr-2" />
-              OpenRouter Endpoint
+              API Base URL
             </label>
             <Input
               id="openrouter-endpoint"
               type="text"
               value={openrouterEndpoint}
               onChange={(e) => setOpenrouterEndpoint(e.target.value)}
-              placeholder="https://openrouter.ai/api/v1/chat/completions"
+              placeholder="https://api.openai.com/v1/chat/completions"
             />
             <p className="text-xs text-muted-foreground">
-              The API endpoint for OpenRouter requests
+              The chat completions endpoint. Examples: <br />
+              • OpenAI: https://api.openai.com/v1/chat/completions <br />
+              • OpenRouter: https://openrouter.ai/api/v1/chat/completions <br />
+              • LiteLLM: http://your-proxy:4000/v1/chat/completions
             </p>
           </div>
 
@@ -261,8 +264,8 @@ const Settings = () => {
                     value={elevenLabsKey}
                     onChange={(e) => setElevenLabsKey(e.target.value)}
                   />
-                  <Button 
-                    onClick={() => user && saveElevenLabsApiKey(user.id, elevenLabsKey)} 
+                  <Button
+                    onClick={() => user && saveElevenLabsApiKey(user.id, elevenLabsKey)}
                     disabled={!elevenLabsKey || !user}
                   >
                     Save Key
@@ -272,7 +275,7 @@ const Settings = () => {
                   Get your API key from <a href="https://elevenlabs.io" target="_blank" rel="noopener noreferrer" className="underline">ElevenLabs</a>
                 </p>
               </div>
-              
+
               <div>
                 <label htmlFor="tts-enabled" className="text-sm font-medium flex items-center">
                   Enable Text-to-Speech
@@ -334,7 +337,7 @@ const Settings = () => {
             </div>
           </div>
 
-          <Button 
+          <Button
             onClick={handleSaveSettings}
             disabled={saving}
             className="w-full"
