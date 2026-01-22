@@ -34,27 +34,28 @@ const AuthCallback: React.FC = () => {
             role = (urlParams.get('role') || hashParams.get('role') || 'student') as 'teacher' | 'student';
           }
 
-          // Update the profile in the database to ensure role is set correctly
-          const { error: updateError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: data.session.user.id,
-              email: data.session.user.email,
-              full_name: userData?.name || userData?.full_name || data.session.user.email?.split('@')[0],
-              avatar_url: userData?.avatar_url || userData?.picture,
-              role: role
-            }, { onConflict: 'id' });
+          // Try to update the profile (non-blocking)
+          try {
+            await supabase
+              .from('profiles')
+              .upsert({
+                id: data.session.user.id,
+                email: data.session.user.email,
+                full_name: userData?.name || userData?.full_name || data.session.user.email?.split('@')[0],
+                avatar_url: userData?.avatar_url || userData?.picture,
+                role: role
+              }, { onConflict: 'id' });
 
-          if (updateError) {
-            console.error('Error updating profile:', updateError);
+            // Also update user metadata to ensure consistency
+            await supabase.auth.updateUser({
+              data: { role: role }
+            });
+          } catch (profileError) {
+            console.error('Error updating profile (continuing anyway):', profileError);
           }
 
-          // Also update user metadata to ensure consistency
-          await supabase.auth.updateUser({
-            data: { role: role }
-          });
-
-          // Redirect based on role
+          // Always redirect based on role
+          setLoading(false);
           if (role === 'teacher') {
             navigate('/dashboard');
           } else {
@@ -63,6 +64,7 @@ const AuthCallback: React.FC = () => {
         } else {
           // If no session, redirect to login
           setError('Authentication failed. Please try again.');
+          setLoading(false);
           setTimeout(() => {
             navigate('/login');
           }, 2000);
@@ -70,12 +72,29 @@ const AuthCallback: React.FC = () => {
       } catch (err) {
         console.error('Exception during OAuth callback:', err);
         setError('An unexpected error occurred during authentication.');
-      } finally {
         setLoading(false);
+        // Redirect to login after error
+        setTimeout(() => {
+          navigate('/login');
+        }, 3000);
       }
     };
 
-    handleOAuthCallback();
+    // Add a timeout to prevent infinite hanging
+    const timeoutId = setTimeout(() => {
+      console.error('Auth callback timed out');
+      setError('Authentication timed out. Please try again.');
+      setLoading(false);
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    }, 15000); // 15 second timeout
+
+    handleOAuthCallback().finally(() => {
+      clearTimeout(timeoutId);
+    });
+
+    return () => clearTimeout(timeoutId);
   }, [navigate]);
 
   return (
