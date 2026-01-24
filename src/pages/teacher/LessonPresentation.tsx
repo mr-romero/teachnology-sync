@@ -135,34 +135,62 @@ const LessonPresentation: React.FC = () => {
     };
   }, []);
 
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    if (loading) {
+      timeoutId = setTimeout(() => {
+        console.warn("Loading timed out, forcing loading false");
+        setLoading(false);
+        // If we still don't have a session, show error
+        if (!sessionId && !lesson) {
+          toast.error("Loading took too long. Please try refreshing.");
+        }
+      }, 10000); // 10 seconds timeout
+    }
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [loading, sessionId, lesson]);
+
   // Replace the complex session management with a simpler approach
   useEffect(() => {
     const loadLessonAndSession = async () => {
-      if (!lessonId || !user) return;
+      console.log("[DEBUG] Starting loadLessonAndSession");
+      if (!lessonId || !user) {
+        console.log("[DEBUG] Missing lessonId or user", { lessonId, userId: user?.id });
+        return;
+      }
 
       // Return early if we're already creating a session
       if (sessionCreationInProgress.current) {
-        console.log("Session creation already in progress, skipping duplicate call");
+        console.log("[DEBUG] Session creation already in progress, skipping duplicate call");
         return;
       }
 
       // Return early if a session was already created for this component instance
       if (sessionCreated.current) {
-        console.log("Session was already created, skipping duplicate call");
+        console.log("[DEBUG] Session was already created, skipping duplicate call");
         return;
       }
 
       try {
+        console.log("[DEBUG] Setting loading=true");
         setLoading(true);
         sessionCreationInProgress.current = true;
 
         // 1. First, load the lesson data
+        console.log("[DEBUG] Fetching lesson data...");
         const fetchedLesson = await getLessonById(lessonId);
         if (!fetchedLesson) {
+          console.error("[DEBUG] Lesson not found");
           toast.error("Lesson not found");
           navigate('/dashboard');
           return;
         }
+        console.log("[DEBUG] Lesson fetched successfully");
         setLesson(fetchedLesson);
 
         // 2. Check URL parameters
@@ -171,14 +199,14 @@ const LessonPresentation: React.FC = () => {
         const specificSessionId = urlParams.get('sessionId');
         const classroomId = urlParams.get('classroomId');
 
-        console.log("Loading lesson and session...");
-        console.log("Force new session:", forceNew);
-        console.log("Specific session ID:", specificSessionId);
-        console.log("Classroom ID:", classroomId);
+        console.log("[DEBUG] Loading lesson and session...");
+        console.log("[DEBUG] Force new session:", forceNew);
+        console.log("[DEBUG] Specific session ID:", specificSessionId);
+        console.log("[DEBUG] Classroom ID:", classroomId);
 
         // 3. If we're forcing a new session, create one
         if (forceNew) {
-          console.log("Creating new session as requested");
+          console.log("[DEBUG] Creating new session as requested");
 
           // If a classroom ID was provided, verify Google Classroom auth first
           if (classroomId) {
@@ -283,12 +311,12 @@ const LessonPresentation: React.FC = () => {
             sessionCreationInProgress.current = false;
             return;
           } else {
-            console.log("Specified session not found or ended");
+            console.log("[DEBUG] Specified session not found or ended");
           }
         }
 
         // 5. If we don't have a specific session, look for any active session for this lesson
-        console.log("Looking for any active session for lesson:", lessonId);
+        console.log("[DEBUG] Looking for any active session for lesson:", lessonId);
         const existingSession = await getActiveSessionForLesson(lessonId);
 
         if (existingSession) {
@@ -300,7 +328,7 @@ const LessonPresentation: React.FC = () => {
           sessionCreated.current = true;
         } else {
           // 6. If no active session exists, create a new one
-          console.log("No active session found, creating a new one");
+          console.log("[DEBUG] No active session found, creating a new one");
           const code = await startPresentationSession(lessonId);
           if (code) {
             // Get the new session ID
@@ -312,7 +340,7 @@ const LessonPresentation: React.FC = () => {
               .single();
 
             if (data) {
-              console.log("New session created with ID:", data.id, "and code:", code);
+              console.log("[DEBUG] New session created with ID:", data.id, "and code:", code);
               setSessionId(data.id);
               setJoinCode(code);
               setCurrentSlideIndex(0);
@@ -320,14 +348,16 @@ const LessonPresentation: React.FC = () => {
               sessionCreated.current = true;
             }
           } else {
+            console.error("[DEBUG] Failed to start presentation session");
             toast.error("Failed to start presentation session");
           }
         }
       } catch (error) {
-        console.error('Error loading lesson and session:', error);
+        console.error('[DEBUG] Error loading lesson and session:', error);
         toast.error('An error occurred loading the presentation');
         navigate('/dashboard');
       } finally {
+        console.log("[DEBUG] loadLessonAndSession finally block - setting loading=false");
         setLoading(false);
         sessionCreationInProgress.current = false;
       }
