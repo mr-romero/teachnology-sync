@@ -94,6 +94,47 @@ const LessonPresentation: React.FC = () => {
   const sessionCreationInProgress = useRef(false);
   const sessionCreated = useRef(false);
 
+  const {
+    data: sessionData,
+    loading: sessionLoading
+  } = useRealTimeSync<PresentationSession>(
+    'presentation_sessions',
+    'id',
+    sessionId,
+    null
+  );
+
+  const {
+    data: participants,
+    loading: participantsLoading,
+    refresh: refreshParticipants
+  } = useRealTimeCollection<SessionParticipant>(
+    'session_participants',
+    'session_id',
+    sessionId,
+    'joined_at'
+  );
+
+  const {
+    data: answers,
+    loading: answersLoading,
+    refresh: refreshAnswers
+  } = useRealTimeCollection<StudentAnswer>(
+    'student_answers',
+    'session_id',
+    sessionId,
+    'submitted_at'
+  );
+
+  useEffect(() => {
+    // Clear any existing polling intervals to prevent memory leaks
+    return () => {
+      const storedIntervals = JSON.parse(localStorage.getItem('activePollingIntervals') || '[]');
+      storedIntervals.forEach((id: number) => clearInterval(id));
+      localStorage.setItem('activePollingIntervals', '[]');
+    };
+  }, []);
+
   // Replace the complex session management with a simpler approach
   useEffect(() => {
     const loadLessonAndSession = async () => {
