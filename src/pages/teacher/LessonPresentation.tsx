@@ -439,14 +439,17 @@ const LessonPresentation: React.FC = () => {
                 // This is an auth error that's being handled, so we should
                 // return early to avoid showing incomplete data
                 console.log("Authentication error handled, waiting for re-auth");
-                return null;
+                return null; // Keep returning null if auth error is handled, to prevent showing incomplete data
               }
 
               // If it's not an auth error or can't be handled, continue with empty students list
-              toast.error("Could not load Google Classroom students. Please refresh the page.");
+              console.warn("Could not load Google Classroom students, continuing with active participants only");
+              toast.error("Could not load Google Classroom roster. Showing active participants only.");
+              classroomStudents = [];
             }
           } catch (error) {
             console.error("Exception in classroom students fetch:", error);
+            classroomStudents = [];
           }
         }
 

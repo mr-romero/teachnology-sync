@@ -108,6 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           try {
             // First try to get role from profiles table (source of truth)
+            console.log('[checkUser] Checking profile for User ID:', session.user.id);
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('role, full_name, class, avatar_url')
