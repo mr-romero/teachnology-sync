@@ -5,8 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Alert } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
+import { supabase } from '@/integrations/supabase/client';
 import ImageUploader from './ImageUploader';
 import { ImageAnalysisResult, analyzeQuestionImage, fetchAvailableModels } from '@/services/aiService';
+import { getUserSettings } from '@/services/userSettingsService';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -71,7 +73,7 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  
+
   // Model selection state - initialize with teacher's default or fallback
   const [model, setModel] = useState<string>(teacherSettings.default_model || 'mistralai/mistral-small-3.1-24b-instruct');
   const [modelSearch, setModelSearch] = useState('');
@@ -118,16 +120,16 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
 
     try {
       const result = await analyzeQuestionImage(
-        url, 
+        url,
         teacherSettings.default_model || 'mistralai/mistral-small-3.1-24b-instruct', // Use teacher's model settings
         teacherSettings.openrouter_endpoint
       );
-      
+
       // Validate the result
       if (!result.questionText) {
         throw new Error('Failed to extract question text from image');
       }
-      
+
       onComplete({
         ...result,
         imageUrl: url,
@@ -175,7 +177,7 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
                     </SelectTrigger>
                     <SelectContent className="max-h-80">
                       {availableModels
-                        .filter(model => 
+                        .filter(model =>
                           model.name.toLowerCase().includes(modelSearch.toLowerCase()) ||
                           model.id.toLowerCase().includes(modelSearch.toLowerCase())
                         )
@@ -190,14 +192,14 @@ const SlideWizard: React.FC<SlideWizardProps> = ({ onComplete, onCancel }) => {
                               )}
                             </div>
                           </SelectItem>
-                      ))}
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
               ) : (
-                <Button 
-                  variant="outline" 
-                  className="w-full mt-2" 
+                <Button
+                  variant="outline"
+                  className="w-full mt-2"
                   onClick={loadAvailableModels}
                   disabled={isLoadingModels}
                 >

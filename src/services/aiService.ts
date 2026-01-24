@@ -557,7 +557,8 @@ export interface ImageAnalysisResult {
 
 export const analyzeQuestionImage = async (
   imageUrl: string,
-  model: string = getDefaultModel()
+  model?: string,
+  endpoint?: string
 ): Promise<ImageAnalysisResult> => {
   const systemPrompt = `You are an AI assistant helping analyze math problem images.
 Your task is to examine the image and extract:
@@ -597,8 +598,8 @@ Return only the JSON object, no additional text or markdown.`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: 'Please analyze this math problem image and extract the required information.' }
         ],
-        model,
-        endpoint: 'https://openrouter.ai/api/v1/chat/completions',
+        model: model || await getDefaultModel(),
+        endpoint: endpoint || 'https://openrouter.ai/api/v1/chat/completions',
         imageUrl
       }
     );
