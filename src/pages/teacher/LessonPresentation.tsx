@@ -3,9 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
+import {
+  ArrowLeft,
+  ArrowRight,
   ArrowLeftCircle,
   Eye,
   UserCircle,
@@ -18,9 +18,9 @@ import { useAuth } from '@/context/AuthContext';
 import { Lesson, LessonSlide, StudentProgress } from '@/types/lesson';
 import { toast } from 'sonner';
 import LessonSlideView from '@/components/lesson/LessonSlideView';
-import { 
-  getLessonById, 
-  startPresentationSession, 
+import {
+  getLessonById,
+  startPresentationSession,
   updateSessionSlide,
   endPresentationSession,
   getActiveSessionForLesson
@@ -67,7 +67,7 @@ const LessonPresentation: React.FC = () => {
   const { lessonId } = useParams<{ lessonId: string }>();
   const navigate = useNavigate();
   const { user, handleClassroomAuthError } = useAuth();
-  
+
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -81,81 +81,40 @@ const LessonPresentation: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<string>('joinTime'); // Changed from 'lastName' to 'joinTime'
   const [activeTab, setActiveTab] = useState('progress');
-  
+
   // Add new state for slide selection
   const [isSelectingSlides, setIsSelectingSlides] = useState(false);
   const [selectedSlides, setSelectedSlides] = useState<number[]>([]);
   const [pacedSlides, setPacedSlides] = useState<number[]>([]);
-  
+
   // Add a state for tracking if we need to create an assignment
   const [creatingAssignment, setCreatingAssignment] = useState(false);
-  
-  // Add state to prevent duplicate session creation
-  const [sessionCreationInProgress, setSessionCreationInProgress] = useState(false);
-  const [sessionCreated, setSessionCreated] = useState(false);
-  
-  const { 
-    data: sessionData,
-    loading: sessionLoading 
-  } = useRealTimeSync<PresentationSession>(
-    'presentation_sessions',
-    'id',
-    sessionId,
-    null
-  );
-  
-  const {
-    data: participants,
-    loading: participantsLoading,
-    refresh: refreshParticipants
-  } = useRealTimeCollection<SessionParticipant>(
-    'session_participants',
-    'session_id',
-    sessionId,
-    'joined_at'
-  );
-  
-  const {
-    data: answers,
-    loading: answersLoading,
-    refresh: refreshAnswers
-  } = useRealTimeCollection<StudentAnswer>(
-    'student_answers',
-    'session_id',
-    sessionId,
-    'submitted_at'
-  );
-  
-  useEffect(() => {
-    // Clear any existing polling intervals to prevent memory leaks
-    return () => {
-      const storedIntervals = JSON.parse(localStorage.getItem('activePollingIntervals') || '[]');
-      storedIntervals.forEach((id: number) => clearInterval(id));
-      localStorage.setItem('activePollingIntervals', '[]');
-    };
-  }, []);
+
+  // Use refs for tracking initialization status to avoid dependency cycles
+  const sessionCreationInProgress = useRef(false);
+  const sessionCreated = useRef(false);
 
   // Replace the complex session management with a simpler approach
   useEffect(() => {
     const loadLessonAndSession = async () => {
       if (!lessonId || !user) return;
-      
+
       // Return early if we're already creating a session
-      if (sessionCreationInProgress) {
+      if (sessionCreationInProgress.current) {
         console.log("Session creation already in progress, skipping duplicate call");
         return;
       }
-      
+
       // Return early if a session was already created for this component instance
-      if (sessionCreated) {
+      if (sessionCreated.current) {
         console.log("Session was already created, skipping duplicate call");
         return;
       }
-      
+
       try {
         setLoading(true);
-        setSessionCreationInProgress(true);
-        
+        sessionCreationInProgress.current = true;
+
         // 1. First, load the lesson data
         const fetchedLesson = await getLessonById(lessonId);
         if (!fetchedLesson) {
@@ -164,22 +123,22 @@ const LessonPresentation: React.FC = () => {
           return;
         }
         setLesson(fetchedLesson);
-        
+
         // 2. Check URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         const forceNew = urlParams.get('forceNew') === 'true';
         const specificSessionId = urlParams.get('sessionId');
         const classroomId = urlParams.get('classroomId');
-        
+
         console.log("Loading lesson and session...");
         console.log("Force new session:", forceNew);
         console.log("Specific session ID:", specificSessionId);
         console.log("Classroom ID:", classroomId);
-        
+
         // 3. If we're forcing a new session, create one
         if (forceNew) {
           console.log("Creating new session as requested");
-          
+
           // If a classroom ID was provided, verify Google Classroom auth first
           if (classroomId) {
             try {
@@ -189,7 +148,7 @@ const LessonPresentation: React.FC = () => {
               // Handle auth error which will redirect if needed
               if (handleClassroomAuthError(error)) {
                 setLoading(false);
-                setSessionCreationInProgress(false);
+                sessionCreationInProgress.current = false;
                 return;
               }
               toast.error('Failed to authenticate with Google Classroom');
@@ -208,17 +167,17 @@ const LessonPresentation: React.FC = () => {
               .eq('join_code', code)
               .is('ended_at', null)
               .single();
-              
+
             if (data) {
               console.log("New session created with ID:", data.id, "and code:", code);
               setSessionId(data.id);
               setJoinCode(code);
               setCurrentSlideIndex(0);
               toast.success(`New session started with code: ${code}`);
-              
+
               // Set session as created to prevent duplicate creation
-              setSessionCreated(true);
-              
+              sessionCreated.current = true;
+
               // If a classroom ID was provided and we have a join code, create an assignment
               if (classroomId) {
                 try {
@@ -226,9 +185,9 @@ const LessonPresentation: React.FC = () => {
                   // Generate the join URL
                   const baseUrl = window.location.origin;
                   const joinUrl = `${baseUrl}/join?code=${code}`;
-                  
+
                   console.log("Creating classroom assignment with URL:", joinUrl);
-                  
+
                   // Create the assignment in Google Classroom
                   await classroomService.createAssignment(
                     classroomId,
@@ -236,7 +195,7 @@ const LessonPresentation: React.FC = () => {
                     `Join our interactive lesson session using the link below or with join code: ${code}`,
                     joinUrl
                   );
-                  
+
                   toast.success('Google Classroom assignment created successfully');
                 } catch (error: any) {
                   console.error('Error creating Google Classroom assignment:', error);
@@ -248,7 +207,7 @@ const LessonPresentation: React.FC = () => {
                   setCreatingAssignment(false);
                 }
               }
-              
+
               // Remove query params from URL without page reload
               const newUrl = new URL(window.location.href);
               newUrl.searchParams.delete('forceNew');
@@ -257,10 +216,10 @@ const LessonPresentation: React.FC = () => {
             }
           }
           setLoading(false);
-          setSessionCreationInProgress(false);
+          sessionCreationInProgress.current = false;
           return;
         }
-        
+
         // Rest of the function remains the same
         // 4. If we have a specific session ID from the URL, try to use it
         if (specificSessionId) {
@@ -271,33 +230,33 @@ const LessonPresentation: React.FC = () => {
             .eq('id', specificSessionId)
             .is('ended_at', null)
             .single();
-            
+
           if (!error && data) {
             console.log("Found specific session:", data);
             setSessionId(data.id);
             setJoinCode(data.join_code);
             setCurrentSlideIndex(data.current_slide);
             toast.success(`Connected to session with code: ${data.join_code}`);
-            setSessionCreated(true);
+            sessionCreated.current = true;
             setLoading(false);
-            setSessionCreationInProgress(false);
+            sessionCreationInProgress.current = false;
             return;
           } else {
             console.log("Specified session not found or ended");
           }
         }
-        
+
         // 5. If we don't have a specific session, look for any active session for this lesson
         console.log("Looking for any active session for lesson:", lessonId);
         const existingSession = await getActiveSessionForLesson(lessonId);
-        
+
         if (existingSession) {
           console.log("Found existing session:", existingSession);
           setSessionId(existingSession.id);
           setJoinCode(existingSession.join_code);
           setCurrentSlideIndex(existingSession.current_slide);
           toast.success(`Reconnected to existing session with code: ${existingSession.join_code}`);
-          setSessionCreated(true);
+          sessionCreated.current = true;
         } else {
           // 6. If no active session exists, create a new one
           console.log("No active session found, creating a new one");
@@ -310,14 +269,14 @@ const LessonPresentation: React.FC = () => {
               .eq('join_code', code)
               .is('ended_at', null)
               .single();
-              
+
             if (data) {
               console.log("New session created with ID:", data.id, "and code:", code);
               setSessionId(data.id);
               setJoinCode(code);
               setCurrentSlideIndex(0);
               toast.success(`New session started with code: ${code}`);
-              setSessionCreated(true);
+              sessionCreated.current = true;
             }
           } else {
             toast.error("Failed to start presentation session");
@@ -329,42 +288,42 @@ const LessonPresentation: React.FC = () => {
         navigate('/dashboard');
       } finally {
         setLoading(false);
-        setSessionCreationInProgress(false);
+        sessionCreationInProgress.current = false;
       }
     };
-    
+
     loadLessonAndSession();
-  }, [lessonId, user, navigate, sessionCreationInProgress, sessionCreated]);
-  
+  }, [lessonId, user, navigate]);
+
   useEffect(() => {
     if (sessionData && !sessionLoading) {
       setCurrentSlideIndex(sessionData.current_slide);
     }
   }, [sessionData, sessionLoading]);
-  
+
   useEffect(() => {
     if (!sessionId) return;
-    
+
     refreshParticipants();
     refreshAnswers();
-    
+
     const pollingInterval = setInterval(() => {
       refreshParticipants();
-      
+
       setTimeout(() => {
         refreshAnswers();
       }, 1000);
     }, 10000);
-    
+
     return () => clearInterval(pollingInterval);
   }, [sessionId, refreshParticipants, refreshAnswers]);
-  
+
   useEffect(() => {
     if (!participants || !answers || participantsLoading || answersLoading) return;
-    
+
     console.log("Processing participants:", participants);
     console.log("Processing answers:", answers);
-    
+
     // Deduplicate participants by user_id
     // This ensures each student appears only once in the teacher's dashboard
     const uniqueUserIds = new Set<string>();
@@ -375,9 +334,9 @@ const LessonPresentation: React.FC = () => {
       uniqueUserIds.add(participant.user_id);
       return true;
     });
-    
+
     console.log("Deduplicated participants:", uniqueParticipants.length);
-    
+
     // Fetch student metadata for each participant
     const fetchStudentMetadata = async () => {
       try {
@@ -386,12 +345,12 @@ const LessonPresentation: React.FC = () => {
           .from('profiles')
           .select('id, full_name, class')
           .in('id', uniqueParticipants.map(p => p.user_id));
-        
+
         if (usersError) {
           console.error("Error fetching user metadata:", usersError);
           return null;
         }
-        
+
         // Also get classroom student list if this is a classroom session
         let classroomStudents: any[] = [];
         if (sessionData?.classroom_id) {
@@ -403,7 +362,7 @@ const LessonPresentation: React.FC = () => {
               console.log(`Successfully fetched ${classroomStudents.length} classroom students`);
             } catch (error: any) {
               console.error("Error fetching classroom students:", error);
-              
+
               // Try to handle the auth error, which will redirect to re-auth if needed
               if (handleClassroomAuthError(error)) {
                 // This is an auth error that's being handled, so we should
@@ -411,7 +370,7 @@ const LessonPresentation: React.FC = () => {
                 console.log("Authentication error handled, waiting for re-auth");
                 return null;
               }
-              
+
               // If it's not an auth error or can't be handled, continue with empty students list
               toast.error("Could not load Google Classroom students. Please refresh the page.");
             }
@@ -419,14 +378,14 @@ const LessonPresentation: React.FC = () => {
             console.error("Exception in classroom students fetch:", error);
           }
         }
-        
+
         // Combine both classroom students and actual participants
         const progressData: StudentProgress[] = [];
-        
+
         // Create a set of all active participant IDs for quick lookup
         const activeParticipantIds = new Set(uniqueParticipants.map(p => p.user_id));
         console.log("Active participant IDs:", Array.from(activeParticipantIds));
-        
+
         // If we have classroom students, combine both datasets
         if (classroomStudents.length > 0) {
           // Process all classroom students, marking them as active if they're in the participants list
@@ -434,7 +393,7 @@ const LessonPresentation: React.FC = () => {
             const isActive = activeParticipantIds.has(student.profileId);
             const studentAnswers = answers.filter(answer => answer.user_id === student.profileId);
             const participantData = uniqueParticipants.find(p => p.user_id === student.profileId);
-            
+
             progressData.push({
               studentId: student.profileId,
               studentName: student.name,
@@ -456,7 +415,7 @@ const LessonPresentation: React.FC = () => {
               is_active: isActive
             });
           }
-          
+
           // Also add any active participants that aren't in the classroom roster
           // to make sure we don't miss any students who joined directly
           for (const participant of uniqueParticipants) {
@@ -464,12 +423,12 @@ const LessonPresentation: React.FC = () => {
             if (classroomStudents.some(s => s.profileId === participant.user_id)) {
               continue;
             }
-            
+
             const studentAnswers = answers.filter(answer => answer.user_id === participant.user_id);
             const userData = usersData?.find(u => u.id === participant.user_id);
             const studentName = userData?.full_name || `Student ${participant.user_id.substring(0, 5)}`;
             const studentClass = userData?.class;
-            
+
             progressData.push({
               studentId: participant.user_id,
               studentName: studentName,
@@ -498,7 +457,7 @@ const LessonPresentation: React.FC = () => {
             const userData = usersData?.find(u => u.id === participant.user_id);
             const studentName = userData?.full_name || `Student ${participant.user_id.substring(0, 5)}`;
             const studentClass = userData?.class;
-            
+
             progressData.push({
               studentId: participant.user_id,
               studentName: studentName,
@@ -521,26 +480,26 @@ const LessonPresentation: React.FC = () => {
             });
           }
         }
-        
+
         console.log("Final student progress data:", progressData.map(s => ({
           name: s.studentName,
           isActive: s.is_active
         })));
-        
+
         return progressData;
       } catch (error) {
         console.error("Exception fetching user metadata:", error);
         return null;
       }
     };
-    
+
     fetchStudentMetadata().then(progressData => {
       if (progressData) {
         setStudentProgressData(progressData);
       }
     });
   }, [participants, answers, participantsLoading, answersLoading, lessonId, sessionData]);
-  
+
   // Add session to localStorage when it's established
   useEffect(() => {
     if (sessionId && lessonId && joinCode) {
@@ -558,7 +517,7 @@ const LessonPresentation: React.FC = () => {
   // Add this effect at the top of the file, after the state declarations
   useEffect(() => {
     if (!lesson || !sessionId) return;
-    
+
     // Get stored slide index from localStorage
     const storedData = localStorage.getItem(`presentation_${sessionId}`);
     if (storedData) {
@@ -593,7 +552,7 @@ const LessonPresentation: React.FC = () => {
       if (studentPacingEnabled && pacedSlides.length > 0) {
         // Find the index of the current slide in the pacedSlides array
         const currentPacedIndex = pacedSlides.findIndex(index => index === currentSlideIndex);
-        
+
         if (currentPacedIndex > 0) {
           // Get the previous slide in the pacedSlides array
           newIndex = pacedSlides[currentPacedIndex - 1];
@@ -602,9 +561,9 @@ const LessonPresentation: React.FC = () => {
           return;
         }
       }
-      
+
       const success = await updateSessionSlide(sessionId, newIndex);
-      
+
       if (success) {
         setCurrentSlideIndex(newIndex);
       } else {
@@ -612,7 +571,7 @@ const LessonPresentation: React.FC = () => {
       }
     }
   };
-  
+
   const handleNextSlide = async () => {
     // Don't allow navigation if paused
     if (isPaused) {
@@ -627,7 +586,7 @@ const LessonPresentation: React.FC = () => {
       if (studentPacingEnabled && pacedSlides.length > 0) {
         // Find the index of the current slide in the pacedSlides array
         const currentPacedIndex = pacedSlides.findIndex(index => index === currentSlideIndex);
-        
+
         if (currentPacedIndex !== -1 && currentPacedIndex < pacedSlides.length - 1) {
           // Get the next slide in the pacedSlides array
           newIndex = pacedSlides[currentPacedIndex + 1];
@@ -636,9 +595,9 @@ const LessonPresentation: React.FC = () => {
           return;
         }
       }
-      
+
       const success = await updateSessionSlide(sessionId, newIndex);
-      
+
       if (success) {
         setCurrentSlideIndex(newIndex);
       } else {
@@ -646,20 +605,20 @@ const LessonPresentation: React.FC = () => {
       }
     }
   };
-  
+
   const handleSlideClick = async (index: number) => {
     // Only select slides if in selection mode, otherwise navigate
     if (isSelectingSlides) {
       handleSlideSelection(index);
       return;
     }
-    
+
     // Don't allow navigation if paused
     if (isPaused) {
       toast.info("Navigation is disabled while the session is paused");
       return;
     }
-    
+
     // Check if we can navigate to this slide (if pacing is enabled)
     if (studentPacingEnabled && pacedSlides.length > 0) {
       // Only allow navigation to paced slides
@@ -668,10 +627,10 @@ const LessonPresentation: React.FC = () => {
         return;
       }
     }
-    
+
     if (lesson && sessionId && index >= 0 && index < lesson.slides.length) {
       const success = await updateSessionSlide(sessionId, index);
-      
+
       if (success) {
         setCurrentSlideIndex(index);
       } else {
@@ -682,13 +641,13 @@ const LessonPresentation: React.FC = () => {
 
   const toggleSyncMode = async () => {
     if (!sessionId || !sessionData) return;
-    
+
     // If student pacing is enabled, we need to disable it first
     if (studentPacingEnabled) {
       toast.info("Disabling student pacing to enable teacher sync");
       setStudentPacingEnabled(false);
       setPacedSlides([]);
-      
+
       // Update database to clear paced slides
       try {
         await supabase
@@ -699,27 +658,27 @@ const LessonPresentation: React.FC = () => {
         console.error("Error clearing paced slides:", error);
       }
     }
-    
+
     const newSyncState = !sessionData.is_synced;
-    
+
     try {
       // Update the sync state in the database
       const { error } = await supabase
         .from('presentation_sessions')
         .update({ is_synced: newSyncState })
         .eq('id', sessionId);
-      
+
       if (error) {
         console.error("Error updating sync mode:", error);
         toast.error("Failed to update sync mode");
         return;
       }
-      
+
       // Force update local state
       if (sessionData) {
         sessionData.is_synced = newSyncState;
       }
-      
+
       // If enabling sync, force-sync all students to the current slide
       if (newSyncState && participants && participants.length > 0) {
         for (const participant of participants) {
@@ -730,14 +689,14 @@ const LessonPresentation: React.FC = () => {
             .eq('session_id', sessionId)
             .eq('user_id', participant.user_id);
         }
-        
+
         setTimeout(() => {
           refreshParticipants();
         }, 500);
       }
-      
-      toast.success(newSyncState 
-        ? "All students synced to your view" 
+
+      toast.success(newSyncState
+        ? "All students synced to your view"
         : "Students can now navigate freely"
       );
     } catch (err) {
@@ -745,23 +704,23 @@ const LessonPresentation: React.FC = () => {
       toast.error("An error occurred while updating sync mode");
     }
   };
-  
+
   const toggleAnonymousMode = () => {
     setAnonymousMode(!anonymousMode);
     toast.success(anonymousMode ? "Student names visible" : "Student names hidden");
   };
-  
+
   const toggleStudentPacing = () => {
     // Instead of toggling, always go into slide selection mode when clicked
-    
+
     // If sync is enabled, disable it first
     if (sessionData?.is_synced) {
       toggleSyncMode();
     }
-    
+
     // Enter slide selection mode - use existing selectedSlides if they exist
     setIsSelectingSlides(true);
-    
+
     // If pacing is already enabled, start with current paced slides
     if (studentPacingEnabled && pacedSlides.length > 0) {
       setSelectedSlides([...pacedSlides]);
@@ -769,14 +728,14 @@ const LessonPresentation: React.FC = () => {
       // Otherwise start with current slide selected
       setSelectedSlides([currentSlideIndex]);
     }
-    
+
     toast.success("Select slides for student pacing");
   };
-  
+
   // Function to handle slide selection during pacing mode
   const handleSlideSelection = (index: number) => {
     if (!isSelectingSlides) return;
-    
+
     setSelectedSlides(prev => {
       // If slide is already selected, remove it
       if (prev.includes(index)) {
@@ -787,55 +746,55 @@ const LessonPresentation: React.FC = () => {
       }
     });
   };
-  
+
   // Function to confirm slide selection
   const confirmSlideSelection = async () => {
     if (selectedSlides.length === 0) {
       toast.error("Please select at least one slide");
       return;
     }
-    
+
     // Sort slides by index for better navigation
     const sortedSlides = [...selectedSlides].sort((a, b) => a - b);
-    
+
     // Update database with selected slides
     try {
       const { error } = await supabase
         .from('presentation_sessions')
         .update({ paced_slides: sortedSlides })
         .eq('id', sessionId);
-      
+
       if (error) {
         console.error("Error updating paced slides:", error);
         toast.error("Failed to update paced slides");
         return;
       }
-      
+
       // Update local state
       setPacedSlides(sortedSlides);
       setStudentPacingEnabled(true);
       setIsSelectingSlides(false);
-      
+
       // If current slide is not in the paced slides, navigate to the first paced slide
       if (!sortedSlides.includes(currentSlideIndex) && sortedSlides.length > 0) {
         handleSlideClick(sortedSlides[0]);
       }
-      
+
       toast.success(`Students can now only access ${sortedSlides.length} selected slides`);
     } catch (err) {
       console.error("Exception saving paced slides:", err);
       toast.error("An error occurred while updating paced slides");
     }
   };
-  
+
   // Function to cancel slide selection
   const cancelSlideSelection = async () => {
     setIsSelectingSlides(false);
-    
+
     // Also disable pacing when canceling selection
     setStudentPacingEnabled(false);
     setPacedSlides([]);
-    
+
     // Clear paced slides in database
     if (sessionId) {
       try {
@@ -848,10 +807,10 @@ const LessonPresentation: React.FC = () => {
         console.error("Error clearing paced slides:", err);
       }
     }
-    
+
     toast.info("Slide selection cancelled and pacing disabled");
   };
-  
+
   // Add keyboard handler for escape key to exit selection mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -859,18 +818,18 @@ const LessonPresentation: React.FC = () => {
         cancelSlideSelection();
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSelectingSlides]);
-  
+
   // Function to disable student pacing entirely
   const disableStudentPacing = async () => {
     setIsSelectingSlides(false);
     setStudentPacingEnabled(false);
     setSelectedSlides([]);
     setPacedSlides([]);
-    
+
     // Clear paced slides in database
     if (sessionId) {
       try {
@@ -878,7 +837,7 @@ const LessonPresentation: React.FC = () => {
           .from('presentation_sessions')
           .update({ paced_slides: [] })
           .eq('id', sessionId);
-        
+
         if (error) {
           console.error("Error clearing paced slides:", error);
           toast.error("Failed to clear paced slides");
@@ -889,28 +848,28 @@ const LessonPresentation: React.FC = () => {
         toast.error("An error occurred while clearing paced slides");
       }
     }
-    
+
     toast.success("Student slide pacing disabled");
   };
 
   const togglePause = async () => {
     if (!sessionId) return;
-    
+
     const newPauseState = !isPaused;
-    
+
     try {
       // Update the pause state in the database
       const { error } = await supabase
         .from('presentation_sessions')
         .update({ is_paused: newPauseState })
         .eq('id', sessionId);
-      
+
       if (error) {
         console.error("Error updating pause state:", error);
         toast.error("Failed to update pause state");
         return;
       }
-      
+
       // Only update local state if database update was successful
       setIsPaused(newPauseState);
       toast.success(newPauseState ? "Session paused" : "Session resumed");
@@ -919,7 +878,7 @@ const LessonPresentation: React.FC = () => {
       toast.error("An error occurred while updating pause state");
     }
   };
-  
+
   // Add a useEffect to track the is_paused state from the database
   useEffect(() => {
     if (sessionData) {
@@ -927,7 +886,7 @@ const LessonPresentation: React.FC = () => {
       if (sessionData.is_paused !== undefined) {
         setIsPaused(!!sessionData.is_paused);
       }
-      
+
       // Load paced slides from database
       if (sessionData.paced_slides) {
         setPacedSlides(sessionData.paced_slides);
@@ -935,12 +894,12 @@ const LessonPresentation: React.FC = () => {
       }
     }
   }, [sessionData]);
-  
+
   const endSession = async () => {
     if (!sessionId) return;
-    
+
     const success = await endPresentationSession(sessionId);
-    
+
     if (success) {
       toast.success("Presentation session ended");
       navigate('/dashboard');
@@ -948,7 +907,7 @@ const LessonPresentation: React.FC = () => {
       toast.error("Failed to end session");
     }
   };
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -956,7 +915,7 @@ const LessonPresentation: React.FC = () => {
       </div>
     );
   }
-  
+
   if (!lesson) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -964,7 +923,7 @@ const LessonPresentation: React.FC = () => {
       </div>
     );
   }
-  
+
   const currentSlide = lesson.slides[currentSlideIndex];
   const syncEnabled = sessionData?.is_synced ?? true;
   const activeStudents = participants?.length ?? 0;
@@ -978,20 +937,20 @@ const LessonPresentation: React.FC = () => {
           </Button>
           <h1 className="text-lg font-bold ml-2">{lesson.title}</h1>
         </div>
-        
+
         <div className="flex items-center space-x-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => navigate(`/teacher/editor/${lessonId}`)}
             className="h-8 text-xs flex items-center"
           >
             <Edit className="mr-1 h-4 w-4" />
             Edit Lesson
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => navigate(`/student/view/${lessonId}`)}
             className="h-8 text-xs flex items-center"
           >
@@ -1000,13 +959,13 @@ const LessonPresentation: React.FC = () => {
           </Button>
         </div>
       </div>
-      
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4 w-full justify-start">
           <TabsTrigger value="progress" className="text-xs">Teacher Dashboard</TabsTrigger>
           <TabsTrigger value="student" className="text-xs">Student Preview</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="progress">
           <div className="space-y-4">
             <Card className="border shadow-sm">
@@ -1039,7 +998,7 @@ const LessonPresentation: React.FC = () => {
                 />
               </CardContent>
             </Card>
-            
+
             {/* Keep the student response list view for detailed answers */}
             <Card className="w-full border shadow-sm">
               <CardContent className="p-4">
@@ -1061,7 +1020,7 @@ const LessonPresentation: React.FC = () => {
             </Card>
           </div>
         </TabsContent>
-        
+
         <TabsContent value="student">
           {/* Keep the student view unchanged */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1073,23 +1032,23 @@ const LessonPresentation: React.FC = () => {
                     Slide {currentSlideIndex + 1} of {lesson.slides.length}
                   </div>
                 </div>
-                
+
                 <div className="border rounded-md p-2 bg-muted/5">
-                  <LessonSlideView 
+                  <LessonSlideView
                     slide={currentSlide || {
                       id: '',
                       title: 'Loading...',
                       blocks: []
-                    }} 
-                    isStudentView={true} 
-                    isPaused={isPaused} 
+                    }}
+                    isStudentView={true}
+                    isPaused={isPaused}
                     showCalculator={lesson.settings?.showCalculator ?? false}  // Add this line
                   />
                 </div>
-                
+
                 <div className="flex justify-between items-center mt-3">
-                  <Button 
-                    onClick={handlePreviousSlide} 
+                  <Button
+                    onClick={handlePreviousSlide}
                     disabled={currentSlideIndex === 0 || syncEnabled || isPaused}
                     size="default"
                     className="flex items-center gap-1 h-9 px-3"
@@ -1098,13 +1057,13 @@ const LessonPresentation: React.FC = () => {
                     <ArrowLeft className="h-4 w-4" />
                     <span>Previous</span>
                   </Button>
-                  
+
                   <div className="text-xs font-medium bg-muted/20 rounded-md px-2 py-1">
                     {currentSlideIndex + 1} / {lesson.slides.length}
                   </div>
-                  
-                  <Button 
-                    onClick={handleNextSlide} 
+
+                  <Button
+                    onClick={handleNextSlide}
                     disabled={currentSlideIndex === lesson.slides.length - 1 || syncEnabled || isPaused}
                     size="default"
                     className="flex items-center gap-1 h-9 px-3"
@@ -1114,7 +1073,7 @@ const LessonPresentation: React.FC = () => {
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 {syncEnabled && (
                   <div className="text-center mt-3 text-xs text-muted-foreground bg-muted/10 rounded-md p-2">
                     <span className="flex items-center justify-center gap-1">
@@ -1142,7 +1101,7 @@ const LessonPresentation: React.FC = () => {
                 )}
               </CardContent>
             </Card>
-            
+
             <Card>
               <CardContent className="p-4">
                 <h3 className="text-sm font-medium mb-2">Student List</h3>
@@ -1157,11 +1116,10 @@ const LessonPresentation: React.FC = () => {
                 ) : (
                   <div className="space-y-2 max-h-[400px] overflow-auto">
                     {studentProgressData.map((student, index) => (
-                      <div 
+                      <div
                         key={student.studentId}
-                        className={`flex items-center justify-between p-2 rounded-md text-xs ${
-                          student.is_active ? "bg-muted/30" : "bg-gray-50 border border-gray-200"
-                        }`}
+                        className={`flex items-center justify-between p-2 rounded-md text-xs ${student.is_active ? "bg-muted/30" : "bg-gray-50 border border-gray-200"
+                          }`}
                       >
                         <span className="flex items-center">
                           <UserCircle className={`h-4 w-4 mr-2 ${student.is_active ? "text-primary" : "text-gray-400"}`} />
@@ -1176,7 +1134,7 @@ const LessonPresentation: React.FC = () => {
                     ))}
                   </div>
                 )}
-                
+
                 <h3 className="text-sm font-medium mb-2 mt-4">Current Slide Responses</h3>
                 {participantsLoading || answersLoading ? (
                   <div className="text-sm text-center py-4 text-muted-foreground">
